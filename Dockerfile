@@ -21,7 +21,6 @@ RUN pip install \
 
 # Copy into the app directory.
 
-COPY ./root /
 COPY ./stream-loader.py /app/
 
 # Override parent docker image.

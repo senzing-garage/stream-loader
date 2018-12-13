@@ -117,29 +117,34 @@ To see the options for a subcommand, run commands like:
 
 ### Configuration
 
-- `SENZING_SUBCOMMAND` - Identify the subcommand to be run. See `stream-loader.py --help` for complete list.
+- **SENZING_SUBCOMMAND** -
+  Identify the subcommand to be run. See `stream-loader.py --help` for complete list.
+- **SENZING_DEBUG** -
+  Print debug statements to log.  Default: False
+- **SENZING_DATABASE_URL** -
+  Database URI in the form: `${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}`
+- **SENZING_DATA_SOURCE** -
+  Default "DATA_SOURCE" value for incoming records.
+- **SENZING_DIR** -
+  Location of Senzing libraries. Default: "/opt/senzing".
+- **SENZING_ENTITY_TYPE** -
+  Default "ENTITY_TYPE" value for incoming records.
+- **SENZING_INPUT_URL** -
+  URL of source file. Default: [https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json](https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json)
+- **SENZING_KAFKA_BOOTSTRAP_SERVER** -
+  Hostname and port of Kafka server.  Default: "localhost")
+- **SENZING_KAFKA_GROUP** -
+  Kafka group. Default: "senzing-kafka-group"
+- **SENZING_KAFKA_TOPIC** -
+  Kafka topic. Default: "senzing-kafka-topic"
+- **SENZING_MONITORING_PERIOD** -
+  Time, in seconds, between monitoring log records. Default: 300
 
 1. To determine which configuration parameters are use for each `<subcommand>`, run:
 
     ```console
     ./stream-loader.py <subcommand> --help
     ```
-
-    - `DATABASE_USERNAME` - Database username.
-    - `DATABASE_PASSWORD` - Database password.
-    - `DATABASE_PROTOCOL` - Database protocol.  (e.g. "mysql").
-    - `DATABASE_HOST` - Hostname of database service.
-    - `DATABASE_PORT` - Port of database service.
-    - `DATABASE_DATABASE` - Database name.
-    - `SENZING_DEBUG` - Print debug statements to log.  Default: False
-    - `SENZING_DATA_SOURCE` - Default "DATA_SOURCE" value for incoming records.
-    - `SENZING_DIR` - Location of Senzing libraries. Default: "/opt/senzing".
-    - `SENZING_ENTITY_TYPE` - Default "ENTITY_TYPE" value for incoming records.
-    - `SENZING_INPUT_URL` - URL of source file. Default: [https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json](https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json)
-    - `SENZING_KAFKA_BOOTSTRAP_SERVER` - Hostname and port of Kafka server.  Default: "localhost")
-    - `SENZING_KAFKA_GROUP` - Kafka group. Default: "senzing-kafka-group"
-    - `SENZING_KAFKA_TOPIC` - Kafka topic. Default: "senzing-kafka-topic"  
-    - `SENZING_MONITORING_PERIOD` - Time, in seconds, between monitoring log records. Default: 300
 
 ### Run docker image
 
@@ -182,6 +187,8 @@ To see the options for a subcommand, run commands like:
     export DATABASE_HOST=senzing-mysql
     export DATABASE_PORT=3306
     export DATABASE_DATABASE=G2
+
+    export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
     export SENZING_DATA_SOURCE=PEOPLE
     export SENZING_DIR=/opt/senzing
     export SENZING_INPUT_URL=https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json
@@ -191,7 +198,7 @@ To see the options for a subcommand, run commands like:
       --volume ${SENZING_DIR}:/opt/senzing \
       --net ${SENZING_NETWORK} \
       --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
-      --env SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}" \
+      --env SENZING_DATABASE_URL="${SENZING_DATABASE_URL}" \
       --env SENZING_DATA_SOURCE="${SENZING_DATA_SOURCE}" \
       --env SENZING_INPUT_URL="${SENZING_INPUT_URL}" \
       --env SENZING_MONITORING_PERIOD="${SENZING_MONITORING_PERIOD}" \
@@ -220,6 +227,8 @@ To see the options for a subcommand, run commands like:
     export DATABASE_HOST=senzing-mysql
     export DATABASE_PORT=3306
     export DATABASE_DATABASE=G2
+
+    export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
     export SENZING_DATA_SOURCE=PEOPLE
     export SENZING_DIR=/opt/senzing
     export SENZING_KAFKA_BOOTSTRAP_SERVER=senzing-kafka:9092
@@ -230,7 +239,7 @@ To see the options for a subcommand, run commands like:
       --volume ${SENZING_DIR}:/opt/senzing \
       --net ${SENZING_NETWORK} \
       --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
-      --env SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}" \
+      --env SENZING_DATABASE_URL="${SENZING_DATABASE_URL}" \
       --env SENZING_DATA_SOURCE="${SENZING_DATA_SOURCE}" \
       --env SENZING_KAFKA_BOOTSTRAP_SERVER="${SENZING_KAFKA_BOOTSTRAP_SERVER}" \
       --env SENZING_KAFKA_TOPIC="${SENZING_KAFKA_TOPIC}" \

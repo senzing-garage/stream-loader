@@ -1,0 +1,4 @@
+configparser
+confluent-kafka
+gevent
+psutil

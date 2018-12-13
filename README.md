@@ -131,14 +131,18 @@ To see the options for a subcommand, run commands like:
   Default "ENTITY_TYPE" value for incoming records.
 - **SENZING_INPUT_URL** -
   URL of source file. Default: [https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json](https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json)
+- **SENZING_INPUT_WORKERS** -
+  Number of workers receiving input. Default: 3
 - **SENZING_KAFKA_BOOTSTRAP_SERVER** -
-  Hostname and port of Kafka server.  Default: "localhost")
+  Hostname and port of Kafka server.  Default: "localhost"
 - **SENZING_KAFKA_GROUP** -
   Kafka group. Default: "senzing-kafka-group"
 - **SENZING_KAFKA_TOPIC** -
   Kafka topic. Default: "senzing-kafka-topic"
 - **SENZING_MONITORING_PERIOD** -
   Time, in seconds, between monitoring log records. Default: 300
+- **SENZING_OUTPUT_WORKERS** -
+  Number of workers sending to Senzing G2. Default: 3
 
 1. To determine which configuration parameters are use for each `<subcommand>`, run:
 

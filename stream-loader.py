@@ -121,10 +121,12 @@ configuration_locator = {
     "number_of_input_workers": {
         "default": 3,
         "env": "SENZING_INPUT_WORKERS",
+        "cli": "input-workers",
     },
     "number_of_output_workers": {
         "default": 3,
         "env": "SENZING_OUTPUT_WORKERS",
+        "cli": "output-workers",
     },
     "project_filename": {
         "ini": {
@@ -175,6 +177,7 @@ def get_parser():
     subparser_1.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Data Source.")
     subparser_1.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
     subparser_1.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
+    subparser_1.add_argument("--input-workers", dest="input_workers", metavar="SENZING_INPUT_WORKERS", help="Number of workers receiving input. Default: 3")
     subparser_1.add_argument("--kafka-bootstrap-server", dest="kafka_bootstrap_server", metavar="SENZING_KAFKA_BOOTSTRAP_SERVER", help="Kafka bootstrap server. Default: localhost:9092")
     subparser_1.add_argument("--kafka-topic", dest="kafka_topic", metavar="SENZING_KAFKA_TOPIC", help="Kafka topic. Default: senzing-kafka-topic")
     subparser_1.add_argument("--kafka-group", dest="kafka_group", metavar="SENZING_KAFKA_GROUP", help="Kafka group. Default: senzing-kafka-group")
@@ -188,7 +191,9 @@ def get_parser():
     subparser_3.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Used when JSON line does not have a `DATA_SOURCE` key.")
     subparser_3.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
     subparser_3.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
+    subparser_3.add_argument("--input-workers", dest="input_workers", metavar="SENZING_INPUT_WORKERS", help="Number of workers receiving input. Default: 3")
     subparser_3.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in second between monitoring reports. Default: 300")
+    subparser_3.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
     subparser_3.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing ")
 
     subparser_4 = subparsers.add_parser('test', help='Read JSON Lines from STDIN. No changes to Senzing.')
@@ -196,6 +201,7 @@ def get_parser():
     subparser_4.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
     subparser_4.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
     subparser_4.add_argument("--input-url", dest="input_url", metavar="SENZING_INPUT_URL", help="URL to file of JSON lines.")
+    subparser_4.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
 
     subparser_5 = subparsers.add_parser('url', help='Read JSON Lines from URL-addressable file.')
     subparser_5.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Data Source.")
@@ -204,6 +210,7 @@ def get_parser():
     subparser_5.add_argument("--input-url", dest="input_url", metavar="SENZING_INPUT_URL", help="URL to file of JSON lines.")
     subparser_5.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in second between monitoring reports. Default: 300")
     subparser_5.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing")
+    subparser_5.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
 
     subparser_6 = subparsers.add_parser('version', help='Print version of stream-loader.py.')
 
@@ -989,7 +996,7 @@ def do_kafka(args):
 
     # Pull values from configuration.
 
-    number_of_output_workers = config.get('number_of_output_workers')
+    number_of_input_workers = config.get('number_of_input_workers')
 
     # Cleanup after previous invocations.
 
@@ -1016,7 +1023,7 @@ def do_kafka(args):
     # Launch workers that read from Kafka.
 
     kafka_workers = []
-    for i in xrange(0, number_of_output_workers):
+    for i in xrange(0, number_of_input_workers):
         kafka_workers.append(gevent.spawn(worker_read_from_kafka, config, g2_engine))
 
     # Launch the worker that monitors progress.
@@ -1106,14 +1113,14 @@ def do_stdin(args):
     # Launch all workers that read from queue.
 
     send_to_g2_engine_workers = []
-    for i in xrange(0, number_of_input_workers):
+    for i in xrange(0, number_of_output_workers):
         send_to_g2_engine_workers.append(gevent.spawn(worker_send_jsonlines_to_g2_engine, config, g2_engine))
 
     # Launch all workers that read from STDIN into the internal queue.
 
     output_line_function = create_output_line_function_factory(config)
     read_from_workers = []
-    for i in xrange(0, number_of_output_workers):
+    for i in xrange(0, number_of_input_workers):
         read_from_workers.append(gevent.spawn(input_lines_from_stdin, config, output_line_function))
 
     # Launch the worker that monitors progress.
@@ -1150,7 +1157,7 @@ def do_test(args):
 
     # Pull values from configuration.
 
-    number_of_input_workers = config.get('number_of_input_workers')
+    number_of_output_workers = config.get('number_of_output_workers')
     queue_maxsize = config.get('queue_maxsize')
     input_url = config.get('input_url')
 
@@ -1161,7 +1168,7 @@ def do_test(args):
     # Launch all workers that read from internal queue.
 
     jsonlines_workers = []
-    for i in xrange(1, number_of_input_workers):
+    for i in xrange(1, number_of_output_workers):
         jsonlines_workers.append(gevent.spawn(worker_send_jsonlines_to_log, config))
 
     # Feed input into internal queue.
@@ -1193,7 +1200,7 @@ def do_url(args):
 
     # Pull values from configuration.
 
-    number_of_input_workers = config.get('number_of_input_workers')
+    number_of_output_workers = config.get('number_of_output_workers')
     queue_maxsize = config.get('queue_maxsize')
 
     # Write license information to log.
@@ -1221,7 +1228,7 @@ def do_url(args):
     # Launch all workers that read from internal queue.
 
     send_to_g2_engine_workers = []
-    for i in xrange(0, number_of_input_workers):
+    for i in xrange(0, number_of_output_workers):
         send_to_g2_engine_workers.append(gevent.spawn(worker_send_jsonlines_to_g2_engine, config, g2_engine))
 
     # Launch the worker that reads URL contents into the internal queue.

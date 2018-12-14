@@ -37,9 +37,9 @@ monkey.patch_all()
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2018-12-13'
+__updated__ = '2018-12-14'
 
-SENZING_PRODUCT_ID = "5001"  # Used in log messages for format ppppnnnn, where "p" is product and "n" is error in product.
+SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
 
 jsonlines_queue = Queue()

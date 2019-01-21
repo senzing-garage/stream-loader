@@ -16,9 +16,11 @@ import logging
 import os
 import signal
 import sys
+from threading import Thread
 import time
 import urllib2
 from urlparse import urlparse
+from json.decoder import _decode_uXXXX
 
 # Import Senzing libraries.
 
@@ -37,7 +39,7 @@ monkey.patch_all()
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2018-12-14'
+__updated__ = '2019-01-21'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -214,6 +216,17 @@ def get_parser():
 
     subparser_6 = subparsers.add_parser('version', help='Print version of stream-loader.py.')
 
+    subparser_7 = subparsers.add_parser('kafka_gevent', help='Read JSON Lines from Apache Kafka topic.')
+    subparser_7.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Data Source.")
+    subparser_7.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
+    subparser_7.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
+    subparser_7.add_argument("--input-workers", dest="input_workers", metavar="SENZING_INPUT_WORKERS", help="Number of workers receiving input. Default: 3")
+    subparser_7.add_argument("--kafka-bootstrap-server", dest="kafka_bootstrap_server", metavar="SENZING_KAFKA_BOOTSTRAP_SERVER", help="Kafka bootstrap server. Default: localhost:9092")
+    subparser_7.add_argument("--kafka-topic", dest="kafka_topic", metavar="SENZING_KAFKA_TOPIC", help="Kafka topic. Default: senzing-kafka-topic")
+    subparser_7.add_argument("--kafka-group", dest="kafka_group", metavar="SENZING_KAFKA_GROUP", help="Kafka group. Default: senzing-kafka-group")
+    subparser_7.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in second between monitoring reports. Default: 300")
+    subparser_7.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing")
+
     return parser
 
 # -----------------------------------------------------------------------------
@@ -276,6 +289,9 @@ message_dictionary = {
     "507": "Could not prepare G2 database. Error: {0}",
     "508": "Kafka commit failed for {0}",
     "509": "Kafka commit failed on {0} with {1}",
+    "510": "g2_engine_addRecord() failed with {0} on {1}",
+    "511": "g2_engine_addRecord() failed on {0}",
+    "512": "TranslateG2ModuleException {0}",
     "599": "Program terminated with error.",
     "900": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}D",
     "901": "Queued: {0}",
@@ -491,6 +507,184 @@ def validate_configuration(config):
         exit_error(499)
 
 # -----------------------------------------------------------------------------
+# Class: Kafka reader
+# -----------------------------------------------------------------------------
+
+
+class KafkaReader(Thread):
+
+    def __init__(self, config, g2_engine):
+        Thread.__init__(self)
+        self.config = config
+        self.g2_engine = g2_engine
+
+    def run(self):
+        '''Process for reading lines from STDIN and feeding them to a process_function() function'''
+
+        # Create Kafka client.
+
+        consumer_configuration = {
+            'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
+            'group.id': self.config.get("kafka_group"),
+            'enable.auto.commit': False,
+            'auto.offset.reset': 'earliest'
+            }
+        consumer = confluent_kafka.Consumer(consumer_configuration)
+        consumer.subscribe([self.config.get("kafka_topic")])
+
+        # Data to be inserted into messages.
+
+        data_source = self.config.get('data_source')
+        entity_type = self.config.get('entity_type')
+
+        # In a loop, get messages from Kafka.
+
+        while True:
+
+            # Get message from Kafka queue.
+            # Timeout quickly to allow other co-routines to process.
+
+            kafka_message = consumer.poll(1.0)
+
+            # Handle non-standard Kafka output.
+
+            if kafka_message is None:
+                continue
+            if kafka_message.error():
+                if kafka_message.error().code() == confluent_kafka.KafkaError._PARTITION_EOF:
+                    continue
+                else:
+                    logging.error(message_error(508, kafka_message.error()))
+                    continue
+
+            # Construct and verify Kafka message.
+
+            kafka_message_string = kafka_message.value().strip()
+            if not kafka_message_string:
+                continue
+            logging.debug(message_debug(901, kafka_message_string))
+            self.config['counter_queued_records'] += 1
+
+            # Verify that message is valid JSON.
+
+            try:
+                kafka_message_dictionary = json.loads(kafka_message_string)
+            except:
+                logging.info(message_debug(412, kafka_message_string))
+                if not consumer.commit():
+                    logging.error(message_error(508, kafka_message_string))
+                continue
+
+            # If needed, modify JSON message.
+
+            if 'DATA_SOURCE' not in kafka_message_dictionary:
+                kafka_message_dictionary['DATA_SOURCE'] = data_source
+            if 'ENTITY_TYPE' not in kafka_message_dictionary:
+                kafka_message_dictionary['ENTITY_TYPE'] = entity_type
+            kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
+
+            # Send valid JSON to Senzing.
+
+            send_jsonline_to_g2_engine(kafka_message_string, self.g2_engine)
+
+            # Record successful transfer to Senzing.
+
+            self.config['counter_processed_records'] += 1
+
+            # After successful import into Senzing, tell Kafka we're done with message.
+
+            consumer.commit()
+
+        consumer.close()
+
+# -----------------------------------------------------------------------------
+# Class: Monitor
+# -----------------------------------------------------------------------------
+
+
+class Monitor(Thread):
+
+    def __init__(self, config, g2_engine, workers):
+        Thread.__init__(self)
+        self.config = config
+        self.g2_engine = g2_engine
+        self.workers = workers
+
+    def run(self):
+        '''Periodically monitor what is happening.'''
+
+        last_processed_records = 0
+        last_queued_records = 0
+        last_time = time.time()
+
+        # Define monitoring report interval.
+
+        sleep_time = self.config.get('monitoring_period')
+
+        # Sleep-monitor loop.
+
+        while True:
+
+            time.sleep(sleep_time)
+
+            # Calculate active Threads.
+
+            active_workers = len(self.workers)
+            for worker in self.workers:
+                if worker.is_alive():
+                    active_workers -= 1
+
+            # Determine if we're running out of workers.
+
+            if (active_workers / float(len(self.workers))) < 0.5:
+                logging.warn(message_warn(502))
+
+            # Calculate rates.
+
+            now = time.time()
+            uptime = now - self.config.get('start_time', now)
+            elapsed_time = now - last_time
+
+            processed_records_total = self.config['counter_processed_records']
+            processed_records_interval = processed_records_total - last_processed_records
+            rate_processed_total = int(processed_records_total / uptime)
+            rate_processed_interval = int(processed_records_interval / elapsed_time)
+
+            queued_records_total = self.config['counter_queued_records']
+            queued_records_interval = queued_records_total - last_queued_records
+            rate_queued_total = int(queued_records_total / uptime)
+            rate_queued_interval = int(queued_records_interval / elapsed_time)
+
+            # Construct and log monitor statistics.
+
+            stats = {
+                "processed_records_interval": processed_records_interval,
+                "processed_records_total": processed_records_total,
+                "queued_records_interval": queued_records_interval,
+                "queued_records_total": queued_records_total,
+                "rate_processed_interval": rate_processed_interval,
+                "rate_processed_total": rate_processed_total,
+                "rate_queued_interval": rate_queued_interval,
+                "rate_queued_total": rate_queued_total,
+                "uptime": int(uptime),
+                "workers_total": len(self.workers),
+                "workers_active": active_workers,
+            }
+            logging.info(message_info(127, json.dumps(stats, sort_keys=True)))
+
+            # Log engine statistics with sorted JSON keys.
+
+            g2_engine_stats_string = self.g2_engine.stats()
+            g2_engine_stats_dictionary = json.loads(g2_engine_stats_string)
+            logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
+
+            # Store values for next iteration of loop.
+
+            last_processed_records = processed_records_total
+            last_queued_records = queued_records_total
+            last_time = now
+
+# -----------------------------------------------------------------------------
 # Utility functions
 # -----------------------------------------------------------------------------
 
@@ -603,9 +797,8 @@ def cleanup_after_past_invocations():
 
 
 def send_jsonline_to_g2_engine(jsonline, g2_engine):
-    '''A worker that reads a JSON line from a queue and sends it to the g2_engine.'''
+    '''Send the JSONline to G2 engine.'''
 
-    gevent.sleep(0)  # Allow co-routine to be interrupted.
     logging.debug(message_debug(902, jsonline))
     json_dictionary = json.loads(jsonline)
     data_source = str(json_dictionary['DATA_SOURCE'])
@@ -613,11 +806,15 @@ def send_jsonline_to_g2_engine(jsonline, g2_engine):
     try:
         g2_engine.addRecord(data_source, record_id, jsonline)
     except G2Exception.TranslateG2ModuleException as err:
-        logging.error(message_error(999, err, jsonline))
+        logging.error(message_error(512, err, jsonline))
     except G2Exception.G2ModuleException as err:
         logging.error(message_error(501, err, jsonline))
     except G2Exception.G2ModuleGenericException as err:
         logging.error(message_error(501, err, jsonline))
+    except Exception as err:
+        logging.error(message_error(510, err, jsonline))
+    except:
+        logging.error(message_error(511, jsonline))
 
 # -----------------------------------------------------------------------------
 # Log information.
@@ -831,21 +1028,21 @@ def worker_monitor(config, g2_engine, workers):
         uptime = now - config.get('start_time', now)
         elapsed_time = now - last_time
 
-        total_processed_records = config['counter_processed_records']
-        elapsed_processed_records = total_processed_records - last_processed_records
-        rate_processed_total = int(total_processed_records / uptime)
-        rate_processed_interval = int(elapsed_processed_records / elapsed_time)
+        processed_records_total = config['counter_processed_records']
+        processed_records_interval = processed_records_total - last_processed_records
+        rate_processed_total = int(processed_records_total / uptime)
+        rate_processed_interval = int(processed_records_interval / elapsed_time)
 
-        total_queued_records = config['counter_queued_records']
-        elapsed_queued_records = total_queued_records - last_queued_records
-        rate_queued_total = int(total_queued_records / uptime)
-        rate_queued_interval = int(elapsed_queued_records / elapsed_time)
+        queued_records_total = config['counter_queued_records']
+        queued_records_interval = queued_records_total - last_queued_records
+        rate_queued_total = int(queued_records_total / uptime)
+        rate_queued_interval = int(queued_records_interval / elapsed_time)
 
         # Construct and log monitor statistics.
 
         stats = {
-            "processed_records": total_processed_records,
-            "queued_records": total_queued_records,
+            "processed_records": processed_records_total,
+            "queued_records": queued_records_total,
             "queue_size": jsonlines_queue.qsize(),
             "rate_processed_interval": rate_processed_interval,
             "rate_processed_total": rate_processed_total,
@@ -865,12 +1062,12 @@ def worker_monitor(config, g2_engine, workers):
 
         # Store values for next iteration of loop.
 
-        last_processed_records = total_processed_records
-        last_queued_records = total_queued_records
+        last_processed_records = processed_records_total
+        last_queued_records = queued_records_total
         last_time = now
 
 
-def worker_read_from_kafka(config, g2_engine):
+def worker_read_from_kafka_gevent(config, g2_engine):
     '''Process for reading lines from STDIN and feeding them to a process_function() function'''
 
     # Create Kafka client.
@@ -1020,11 +1217,74 @@ def do_kafka(args):
 
     g2_engine = get_g2_engine(config)
 
+    # Launch workers that read from Kafka as threads.
+
+    threads = []
+    for i in xrange(0, number_of_input_workers):
+        thread = KafkaReader(config, g2_engine)
+        threads.append(thread)
+        thread.start()
+
+    # Launch the worker that monitors progress as a thread.
+
+    thread = Monitor(config, g2_engine, threads)
+    thread.start()
+    threads.append(thread)
+
+    # Wait for all processing to complete.
+
+    for thread in threads:
+        thread.join()
+
+    # Epilog.
+
+    g2_engine.destroy()
+    logging.info(exit_template(config))
+
+
+def do_kafka_gevent(args):
+    '''Read from Kafka using gevent.'''
+
+    # Get context from CLI, environment variables, and ini files.
+
+    config = get_configuration(args)
+    validate_configuration(config)
+
+    # Prolog.
+
+    logging.info(entry_template(config))
+
+    # Pull values from configuration.
+
+    number_of_input_workers = config.get('number_of_input_workers')
+
+    # Cleanup after previous invocations.
+
+    cleanup_after_past_invocations()
+
+    # Write license information to log.
+
+    g2_product = get_g2_product(config)
+    log_license(g2_product)
+    g2_product.destroy()
+
+    # FIXME: This is a hack for development
+
+    add_data_sources(config)
+
+    # Write memory statistics to log.
+
+    log_memory()
+
+    # Get Senzing engine.
+
+    g2_engine = get_g2_engine(config)
+
     # Launch workers that read from Kafka.
 
     kafka_workers = []
     for i in xrange(0, number_of_input_workers):
-        kafka_workers.append(gevent.spawn(worker_read_from_kafka, config, g2_engine))
+        kafka_workers.append(gevent.spawn(worker_read_from_kafka_gevent, config, g2_engine))
 
     # Launch the worker that monitors progress.
 
@@ -1270,9 +1530,22 @@ def do_version(args):
 
 if __name__ == "__main__":
 
-    # Configure logging.
+    # Configure logging. See https://docs.python.org/2/library/logging.html#levels
 
-    logging.basicConfig(format=log_format, level=logging.INFO)
+    log_level_map = {
+        "notset": logging.NOTSET,
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "fatal": logging.FATAL,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL,
+        "fatal": logging.FATAL
+    }
+
+    log_level_parameter = os.getenv("SENZING_LOG_LEVEL", "info").lower()
+    log_level = log_level_map.get(log_level_parameter, logging.INFO)
+    logging.basicConfig(format=log_format, level=log_level)
 
     # Parse the command line arguments.
 

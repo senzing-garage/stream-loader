@@ -71,8 +71,6 @@ To see the options for a subcommand, run commands like:
 
 - **SENZING_SUBCOMMAND** -
   Identify the subcommand to be run. See `stream-loader.py --help` for complete list.
-- **SENZING_DATABASE_URL** -
-  Database URI in the form: `${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}`
 - **SENZING_DATA_SOURCE** -
   Default "DATA_SOURCE" value for incoming records.
 - **SENZING_DIR** -

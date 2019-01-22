@@ -55,57 +55,11 @@ To see the options for a subcommand, run commands like:
 
 ### Demonstrate
 
-1. See [installation instructions](#install) for setting `GIT_REPOSITORY_DIR`.
-
-1. Show help.  Example:
-
-    ```console
-    cd ${GIT_REPOSITORY_DIR}
-    ./stream-loader.py --help
-    ./stream-loader.py kafka --help
-    ```
-
-1. Show file sent to `stream-loader.py`'s test via URL. No changes are made to Senzing. Example:
-
-    ```console
-    cd ${GIT_REPOSITORY_DIR}
-    ./stream-loader.py test \
-      --input-url "https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json"
-    ```
-
-1. Show random mock data sent to `stream-loader.py`'s test. No changes are made to Senzing. Example:
-
-    ```console
-    export MOCK_DATA_GENERATOR_PATH=~/senzing.git/mock-data-generator
-
-    cd ${GIT_REPOSITORY_DIR}
-    ${MOCK_DATA_GENERATOR_PATH}/mock-data-generator.py random-to-stdout \
-      --random-seed 22 \
-      --record-min 1 \
-      --record-max 10 \
-      --records-per-second 2 \
-    | \
-    ./stream-loader.py test
-    ```
-
-1. Show file-based mock data sent to `stream-loader.py`'s test via STDIN/STDOUT. No changes are made to Senzing. Example:
-
-    ```console
-    export MOCK_DATA_GENERATOR_PATH=~/senzing.git/mock-data-generator
-
-    cd ${GIT_REPOSITORY_DIR}
-    ${MOCK_DATA_GENERATOR_PATH}/mock-data-generator.py url-to-stdout \
-      --input-url https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json \
-      --record-min 1 \
-      --record-max 10 \
-      --records-per-second 2 \
-    | \
-    ./stream-loader.py test
-    ```
-
 ## Using Docker
 
 ### Build docker image
+
+1. Build a [senzing/python-base](https://github.com/Senzing/docker-python-base) docker image.
 
 1. Build docker image.
 
@@ -154,23 +108,6 @@ To see the options for a subcommand, run commands like:
 
 ### Run docker image
 
-#### Demonstrate URL test
-
-1. Run the docker container. No changes are made to Senzing. Example:
-
-    ```console
-    export SENZING_SUBCOMMAND=test
-
-    export SENZING_DIR=/opt/senzing
-    export SENZING_INPUT_URL=https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json
-
-    sudo docker run -it  \
-      --volume ${SENZING_DIR}:/opt/senzing \
-      --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
-      --env SENZING_INPUT_URL="${SENZING_INPUT_URL}" \
-      senzing/stream-loader
-    ```
-
 #### Demonstrate URL to Senzing
 
 1. Determine docker network:
@@ -198,7 +135,7 @@ To see the options for a subcommand, run commands like:
     export SENZING_DATA_SOURCE=PEOPLE
     export SENZING_DIR=/opt/senzing
     export SENZING_INPUT_URL=https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json
-    export SENZING_MONITORING_PERIOD=5
+    export SENZING_MONITORING_PERIOD=60
 
     sudo docker run -it \
       --volume ${SENZING_DIR}:/opt/senzing \
@@ -239,7 +176,7 @@ To see the options for a subcommand, run commands like:
     export SENZING_DIR=/opt/senzing
     export SENZING_KAFKA_BOOTSTRAP_SERVER=senzing-kafka:9092
     export SENZING_KAFKA_TOPIC=senzing-kafka-topic
-    export SENZING_MONITORING_PERIOD=5
+    export SENZING_MONITORING_PERIOD=60
 
     sudo docker run -it \
       --volume ${SENZING_DIR}:/opt/senzing \

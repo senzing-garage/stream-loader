@@ -7,13 +7,11 @@
 import argparse
 import configparser
 import confluent_kafka
-import gevent
-from gevent.queue import Queue, Empty
 from glob import glob
 import json
-from json.decoder import _decode_uXXXX
 import logging
 import multiprocessing
+from Queue import Empty
 import os
 import signal
 import sys
@@ -25,7 +23,6 @@ from urlparse import urlparse
 # Import Senzing libraries.
 try:
     from G2ConfigTables import G2ConfigTables
-    from G2Database import G2Database
     from G2Engine import G2Engine
     import G2Exception
     from G2Product import G2Product
@@ -36,12 +33,10 @@ except:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-01-21'
+__updated__ = '2019-01-22'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
-
-jsonlines_queue = Queue()
 
 # Working with bytes.
 
@@ -115,7 +110,7 @@ configuration_locator = {
     "monitoring_period": {
         "default": 300,
         "env": "SENZING_MONITORING_PERIOD",
-        "cli": "monitoring_period",
+        "cli": "monitoring-period",
     },
     "number_of_input_workers": {
         "default": 3,
@@ -126,6 +121,11 @@ configuration_locator = {
         "default": 3,
         "env": "SENZING_OUTPUT_WORKERS",
         "cli": "output-workers",
+    },
+    "processes": {
+        "default": 1,
+        "env": "SENZING_PROCESSES",
+        "cli": "processes",
     },
     "project_filename": {
         "ini": {
@@ -159,6 +159,11 @@ configuration_locator = {
     "subcommand": {
         "default": None,
         "env": "SENZING_SUBCOMMAND",
+    },
+    "threads_per_process": {
+        "default": 4,
+        "env": "SENZING_THREADS_PER_PROCESS",
+        "cli": "threads-per-process",
     }
 }
 
@@ -176,53 +181,43 @@ def get_parser():
     subparser_1.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Data Source.")
     subparser_1.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
     subparser_1.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
-    subparser_1.add_argument("--input-workers", dest="input_workers", metavar="SENZING_INPUT_WORKERS", help="Number of workers receiving input. Default: 3")
     subparser_1.add_argument("--kafka-bootstrap-server", dest="kafka_bootstrap_server", metavar="SENZING_KAFKA_BOOTSTRAP_SERVER", help="Kafka bootstrap server. Default: localhost:9092")
-    subparser_1.add_argument("--kafka-topic", dest="kafka_topic", metavar="SENZING_KAFKA_TOPIC", help="Kafka topic. Default: senzing-kafka-topic")
     subparser_1.add_argument("--kafka-group", dest="kafka_group", metavar="SENZING_KAFKA_GROUP", help="Kafka group. Default: senzing-kafka-group")
-    subparser_1.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in second between monitoring reports. Default: 300")
+    subparser_1.add_argument("--kafka-topic", dest="kafka_topic", metavar="SENZING_KAFKA_TOPIC", help="Kafka topic. Default: senzing-kafka-topic")
+    subparser_1.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in seconds, between monitoring reports. Default: 300")
+    subparser_1.add_argument("--processes", dest="processes", metavar="SENZING_PROCESSES", help="Number of processes. Default: 1")
     subparser_1.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing")
+    subparser_1.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
 
     subparser_2 = subparsers.add_parser('sleep', help='Do nothing but sleep. For Docker testing.')
     subparser_2.add_argument("--sleep-time", dest="sleep_time", metavar="SENZING_SLEEP_TIME", help="Sleep time in seconds. DEFAULT: 600")
 
-    subparser_3 = subparsers.add_parser('stdin', help='Read JSON Lines from STDIN.')
-    subparser_3.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Used when JSON line does not have a `DATA_SOURCE` key.")
-    subparser_3.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-    subparser_3.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
-    subparser_3.add_argument("--input-workers", dest="input_workers", metavar="SENZING_INPUT_WORKERS", help="Number of workers receiving input. Default: 3")
-    subparser_3.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in second between monitoring reports. Default: 300")
-    subparser_3.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
-    subparser_3.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing ")
+#    subparser_3 = subparsers.add_parser('stdin', help='Read JSON Lines from STDIN.')
+#    subparser_3.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Used when JSON line does not have a `DATA_SOURCE` key.")
+#    subparser_3.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
+#    subparser_3.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
+#    subparser_3.add_argument("--input-workers", dest="input_workers", metavar="SENZING_INPUT_WORKERS", help="Number of workers receiving input. Default: 3")
+#    subparser_3.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in second between monitoring reports. Default: 300")
+#    subparser_3.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
+#    subparser_3.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing ")
 
-    subparser_4 = subparsers.add_parser('test', help='Read JSON Lines from STDIN. No changes to Senzing.')
-    subparser_4.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Used when JSON line does not have a `DATA_SOURCE` key.")
-    subparser_4.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-    subparser_4.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
-    subparser_4.add_argument("--input-url", dest="input_url", metavar="SENZING_INPUT_URL", help="URL to file of JSON lines.")
-    subparser_4.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
+#    subparser_4 = subparsers.add_parser('test', help='Read JSON Lines from STDIN. No changes to Senzing.')
+#    subparser_4.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Used when JSON line does not have a `DATA_SOURCE` key.")
+#    subparser_4.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
+#    subparser_4.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
+#    subparser_4.add_argument("--input-url", dest="input_url", metavar="SENZING_INPUT_URL", help="URL to file of JSON lines.")
+#    subparser_4.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
 
     subparser_5 = subparsers.add_parser('url', help='Read JSON Lines from URL-addressable file.')
     subparser_5.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Data Source.")
     subparser_5.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
     subparser_5.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
     subparser_5.add_argument("--input-url", dest="input_url", metavar="SENZING_INPUT_URL", help="URL to file of JSON lines.")
-    subparser_5.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in second between monitoring reports. Default: 300")
+    subparser_5.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in seconds, between monitoring reports. Default: 300")
     subparser_5.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing")
-    subparser_5.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
+    subparser_5.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
 
     subparser_6 = subparsers.add_parser('version', help='Print version of stream-loader.py.')
-
-    subparser_7 = subparsers.add_parser('kafka_gevent', help='Read JSON Lines from Apache Kafka topic.')
-    subparser_7.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Data Source.")
-    subparser_7.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-    subparser_7.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
-    subparser_7.add_argument("--input-workers", dest="input_workers", metavar="SENZING_INPUT_WORKERS", help="Number of workers receiving input. Default: 3")
-    subparser_7.add_argument("--kafka-bootstrap-server", dest="kafka_bootstrap_server", metavar="SENZING_KAFKA_BOOTSTRAP_SERVER", help="Kafka bootstrap server. Default: localhost:9092")
-    subparser_7.add_argument("--kafka-topic", dest="kafka_topic", metavar="SENZING_KAFKA_TOPIC", help="Kafka topic. Default: senzing-kafka-topic")
-    subparser_7.add_argument("--kafka-group", dest="kafka_group", metavar="SENZING_KAFKA_GROUP", help="Kafka group. Default: senzing-kafka-group")
-    subparser_7.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in second between monitoring reports. Default: 300")
-    subparser_7.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing")
 
     return parser
 
@@ -274,6 +269,7 @@ message_dictionary = {
     "412": "Invalid JSON received from Kafka: {0}",
     "414": "LD_LIBRARY_PATH environment variable not set.",
     "415": "PYTHONPATH environment variable not set.",
+    "416": "SENZING_PROCESSES for 'url' subcommand must be 1. Currently set to {0}.",
     "498": "Bad SENZING_SUBCOMMAND: {0}.",
     "499": "No processing done.",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
@@ -294,7 +290,7 @@ message_dictionary = {
     "901": "Queued: {0}",
     "902": "Processed: {0}",
     "903": "{0} queued: {1}",
-    "904": "{0} qrocessed: {1}",
+    "904": "{0} processed: {1}",
     "999": "{0}",
 }
 
@@ -431,7 +427,13 @@ def get_configuration(args):
 
     # Special case: Change integer strings to integers.
 
-    integers = ['monitoring_period', 'number_of_input_workers', 'number_of_output_workers', 'queue_maxsize', 'sleep_time']
+    integers = ['monitoring_period',
+                'number_of_input_workers',
+                'number_of_output_workers',
+                'processes',
+                'threads_per_process',
+                'queue_maxsize',
+                'sleep_time']
     for integer in integers:
         integer_string = result.get(integer)
         result[integer] = int(integer_string)
@@ -472,6 +474,11 @@ def validate_configuration(config):
         if not config.get('python_path'):
             user_error_messages.append(message_error(415))
 
+    if subcommand in ['stdin', 'url']:
+
+        if config.get('processes') > 1:
+            user_error_messages.append(message_error(416, config.get('processes')))
+
     if subcommand in ['stdin']:
 
         if not config.get('data_source'):
@@ -506,11 +513,11 @@ def validate_configuration(config):
         exit_error(499)
 
 # -----------------------------------------------------------------------------
-# Class: Kafka reader
+# Class: KafkaProcess
 # -----------------------------------------------------------------------------
 
 
-class Worker(multiprocessing.Process):
+class KafkaProcess(multiprocessing.Process):
 
     def __init__(self, config):
         multiprocessing.Process.__init__(self)
@@ -527,16 +534,16 @@ class Worker(multiprocessing.Process):
         # Create kafka reader threads.
 
         self.threads = []
-        number_of_threads = config.get('number_of_input_workers')
-        for i in xrange(0, number_of_threads):
-            thread = KafkaReader(config, self.g2_engine)
+        threads_per_process = config.get('threads_per_process')
+        for i in xrange(0, threads_per_process):
+            thread = ReadKafkaWriteG2Thread(config, self.g2_engine)
             thread.name = "{0}-{1}".format(self.name, i)
             self.threads.append(thread)
 
         # Create monitor thread.
 
         thread = Monitor(config, self.g2_engine, self.threads)
-        thread.name = "{0}-{1}".format(self.name, "monitor")
+        thread.name = "{0}-monitor".format(self.name)
         self.threads.append(thread)
 
     def run(self):
@@ -556,11 +563,11 @@ class Worker(multiprocessing.Process):
         self.g2_engine.destroy()
 
 # -----------------------------------------------------------------------------
-# Class: Kafka reader
+# Class: ReadKafkaWriteG2Thread
 # -----------------------------------------------------------------------------
 
 
-class KafkaReader(threading.Thread):
+class ReadKafkaWriteG2Thread(threading.Thread):
 
     def __init__(self, config, g2_engine):
         threading.Thread.__init__(self)
@@ -632,7 +639,7 @@ class KafkaReader(threading.Thread):
             if not kafka_message_string:
                 continue
             logging.debug(message_debug(903, threading.current_thread().name, kafka_message_string))
-            # self.config['counter_queued_records'] += 1
+            self.config['counter_queued_records'] += 1
 
             # Verify that message is valid JSON.
 
@@ -658,13 +665,235 @@ class KafkaReader(threading.Thread):
 
             # Record successful transfer to Senzing.
 
-            # self.config['counter_processed_records'] += 1
+            self.config['counter_processed_records'] += 1
 
             # After successful import into Senzing, tell Kafka we're done with message.
 
             consumer.commit()
 
         consumer.close()
+
+# -----------------------------------------------------------------------------
+# Class: UrlProcess
+# -----------------------------------------------------------------------------
+
+
+class UrlProcess(multiprocessing.Process):
+
+    def __init__(self, config, work_queue):
+        multiprocessing.Process.__init__(self)
+
+        # Get the G2Engine resource.
+
+        engine_name = "loader-G2-engine-{0}".format(self.name)
+        try:
+            self.g2_engine = G2Engine()
+            self.g2_engine.init(engine_name, config.get('g2_module_path'), config.get('debug', False))
+        except G2Exception.G2ModuleException as err:
+            exit_error(503, config.get('g2_module_path'), err)
+
+        # List of all threads.
+
+        self.threads = []
+
+        # Create URL reader thread.
+
+        thread = ReadUrlWriteQueueThread(config, work_queue)
+        thread.name = "{0}-reader".format(self.name)
+        self.threads.append(thread)
+
+        # Create URL writer threads.
+
+        threads_per_process = config.get('threads_per_process')
+        for i in xrange(0, threads_per_process):
+            thread = ReadQueueWriteG2Thread(config, self.g2_engine, work_queue)
+            thread.name = "{0}-writer-{1}".format(self.name, i)
+            self.threads.append(thread)
+
+        # Create monitor thread.
+
+        thread = Monitor(config, self.g2_engine, self.threads)
+        thread.name = "{0}-monitor".format(self.name)
+        self.threads.append(thread)
+
+    def run(self):
+
+        # Start threads.
+
+        for thread in self.threads:
+            thread.start()
+
+        # Collect inactive threads.
+
+        for thread in self.threads:
+            thread.join()
+
+        # Cleanup.
+
+        self.g2_engine.destroy()
+
+# -----------------------------------------------------------------------------
+# Class: ReadUrlWriteQueueThread
+# -----------------------------------------------------------------------------
+
+
+class ReadUrlWriteQueueThread(threading.Thread):
+
+    def __init__(self, config, queue):
+        threading.Thread.__init__(self)
+        self.config = config
+        self.queue = queue
+
+    def create_input_lines_function_factory(self):
+        '''Choose which input_lines_from_* function should be used.'''
+
+        result = None
+        input_url = self.config.get('input_url')
+
+        def input_lines_from_stdin(self, output_line_function):
+            '''Process for reading lines from STDIN and feeding them to a output_line_function() function'''
+
+            # Note: The alternative, 'for line in sys.stdin:',  suffers from a 4K buffering issue.
+
+            reading = True
+            while reading:
+                line = sys.stdin.readline()
+                self.config['counter_queued_records'] += 1
+                logging.debug(message_debug(901, line))
+                if line:
+                    output_line_function(self, line)
+                else:
+                    reading = False  # FIXME: Not sure if this is the best method of exiting.
+
+        def input_lines_from_file(self, output_line_function):
+            '''Process for reading lines from a file and feeding them to a output_line_function() function'''
+            input_url = self.config.get('input_url')
+            with open(input_url, 'r') as input_file:
+                line = input_file.readline()
+                while line:
+                    self.config['counter_queued_records'] += 1
+                    logging.debug(message_debug(901, line))
+                    output_line_function(self, line)
+                    line = input_file.readline()
+
+        def input_lines_from_url(self, output_line_function):
+            '''Process for reading lines from a URL and feeding them to a output_line_function() function'''
+            input_url = self.config.get('input_url')
+            data = urllib2.urlopen(input_url)
+            for line in data:
+                self.config['counter_queued_records'] += 1
+                logging.debug(message_debug(901, line))
+                output_line_function(self, line)
+
+        # If no file, input comes from STDIN.
+
+        if not input_url:
+            return input_lines_from_stdin
+
+        # Return a function based on URI protocol.
+
+        parsed_file_name = urlparse(input_url)
+        if parsed_file_name.scheme in ['http', 'https']:
+            result = input_lines_from_url
+        elif parsed_file_name.scheme in ['file', '']:
+            result = input_lines_from_file
+        return result
+
+    def create_output_line_function_factory(self):
+        '''Tricky code.  Uses currying and factory techniques. Create a function for output_line_function(line).'''
+
+        # Indicators of which function to return from factory.
+
+        data_source = self.config.get('data_source')
+        entity_type = self.config.get('entity_type')
+
+        # Candidate functions to return from factory.
+
+        def result_function_1(self, line):
+            '''Simply put line into the queue.'''
+            self.queue.put(line.strip())
+
+        def result_function_2(self, line):
+            line_dictionary = json.loads(line)
+            if 'DATA_SOURCE' not in line_dictionary:
+                line_dictionary['DATA_SOURCE'] = data_source
+            self.queue.put(json.dumps(line_dictionary, sort_keys=True))
+
+        def result_function_3(self, line):
+            line_dictionary = json.loads(line)
+            if 'ENTITY_TYPE' not in line_dictionary:
+                line_dictionary['ENTITY_TYPE'] = entity_type
+            self.queue.put(json.dumps(line_dictionary, sort_keys=True))
+
+        def result_function_4(self, line):
+            line_dictionary = json.loads(line)
+            if 'DATA_SOURCE' not in line_dictionary:
+                line_dictionary['DATA_SOURCE'] = data_source
+            if 'ENTITY_TYPE' not in line_dictionary:
+                line_dictionary['ENTITY_TYPE'] = entity_type
+            self.queue.put(json.dumps(line_dictionary, sort_keys=True))
+
+        # Determine which function to return.
+
+        result_function = None
+        if data_source is not None and entity_type is not None:
+            result_function = result_function_4
+        elif entity_type is not None:
+            result_function = result_function_3
+        elif data_source is not None:
+            result_function = result_function_2
+        else:
+            result_function = result_function_1
+
+        return result_function
+
+    def run(self):
+        input_lines_function = self.create_input_lines_function_factory()
+        output_line_function = self.create_output_line_function_factory()
+        input_lines_function(self, output_line_function)
+
+# -----------------------------------------------------------------------------
+# Class: ReadQueueWriteG2Thread
+# -----------------------------------------------------------------------------
+
+
+class ReadQueueWriteG2Thread(threading.Thread):
+    '''Thread for writing ...'''
+
+    def __init__(self, config, g2_engine, queue):
+        threading.Thread.__init__(self)
+        self.config = config
+        self.g2_engine = g2_engine
+        self.queue = queue
+
+    def send_jsonline_to_g2_engine(self, jsonline):
+        '''Send the JSONline to G2 engine.'''
+
+        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
+        json_dictionary = json.loads(jsonline)
+        data_source = str(json_dictionary['DATA_SOURCE'])
+        record_id = str(json_dictionary['RECORD_ID'])
+        try:
+            self.g2_engine.addRecord(data_source, record_id, jsonline)
+        except G2Exception.TranslateG2ModuleException as err:
+            logging.error(message_error(512, err, jsonline))
+        except G2Exception.G2ModuleException as err:
+            logging.error(message_error(501, err, jsonline))
+        except G2Exception.G2ModuleGenericException as err:
+            logging.error(message_error(501, err, jsonline))
+        except Exception as err:
+            logging.error(message_error(510, err, jsonline))
+        except:
+            logging.error(message_error(511, jsonline))
+
+    def run(self):
+        while True:
+            try:
+                jsonline = self.queue.get()
+                self.send_jsonline_to_g2_engine(jsonline)
+                self.config['counter_processed_records'] += 1
+            except Empty:
+                logging.info(message_info(122))
 
 # -----------------------------------------------------------------------------
 # Class: Monitor
@@ -939,292 +1168,14 @@ def log_memory():
         logging.warn(message_warn(201))
 
 # -----------------------------------------------------------------------------
-# input_lines_* loop
-#   Common function signature: process_lines_XXX(config, output_line_function)
-# -----------------------------------------------------------------------------
-
-
-def input_lines_from_stdin(config, output_line_function):
-    '''Process for reading lines from STDIN and feeding them to a process_function() function'''
-
-    # Note: The alternative, 'for line in sys.stdin:',  suffers from a 4K buffering issue.
-
-    reading = True
-    while reading:
-        gevent.sleep(0)  # Allow co-routine to be interrupted.
-        line = sys.stdin.readline()
-        config['counter_queued_records'] += 1
-        logging.debug(message_debug(901, line))
-        if line:
-            output_line_function(line)
-        else:
-            reading = False  # FIXME: Not sure if this is the best method of exiting.
-
-
-def input_lines_from_file(config, output_line_function):
-    '''Process for reading lines from a file and feeding them to a process_function() function'''
-    input_url = config.get('input_url')
-    with open(input_url, 'r') as input_file:
-        line = input_file.readline()
-        while line:
-            gevent.sleep(0)  # Allow co-routine to be interrupted.
-            config['counter_queued_records'] += 1
-            logging.debug(message_debug(901, line))
-            output_line_function(line)
-            line = input_file.readline()
-
-
-def input_lines_from_url(config, output_line_function):
-    '''Process for reading lines from a URL and feeding them to a process_function() function'''
-    input_url = config.get('input_url')
-    data = urllib2.urlopen(input_url)
-    for line in data:
-        gevent.sleep(0)  # Allow co-routine to be interrupted.
-        config['counter_queued_records'] += 1
-        logging.debug(message_debug(901, line))
-        output_line_function(line)
-
-
-def create_input_lines_function_factory(config):
-    '''Choose which input_lines_from_* function should be used.'''
-    result = None
-    input_url = config.get('input_url')
-
-    # If no file, input comes from STDIN.
-
-    if not input_url:
-        return input_lines_from_stdin
-
-    # Return a function based on URI protocol.
-
-    parsed_file_name = urlparse(input_url)
-    if parsed_file_name.scheme in ['http', 'https']:
-        result = input_lines_from_url
-    elif parsed_file_name.scheme in ['file', '']:
-        result = input_lines_from_file
-    return result
-
-# -----------------------------------------------------------------------------
-# output_line_* functions
-#   Common function signature: output_line_XXX(line)
-# -----------------------------------------------------------------------------
-
-
-def create_output_line_function_factory(config):
-    '''Tricky code.  Uses currying and factory techniques. Create a function for output_line_function(line).'''
-
-    # Indicators of which function to return from factory.
-
-    data_source = config.get('data_source')
-    entity_type = config.get('entity_type')
-
-    # Candidate functions to return from factory.
-
-    def result_function_1(line):
-        '''Simply put line into the queue.'''
-        jsonlines_queue.put(line.strip())
-
-    def result_function_2(line):
-        line_dictionary = json.loads(line)
-        if 'DATA_SOURCE' not in line_dictionary:
-            line_dictionary['DATA_SOURCE'] = data_source
-        jsonlines_queue.put(json.dumps(line_dictionary, sort_keys=True))
-
-    def result_function_3(line):
-        line_dictionary = json.loads(line)
-        if 'ENTITY_TYPE' not in line_dictionary:
-            line_dictionary['ENTITY_TYPE'] = entity_type
-        jsonlines_queue.put(json.dumps(line_dictionary, sort_keys=True))
-
-    def result_function_4(line):
-        line_dictionary = json.loads(line)
-        if 'DATA_SOURCE' not in line_dictionary:
-            line_dictionary['DATA_SOURCE'] = data_source
-        if 'ENTITY_TYPE' not in line_dictionary:
-            line_dictionary['ENTITY_TYPE'] = entity_type
-        jsonlines_queue.put(json.dumps(line_dictionary, sort_keys=True))
-
-    # Determine which function to return.
-
-    result_function = None
-    if data_source is not None and entity_type is not None:
-        result_function = result_function_4
-    elif entity_type is not None:
-        result_function = result_function_3
-    elif data_source is not None:
-        result_function = result_function_2
-    else:
-        result_function = result_function_1
-
-    return result_function
-
-# -----------------------------------------------------------------------------
 # Worker functions
 # -----------------------------------------------------------------------------
-
-
-def worker_monitor(config, g2_engine, workers):
-    '''Periodically monitor what is happening.'''
-
-    last_processed_records = 0
-    last_queued_records = 0
-    last_time = time.time()
-
-    # Define monitoring report interval.
-
-    sleep_time = config.get('monitoring_period')
-
-    # Sleep-monitor loop.
-
-    while True:
-        gevent.sleep(sleep_time)  # Allow co-routine to be interrupted.
-
-        # Calculate active Greenlets.
-
-        active_workers = len(workers)
-        for worker in workers:
-            if worker.ready():
-                active_workers -= 1
-
-        # Determine if we're running out of workers.
-
-        if (active_workers / float(len(workers))) < 0.5:
-            logging.warn(message_warn(502))
-
-        # Calculate rates.
-
-        now = time.time()
-        uptime = now - config.get('start_time', now)
-        elapsed_time = now - last_time
-
-        processed_records_total = config['counter_processed_records']
-        processed_records_interval = processed_records_total - last_processed_records
-        rate_processed_total = int(processed_records_total / uptime)
-        rate_processed_interval = int(processed_records_interval / elapsed_time)
-
-        queued_records_total = config['counter_queued_records']
-        queued_records_interval = queued_records_total - last_queued_records
-        rate_queued_total = int(queued_records_total / uptime)
-        rate_queued_interval = int(queued_records_interval / elapsed_time)
-
-        # Construct and log monitor statistics.
-
-        stats = {
-            "processed_records": processed_records_total,
-            "queued_records": queued_records_total,
-            "queue_size": jsonlines_queue.qsize(),
-            "rate_processed_interval": rate_processed_interval,
-            "rate_processed_total": rate_processed_total,
-            "rate_queued_interval": rate_queued_interval,
-            "rate_queued_total": rate_queued_total,
-            "uptime": int(uptime),
-            "workers_total": len(workers),
-            "workers_active": active_workers,
-        }
-        logging.info(message_info(127, json.dumps(stats, sort_keys=True)))
-
-        # Log engine statistics with sorted JSON keys.
-
-        g2_engine_stats_string = g2_engine.stats()
-        g2_engine_stats_dictionary = json.loads(g2_engine_stats_string)
-        logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
-
-        # Store values for next iteration of loop.
-
-        last_processed_records = processed_records_total
-        last_queued_records = queued_records_total
-        last_time = now
-
-
-def worker_read_from_kafka_gevent(config, g2_engine):
-    '''Process for reading lines from STDIN and feeding them to a process_function() function'''
-
-    # Create Kafka client.
-
-    consumer_configuration = {
-        'bootstrap.servers': config.get('kafka_bootstrap_server'),
-        'group.id': config.get("kafka_group"),
-        'enable.auto.commit': False,
-        'auto.offset.reset': 'earliest'
-        }
-    consumer = confluent_kafka.Consumer(consumer_configuration)
-    consumer.subscribe([config.get("kafka_topic")])
-
-    # Data to be inserted into messages.
-
-    data_source = config.get('data_source')
-    entity_type = config.get('entity_type')
-
-    # In a loop, get messages from Kafka.
-
-    while True:
-
-        # Allow co-routine to be interrupted.
-
-        gevent.sleep(0)
-
-        # Get message from Kafka queue.
-        # Timeout quickly to allow other co-routines to process.
-
-        kafka_message = consumer.poll(1.0)
-
-        # Handle non-standard Kafka output.
-
-        if kafka_message is None:
-            continue
-        if kafka_message.error():
-            if kafka_message.error().code() == confluent_kafka.KafkaError._PARTITION_EOF:
-                continue
-            else:
-                logging.error(message_error(508, kafka_message.error()))
-                break
-
-        # Construct and verify Kafka message.
-
-        kafka_message_string = kafka_message.value().strip()
-        if not kafka_message_string:
-            continue
-        logging.debug(message_debug(901, kafka_message_string))
-        config['counter_queued_records'] += 1
-
-        # Verify that message is valid JSON.
-
-        try:
-            kafka_message_dictionary = json.loads(kafka_message_string)
-        except:
-            logging.info(message_debug(412, kafka_message_string))
-            if not consumer.commit():
-                logging.error(message_error(508, kafka_message_string))
-            continue
-
-        # If needed, modify JSON message.
-
-        if 'DATA_SOURCE' not in kafka_message_dictionary:
-            kafka_message_dictionary['DATA_SOURCE'] = data_source
-        if 'ENTITY_TYPE' not in kafka_message_dictionary:
-            kafka_message_dictionary['ENTITY_TYPE'] = entity_type
-        kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
-
-        # Send valid JSON to Senzing.
-
-        send_jsonline_to_g2_engine(kafka_message_string, g2_engine)
-
-        # Record successful transfer to Senzing.
-
-        config['counter_processed_records'] += 1
-
-        # After successful import into Senzing, tell Kafka we're done with message.
-
-        consumer.commit()
-
-    consumer.close()
 
 
 def worker_send_jsonlines_to_g2_engine(config, g2_engine):
     '''A worker that reads a JSON line from a queue and sends it to the g2_engine.'''
     try:
         while True:
-            gevent.sleep(0)  # Allow co-routine to be interrupted.
             jsonline = jsonlines_queue.get()
             send_jsonline_to_g2_engine(jsonline, g2_engine)
             config['counter_processed_records'] += 1
@@ -1236,11 +1187,37 @@ def worker_send_jsonlines_to_log(config):
     '''A worker that simply echoes to the log.'''
     try:
         while True:
-            gevent.sleep(0)  # Allow co-routine to be interrupted.
             jsonline = jsonlines_queue.get(timeout=1)
             logging.info(message_info(199, jsonline))
     except Empty:
         logging.info(message_info(122))
+
+
+def common_prolog(config):
+
+    validate_configuration(config)
+
+    # Prolog.
+
+    logging.info(entry_template(config))
+
+    # Cleanup after previous invocations.
+
+    cleanup_after_past_invocations()
+
+    # FIXME: This is a hack for development
+
+    add_data_sources(config)
+
+    # Write license information to log.
+
+    g2_product = get_g2_product(config)
+    log_license(g2_product)
+    g2_product.destroy()
+
+    # Write memory statistics to log.
+
+    log_memory()
 
 # -----------------------------------------------------------------------------
 # do_* functions
@@ -1254,35 +1231,20 @@ def do_kafka(args):
     # Get context from CLI, environment variables, and ini files.
 
     config = get_configuration(args)
-    validate_configuration(config)
 
-    # Prolog.
+    # Perform common initialization tasks.
 
-    logging.info(entry_template(config))
+    common_prolog(config)
 
-    # Cleanup after previous invocations.
+    # Pull values from configuration.
 
-    cleanup_after_past_invocations()
-
-    # Write license information to log.
-
-    g2_product = get_g2_product(config)
-    log_license(g2_product)
-    g2_product.destroy()
-
-    # FIXME: This is a hack for development
-
-    add_data_sources(config)
-
-    # Write memory statistics to log.
-
-    log_memory()
+    number_of_processes = config.get('processes')
 
     # Start processes.
 
     processes = []
-    for i in xrange(0, 2):
-        process = Worker(config)
+    for i in xrange(0, number_of_processes):
+        process = KafkaProcess(config)
         process.start()
 
     # Collect inactive processes.
@@ -1295,75 +1257,12 @@ def do_kafka(args):
     logging.info(exit_template(config))
 
 
-def do_kafka_gevent(args):
-    '''Read from Kafka using gevent.'''
-
-    # Get context from CLI, environment variables, and ini files.
-
-    config = get_configuration(args)
-    validate_configuration(config)
-
-    # Prolog.
-
-    logging.info(entry_template(config))
-
-    # Pull values from configuration.
-
-    number_of_input_workers = config.get('number_of_input_workers')
-
-    # Cleanup after previous invocations.
-
-    cleanup_after_past_invocations()
-
-    # Write license information to log.
-
-    g2_product = get_g2_product(config)
-    log_license(g2_product)
-    g2_product.destroy()
-
-    # FIXME: This is a hack for development
-
-    add_data_sources(config)
-
-    # Write memory statistics to log.
-
-    log_memory()
-
-    # Get Senzing engine.
-
-    g2_engine = get_g2_engine(config)
-
-    # Launch workers that read from Kafka.
-
-    kafka_workers = []
-    for i in xrange(0, number_of_input_workers):
-        kafka_workers.append(gevent.spawn(worker_read_from_kafka_gevent, config, g2_engine))
-
-    # Launch the worker that monitors progress.
-
-    monitor_worker = gevent.spawn(worker_monitor, config, g2_engine, kafka_workers)
-
-    # Wait for all processing to complete.
-
-    gevent.joinall(kafka_workers)
-
-    # Kill workers.
-
-    monitor_worker.kill()
-
-    # Epilog.
-
-    g2_engine.destroy()
-    logging.info(exit_template(config))
-
-
 def do_sleep(args):
     '''Sleep.'''
 
     # Get context from CLI, environment variables, and ini files.
 
     config = get_configuration(args)
-    validate_configuration(config)
 
     # Prolog.
 
@@ -1389,31 +1288,16 @@ def do_stdin(args):
     # Get context from CLI, environment variables, and ini files.
 
     config = get_configuration(args)
-    validate_configuration(config)
 
-    # Prolog.
+    # Perform common initialization tasks.
 
-    logging.info(entry_template(config))
+    common_prolog(config)
 
     # Pull values from configuration.
 
     number_of_input_workers = config.get('number_of_input_workers')
     number_of_output_workers = config.get('number_of_output_workers')
     queue_maxsize = config.get('queue_maxsize')
-
-    # Cleanup after previous invocations.
-
-    cleanup_after_past_invocations()
-
-    # Write license information to log.
-
-    g2_product = get_g2_product(config)
-    log_license(g2_product)
-    g2_product.destroy()
-
-    # Write memory statistics to log.
-
-    log_memory()
 
     # Adjust maximum size of queued tasks.
 
@@ -1462,11 +1346,10 @@ def do_test(args):
     # Get context from CLI, environment variables, and ini files.
 
     config = get_configuration(args)
-    validate_configuration(config)
 
-    # Prolog.
+    # Perform common initialization tasks.
 
-    logging.info(entry_template(config))
+    common_prolog(config)
 
     # Pull values from configuration.
 
@@ -1505,69 +1388,34 @@ def do_url(args):
     # Get context from CLI, environment variables, and ini files.
 
     config = get_configuration(args)
-    validate_configuration(config)
 
-    # Prolog.
+    # Perform common initialization tasks.
 
-    logging.info(entry_template(config))
+    common_prolog(config)
 
     # Pull values from configuration.
 
-    number_of_output_workers = config.get('number_of_output_workers')
+    number_of_processes = config.get('processes')
     queue_maxsize = config.get('queue_maxsize')
 
-    # Write license information to log.
+    # Create Queue.
 
-    g2_product = get_g2_product(config)
-    log_license(g2_product)
-    g2_product.destroy()
+    work_queue = multiprocessing.Queue(queue_maxsize)
 
-    # FIXME: This is a hack for development
+    # Start processes.
 
-    add_data_sources(config)
+    processes = []
+    for i in xrange(0, number_of_processes):
+        process = UrlProcess(config, work_queue)
+        process.start()
 
-    # Write memory statistics to log.
+    # Collect inactive processes.
 
-    log_memory()
-
-    # Adjust maximum size of queued tasks.
-
-    jsonlines_queue.maxsize = queue_maxsize
-
-    # Get Senzing engine.
-
-    g2_engine = get_g2_engine(config)
-
-    # Launch all workers that read from internal queue.
-
-    send_to_g2_engine_workers = []
-    for i in xrange(0, number_of_output_workers):
-        send_to_g2_engine_workers.append(gevent.spawn(worker_send_jsonlines_to_g2_engine, config, g2_engine))
-
-    # Launch the worker that reads URL contents into the internal queue.
-
-    input_lines_function = create_input_lines_function_factory(config)
-    output_line_function = create_output_line_function_factory(config)
-    url_reader_worker = gevent.spawn(input_lines_function, config, output_line_function)
-
-    # Launch the worker that monitors progress.
-
-    monitor_worker = gevent.spawn(worker_monitor, config, g2_engine, send_to_g2_engine_workers)
-
-    # Wait for all processing to complete.
-
-    gevent.joinall(send_to_g2_engine_workers)
-
-    # Kill workers.
-
-    monitor_worker.kill()
-    url_reader_worker.kill()
-    for read_from_worker in read_from_workers:
-        read_from_worker.kill()
+    for process in processes:
+        process.join()
 
     # Epilog.
 
-    g2_engine.destroy()
     logging.info(exit_template(config))
 
 
@@ -1617,7 +1465,6 @@ if __name__ == "__main__":
 
     signal_handler = create_signal_handler_function(args)
     signal.signal(signal.SIGINT, signal_handler)
-    gevent.signal(signal.SIGQUIT, gevent.kill)
 
     # Transform subcommand from CLI parameter to function name string.
 

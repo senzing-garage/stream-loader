@@ -2,25 +2,23 @@
 
 ## Overview
 
-The [stream-loader.py](stream-loader.py) python script consumes data from various sources (Kafka, STDIN) and publishes it to Senzing.
+The [stream-loader.py](stream-loader.py) python script consumes data from various sources (Kafka, URLs) and publishes it to Senzing.
 The `senzing/stream-loader` docker images is a wrapper for use in docker formations (e.g. docker-compose, kubernetes).
 
 To see all of the subcommands, run:
 
 ```console
 $ ./stream-loader.py --help
-usage: stream-loader.py [-h] {kafka,sleep,stdin,test,url,version} ...
+usage: stream-loader.py [-h] {kafka,sleep,url,version} ...
 
 Load Senzing from a stream. For more information, see
 https://github.com/senzing/stream-loader
 
 positional arguments:
-  {kafka,sleep,stdin,test,url,version}
+  {kafka,sleep,url,version}
                         Subcommands (SENZING_SUBCOMMAND):
     kafka               Read JSON Lines from Apache Kafka topic.
     sleep               Do nothing but sleep. For Docker testing.
-    stdin               Read JSON Lines from STDIN.
-    test                Read JSON Lines from STDIN. No changes to Senzing.
     url                 Read JSON Lines from URL-addressable file.
     version             Print version of stream-loader.py.
 
@@ -31,7 +29,7 @@ optional arguments:
 To see the options for a subcommand, run commands like:
 
 ```console
-./stream-loader.py test --help
+./stream-loader.py kafka --help
 ```
 
 ### Contents
@@ -131,8 +129,6 @@ To see the options for a subcommand, run commands like:
   Default "ENTITY_TYPE" value for incoming records.
 - **SENZING_INPUT_URL** -
   URL of source file. Default: [https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json](https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json)
-- **SENZING_INPUT_WORKERS** -
-  Number of workers receiving input. Default: 3
 - **SENZING_KAFKA_BOOTSTRAP_SERVER** -
   Hostname and port of Kafka server.  Default: "localhost"
 - **SENZING_KAFKA_GROUP** -
@@ -141,9 +137,11 @@ To see the options for a subcommand, run commands like:
   Kafka topic. Default: "senzing-kafka-topic"
 - **SENZING_MONITORING_PERIOD** -
   Time, in seconds, between monitoring log records. Default: 300
-- **SENZING_OUTPUT_WORKERS** -
-  Number of workers sending to Senzing G2. Default: 3
-
+- **SENZING_PROCESSES** -
+  Number of processes to allocated for processing. Default: 1
+- **SENZING_THREADS_PER_PROCESSES** -
+  Number of threads per process to allocate for processing. Default: 2
+  
 1. To determine which configuration parameters are use for each `<subcommand>`, run:
 
     ```console

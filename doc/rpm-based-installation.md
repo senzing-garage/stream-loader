@@ -57,13 +57,17 @@ image.
 
 ## Install
 
-### YUM installs
+### APT installs
+
+1. Run:
 
     ```console
     sudo xargs yum -y install < ${GIT_REPOSITORY_DIR}/src/yum-packages.txt
     ```
 
 ### PIP installs
+
+1. Run:
 
     ```console
     sudo pip install -r ${GIT_REPOSITORY_DIR}/requirements.txt

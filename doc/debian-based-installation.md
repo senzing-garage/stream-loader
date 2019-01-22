@@ -59,11 +59,15 @@ image.
 
 ### APT installs
 
+1. Run:
+
     ```console
     sudo xargs apt -y install < ${GIT_REPOSITORY_DIR}/src/apt-packages.txt
     ```
 
 ### PIP installs
+
+1. Run:
 
     ```console
     sudo pip install -r ${GIT_REPOSITORY_DIR}/requirements.txt

@@ -57,49 +57,23 @@ image.
 
 ## Install
 
-1. APT installs
+### APT installs
+
+1. Run:
 
     ```console
     sudo xargs apt -y install < ${GIT_REPOSITORY_DIR}/src/apt-packages.txt
     ```
 
-1. PIP installs
+### PIP installs
+
+1. Run:
 
     ```console
     sudo pip install -r ${GIT_REPOSITORY_DIR}/requirements.txt
     ```
 
-1. Download [Senzing_API.tgz](https://s3.amazonaws.com/public-read-access/SenzingComDownloads/Senzing_API.tgz).
+### Create SENZING_DIR
 
-    ```console
-    curl -X GET \
-      --output ${GIT_REPOSITORY_DIR}/Senzing_API.tgz \
-      https://s3.amazonaws.com/public-read-access/SenzingComDownloads/Senzing_API.tgz
-    ```
-
-1. Create directory for Senzing.
-
-    ```console
-    sudo mkdir ${SENZING_DIR}
-    ```
-
-1. Uncompress `Senzing_API.tgz` into Senzing directory.
-
-    ```console
-    sudo tar \
-      --extract \
-      --verbose \
-      --owner=root \
-      --group=root \
-      --no-same-owner \
-      --no-same-permissions \
-      --directory=${SENZING_DIR} \
-      --file=${GIT_REPOSITORY_DIR}/Senzing_API.tgz
-    ```
-
-1. Change permissions for database.
-
-    ```console
-    sudo chmod -R 777 ${SENZING_DIR}/g2/sqldb
-    sudo chmod -R 777 ${SENZING_DIR}/g2/python/g2config.json
-    ````
+If you do not already have an `/opt/senzing` directory on your local system, visit
+[HOWTO - Create SENZING_DIR](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/create-senzing-dir.md).

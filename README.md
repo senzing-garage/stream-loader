@@ -117,8 +117,6 @@ To see the options for a subcommand, run commands like:
 
 - **SENZING_SUBCOMMAND** -
   Identify the subcommand to be run. See `stream-loader.py --help` for complete list.
-- **SENZING_DEBUG** -
-  Print debug statements to log.  Default: False
 - **SENZING_DATABASE_URL** -
   Database URI in the form: `${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}`
 - **SENZING_DATA_SOURCE** -
@@ -128,19 +126,25 @@ To see the options for a subcommand, run commands like:
 - **SENZING_ENTITY_TYPE** -
   Default "ENTITY_TYPE" value for incoming records.
 - **SENZING_INPUT_URL** -
-  URL of source file. Default: [https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json](https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json)
+  URL of source file.
 - **SENZING_KAFKA_BOOTSTRAP_SERVER** -
-  Hostname and port of Kafka server.  Default: "localhost"
+  Hostname and port of Kafka server.  Default: "localhost:9092"
 - **SENZING_KAFKA_GROUP** -
   Kafka group. Default: "senzing-kafka-group"
 - **SENZING_KAFKA_TOPIC** -
   Kafka topic. Default: "senzing-kafka-topic"
+- **SENZING_LOG_LEVEL** -
+  Level of logging. {notset, debug, info, warning, error, critical}. Default: info
 - **SENZING_MONITORING_PERIOD** -
   Time, in seconds, between monitoring log records. Default: 300
 - **SENZING_PROCESSES** -
   Number of processes to allocated for processing. Default: 1
+- **SENZING_QUEUE_MAX** -
+  Maximum items for internal queue. Default: 10
+- **SENZING_DIR** -
+  Location of Senzing directory. Default: /opt/senzing
 - **SENZING_THREADS_PER_PROCESSES** -
-  Number of threads per process to allocate for processing. Default: 2
+  Number of threads per process to allocate for processing. Default: 4
   
 1. To determine which configuration parameters are use for each `<subcommand>`, run:
 

@@ -112,16 +112,6 @@ configuration_locator = {
         "env": "SENZING_MONITORING_PERIOD",
         "cli": "monitoring-period",
     },
-    "number_of_input_workers": {
-        "default": 3,
-        "env": "SENZING_INPUT_WORKERS",
-        "cli": "input-workers",
-    },
-    "number_of_output_workers": {
-        "default": 3,
-        "env": "SENZING_OUTPUT_WORKERS",
-        "cli": "output-workers",
-    },
     "processes": {
         "default": 1,
         "env": "SENZING_PROCESSES",
@@ -428,8 +418,6 @@ def get_configuration(args):
     # Special case: Change integer strings to integers.
 
     integers = ['monitoring_period',
-                'number_of_input_workers',
-                'number_of_output_workers',
                 'processes',
                 'threads_per_process',
                 'queue_maxsize',
@@ -542,7 +530,7 @@ class KafkaProcess(multiprocessing.Process):
 
         # Create monitor thread.
 
-        thread = Monitor(config, self.g2_engine, self.threads)
+        thread = MonitorThread(config, self.g2_engine, self.threads)
         thread.name = "{0}-monitor".format(self.name)
         self.threads.append(thread)
 
@@ -712,7 +700,7 @@ class UrlProcess(multiprocessing.Process):
 
         # Create monitor thread.
 
-        thread = Monitor(config, self.g2_engine, self.threads)
+        thread = MonitorThread(config, self.g2_engine, self.threads)
         thread.name = "{0}-monitor".format(self.name)
         self.threads.append(thread)
 
@@ -896,11 +884,11 @@ class ReadQueueWriteG2Thread(threading.Thread):
                 logging.info(message_info(122))
 
 # -----------------------------------------------------------------------------
-# Class: Monitor
+# Class: MonitorThread
 # -----------------------------------------------------------------------------
 
 
-class Monitor(threading.Thread):
+class MonitorThread(threading.Thread):
 
     def __init__(self, config, g2_engine, workers):
         threading.Thread.__init__(self)
@@ -929,7 +917,7 @@ class Monitor(threading.Thread):
 
             active_workers = len(self.workers)
             for worker in self.workers:
-                if worker.is_alive():
+                if not worker.is_alive():
                     active_workers -= 1
 
             # Determine if we're running out of workers.
@@ -1281,105 +1269,103 @@ def do_sleep(args):
 
     logging.info(exit_template(config))
 
+# def do_stdin(args):
+#     '''Read from STDIN.'''
+#
+#     # Get context from CLI, environment variables, and ini files.
+#
+#     config = get_configuration(args)
+#
+#     # Perform common initialization tasks.
+#
+#     common_prolog(config)
+#
+#     # Pull values from configuration.
+#
+#     number_of_input_workers = config.get('number_of_input_workers')
+#     number_of_output_workers = config.get('number_of_output_workers')
+#     queue_maxsize = config.get('queue_maxsize')
+#
+#     # Adjust maximum size of queued tasks.
+#
+#     jsonlines_queue.maxsize = queue_maxsize
+#
+#     # Get Senzing engine.
+#
+#     g2_engine = get_g2_engine(config)
+#
+#     # Launch all workers that read from queue.
+#
+#     send_to_g2_engine_workers = []
+#     for i in xrange(0, number_of_output_workers):
+#         send_to_g2_engine_workers.append(gevent.spawn(worker_send_jsonlines_to_g2_engine, config, g2_engine))
+#
+#     # Launch all workers that read from STDIN into the internal queue.
+#
+#     output_line_function = create_output_line_function_factory(config)
+#     read_from_workers = []
+#     for i in xrange(0, number_of_input_workers):
+#         read_from_workers.append(gevent.spawn(input_lines_from_stdin, config, output_line_function))
+#
+#     # Launch the worker that monitors progress.
+#
+#     monitor_worker = gevent.spawn(worker_monitor, config, g2_engine, send_to_g2_engine_workers)
+#
+#     # Wait for all processing to complete.
+#
+#     gevent.joinall(send_to_g2_engine_workers)
+#
+#     # Kill workers.
+#
+#     monitor_worker.kill()
+#     for read_from_worker in read_from_workers:
+#         read_from_worker.kill()
+#
+#     # Epilog.
+#
+#     g2_engine.destroy()
+#     logging.info(exit_template(config))
 
-def do_stdin(args):
-    '''Read from STDIN.'''
-
-    # Get context from CLI, environment variables, and ini files.
-
-    config = get_configuration(args)
-
-    # Perform common initialization tasks.
-
-    common_prolog(config)
-
-    # Pull values from configuration.
-
-    number_of_input_workers = config.get('number_of_input_workers')
-    number_of_output_workers = config.get('number_of_output_workers')
-    queue_maxsize = config.get('queue_maxsize')
-
-    # Adjust maximum size of queued tasks.
-
-    jsonlines_queue.maxsize = queue_maxsize
-
-    # Get Senzing engine.
-
-    g2_engine = get_g2_engine(config)
-
-    # Launch all workers that read from queue.
-
-    send_to_g2_engine_workers = []
-    for i in xrange(0, number_of_output_workers):
-        send_to_g2_engine_workers.append(gevent.spawn(worker_send_jsonlines_to_g2_engine, config, g2_engine))
-
-    # Launch all workers that read from STDIN into the internal queue.
-
-    output_line_function = create_output_line_function_factory(config)
-    read_from_workers = []
-    for i in xrange(0, number_of_input_workers):
-        read_from_workers.append(gevent.spawn(input_lines_from_stdin, config, output_line_function))
-
-    # Launch the worker that monitors progress.
-
-    monitor_worker = gevent.spawn(worker_monitor, config, g2_engine, send_to_g2_engine_workers)
-
-    # Wait for all processing to complete.
-
-    gevent.joinall(send_to_g2_engine_workers)
-
-    # Kill workers.
-
-    monitor_worker.kill()
-    for read_from_worker in read_from_workers:
-        read_from_worker.kill()
-
-    # Epilog.
-
-    g2_engine.destroy()
-    logging.info(exit_template(config))
-
-
-def do_test(args):
-    '''Test the input from STDIN by echoing to log records.'''
-
-    # Get context from CLI, environment variables, and ini files.
-
-    config = get_configuration(args)
-
-    # Perform common initialization tasks.
-
-    common_prolog(config)
-
-    # Pull values from configuration.
-
-    number_of_output_workers = config.get('number_of_output_workers')
-    queue_maxsize = config.get('queue_maxsize')
-    input_url = config.get('input_url')
-
-    # Adjust maximum size of queued tasks.
-
-    jsonlines_queue.maxsize = queue_maxsize
-
-    # Launch all workers that read from internal queue.
-
-    jsonlines_workers = []
-    for i in xrange(1, number_of_output_workers):
-        jsonlines_workers.append(gevent.spawn(worker_send_jsonlines_to_log, config))
-
-    # Feed input into internal queue.
-
-    input_lines_function = create_input_lines_function_factory(config)
-    output_line_function = create_output_line_function_factory(config)
-    input_lines_function(config, output_line_function)
-
-    # Wait for all processing to complete.
-
-    gevent.joinall(jsonlines_workers)
-
-    # Epilog.
-
-    logging.info(exit_template(config))
+# def do_test(args):
+#     '''Test the input from STDIN by echoing to log records.'''
+#
+#     # Get context from CLI, environment variables, and ini files.
+#
+#     config = get_configuration(args)
+#
+#     # Perform common initialization tasks.
+#
+#     common_prolog(config)
+#
+#     # Pull values from configuration.
+#
+#     number_of_output_workers = config.get('number_of_output_workers')
+#     queue_maxsize = config.get('queue_maxsize')
+#     input_url = config.get('input_url')
+#
+#     # Adjust maximum size of queued tasks.
+#
+#     jsonlines_queue.maxsize = queue_maxsize
+#
+#     # Launch all workers that read from internal queue.
+#
+#     jsonlines_workers = []
+#     for i in xrange(1, number_of_output_workers):
+#         jsonlines_workers.append(gevent.spawn(worker_send_jsonlines_to_log, config))
+#
+#     # Feed input into internal queue.
+#
+#     input_lines_function = create_input_lines_function_factory(config)
+#     output_line_function = create_output_line_function_factory(config)
+#     input_lines_function(config, output_line_function)
+#
+#     # Wait for all processing to complete.
+#
+#     gevent.joinall(jsonlines_workers)
+#
+#     # Epilog.
+#
+#     logging.info(exit_template(config))
 
 
 def do_url(args):
@@ -1440,8 +1426,7 @@ if __name__ == "__main__":
         "fatal": logging.FATAL,
         "warning": logging.WARNING,
         "error": logging.ERROR,
-        "critical": logging.CRITICAL,
-        "fatal": logging.FATAL
+        "critical": logging.CRITICAL
     }
 
     log_level_parameter = os.getenv("SENZING_LOG_LEVEL", "info").lower()

@@ -95,7 +95,7 @@ To see the options for a subcommand, run commands like:
   Maximum items for internal queue. Default: 10
 - **SENZING_DIR** -
   Location of Senzing directory. Default: /opt/senzing
-- **SENZING_THREADS_PER_PROCESSES** -
+- **SENZING_THREADS_PER_PROCESS** -
   Number of threads per process to allocate for processing. Default: 4
   
 1. To determine which configuration parameters are use for each `<subcommand>`, run:

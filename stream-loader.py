@@ -240,7 +240,7 @@ message_dictionary = {
     "126": "G2 project statistics: {0}",
     "127": "Monitor: {0}",
     "128": "Sleeping {0} seconds.",
-    "129": "Thread {0} is running.",    
+    "129": "Thread {0} is running.",
     "197": "Version: {0}  Updated: {1}",
     "198": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "199": "{0}",
@@ -538,7 +538,6 @@ class KafkaProcess(multiprocessing.Process):
         for thread in self.threads:
             thread.join()
 
-
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaWriteG2Thread
 # -----------------------------------------------------------------------------
@@ -573,7 +572,7 @@ class ReadKafkaWriteG2Thread(threading.Thread):
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
-        
+
         logging.info(message_info(129, threading.current_thread().name))
 
         # Create Kafka client.
@@ -1221,7 +1220,7 @@ def do_kafka(args):
     g2_module_path = config.get('g2_module_path')
     number_of_processes = config.get('processes')
     threads_per_process = config.get('threads_per_process')
-    
+
     # Get the G2Engine resource.
 
     engine_name = "loader-G2-engine"
@@ -1229,14 +1228,14 @@ def do_kafka(args):
         g2_engine = G2Engine()
         g2_engine.init(engine_name, g2_module_path, debug)
     except G2Exception.G2ModuleException as err:
-        exit_error(503, g2_module_path, err)    
+        exit_error(503, g2_module_path, err)
 
     # Create kafka reader threads for master process.
 
     threads = []
     for i in xrange(0, threads_per_process):
         thread = ReadKafkaWriteG2Thread(config, g2_engine)
-        thread.name = "MasterProcess-{1}".format(i)
+        thread.name = "MasterProcess-{0}".format(i)
         threads.append(thread)
 
     # Create monitor thread for master process.
@@ -1244,6 +1243,11 @@ def do_kafka(args):
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "MasterProcess-monitor"
     threads.append(thread)
+
+    # Start threads for master process.
+
+    for thread in threads:
+        thread.start()
 
     # Start additional processes. (if 2 or more processes are requested.)
 
@@ -1259,7 +1263,7 @@ def do_kafka(args):
 
     # Collect inactive threads from master process.
 
-    for thread in self.threads:
+    for thread in threads:
         thread.join()
 
     # Cleanup.

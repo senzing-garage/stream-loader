@@ -33,7 +33,7 @@ except:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-01-22'
+__updated__ = '2019-01-24'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -240,6 +240,7 @@ message_dictionary = {
     "126": "G2 project statistics: {0}",
     "127": "Monitor: {0}",
     "128": "Sleeping {0} seconds.",
+    "129": "Thread {0} is running.",    
     "197": "Version: {0}  Updated: {1}",
     "198": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "199": "{0}",
@@ -507,30 +508,21 @@ def validate_configuration(config):
 
 class KafkaProcess(multiprocessing.Process):
 
-    def __init__(self, config):
+    def __init__(self, config, g2_engine):
         multiprocessing.Process.__init__(self)
-
-        # Get the G2Engine resource.
-
-        engine_name = "loader-G2-engine-{0}".format(self.name)
-        try:
-            self.g2_engine = G2Engine()
-            self.g2_engine.init(engine_name, config.get('g2_module_path'), config.get('debug', False))
-        except G2Exception.G2ModuleException as err:
-            exit_error(503, config.get('g2_module_path'), err)
 
         # Create kafka reader threads.
 
         self.threads = []
         threads_per_process = config.get('threads_per_process')
         for i in xrange(0, threads_per_process):
-            thread = ReadKafkaWriteG2Thread(config, self.g2_engine)
+            thread = ReadKafkaWriteG2Thread(config, g2_engine)
             thread.name = "{0}-{1}".format(self.name, i)
             self.threads.append(thread)
 
-        # Create monitor thread.
+        # Create monitor thread for this process.
 
-        thread = MonitorThread(config, self.g2_engine, self.threads)
+        thread = MonitorThread(config, g2_engine, self.threads)
         thread.name = "{0}-monitor".format(self.name)
         self.threads.append(thread)
 
@@ -546,9 +538,6 @@ class KafkaProcess(multiprocessing.Process):
         for thread in self.threads:
             thread.join()
 
-        # Cleanup.
-
-        self.g2_engine.destroy()
 
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaWriteG2Thread
@@ -565,7 +554,6 @@ class ReadKafkaWriteG2Thread(threading.Thread):
     def send_jsonline_to_g2_engine(self, jsonline):
         '''Send the JSONline to G2 engine.'''
 
-        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary['DATA_SOURCE'])
         record_id = str(json_dictionary['RECORD_ID'])
@@ -581,9 +569,12 @@ class ReadKafkaWriteG2Thread(threading.Thread):
             logging.error(message_error(510, err, jsonline))
         except:
             logging.error(message_error(511, jsonline))
+        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
+        
+        logging.info(message_info(129, threading.current_thread().name))
 
         # Create Kafka client.
 
@@ -857,7 +848,6 @@ class ReadQueueWriteG2Thread(threading.Thread):
     def send_jsonline_to_g2_engine(self, jsonline):
         '''Send the JSONline to G2 engine.'''
 
-        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary['DATA_SOURCE'])
         record_id = str(json_dictionary['RECORD_ID'])
@@ -873,6 +863,7 @@ class ReadQueueWriteG2Thread(threading.Thread):
             logging.error(message_error(510, err, jsonline))
         except:
             logging.error(message_error(511, jsonline))
+        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
     def run(self):
         while True:
@@ -1226,19 +1217,54 @@ def do_kafka(args):
 
     # Pull values from configuration.
 
+    debug = config.get('debug', False)
+    g2_module_path = config.get('g2_module_path')
     number_of_processes = config.get('processes')
+    threads_per_process = config.get('threads_per_process')
+    
+    # Get the G2Engine resource.
 
-    # Start processes.
+    engine_name = "loader-G2-engine"
+    try:
+        g2_engine = G2Engine()
+        g2_engine.init(engine_name, g2_module_path, debug)
+    except G2Exception.G2ModuleException as err:
+        exit_error(503, g2_module_path, err)    
+
+    # Create kafka reader threads for master process.
+
+    threads = []
+    for i in xrange(0, threads_per_process):
+        thread = ReadKafkaWriteG2Thread(config, g2_engine)
+        thread.name = "MasterProcess-{1}".format(i)
+        threads.append(thread)
+
+    # Create monitor thread for master process.
+
+    thread = MonitorThread(config, g2_engine, threads)
+    thread.name = "MasterProcess-monitor"
+    threads.append(thread)
+
+    # Start additional processes. (if 2 or more processes are requested.)
 
     processes = []
-    for i in xrange(0, number_of_processes):
-        process = KafkaProcess(config)
+    for i in xrange(1, number_of_processes):  # Tricky: 1, not 0 because master process is first process.
+        process = KafkaProcess(config, g2_engine)
         process.start()
 
     # Collect inactive processes.
 
     for process in processes:
         process.join()
+
+    # Collect inactive threads from master process.
+
+    for thread in self.threads:
+        thread.join()
+
+    # Cleanup.
+
+    g2_engine.destroy()
 
     # Epilog.
 

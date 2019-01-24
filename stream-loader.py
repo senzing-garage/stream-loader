@@ -240,7 +240,7 @@ message_dictionary = {
     "126": "G2 project statistics: {0}",
     "127": "Monitor: {0}",
     "128": "Sleeping {0} seconds.",
-    "129": "Thread {0} is running.",
+    "129": "{0} is running.",
     "197": "Version: {0}  Updated: {1}",
     "198": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "199": "{0}",
@@ -517,13 +517,13 @@ class KafkaProcess(multiprocessing.Process):
         threads_per_process = config.get('threads_per_process')
         for i in xrange(0, threads_per_process):
             thread = ReadKafkaWriteG2Thread(config, g2_engine)
-            thread.name = "{0}-{1}".format(self.name, i)
+            thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
 
         # Create monitor thread for this process.
 
         thread = MonitorThread(config, g2_engine, self.threads)
-        thread.name = "{0}-monitor".format(self.name)
+        thread.name = "{0}-thread-monitor".format(self.name)
         self.threads.append(thread)
 
     def run(self):
@@ -1235,13 +1235,13 @@ def do_kafka(args):
     threads = []
     for i in xrange(0, threads_per_process):
         thread = ReadKafkaWriteG2Thread(config, g2_engine)
-        thread.name = "MasterProcess-{0}".format(i)
+        thread.name = "KafkaProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
     # Create monitor thread for master process.
 
     thread = MonitorThread(config, g2_engine, threads)
-    thread.name = "MasterProcess-monitor"
+    thread.name = "KafkaProcess-0-thread-monitor"
     threads.append(thread)
 
     # Start threads for master process.

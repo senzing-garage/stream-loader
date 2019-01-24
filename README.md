@@ -71,8 +71,6 @@ To see the options for a subcommand, run commands like:
 
 - **SENZING_SUBCOMMAND** -
   Identify the subcommand to be run. See `stream-loader.py --help` for complete list.
-- **SENZING_DATABASE_URL** -
-  Database URI in the form: `${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}`
 - **SENZING_DATA_SOURCE** -
   Default "DATA_SOURCE" value for incoming records.
 - **SENZING_DIR** -
@@ -97,7 +95,7 @@ To see the options for a subcommand, run commands like:
   Maximum items for internal queue. Default: 10
 - **SENZING_DIR** -
   Location of Senzing directory. Default: /opt/senzing
-- **SENZING_THREADS_PER_PROCESSES** -
+- **SENZING_THREADS_PER_PROCESS** -
   Number of threads per process to allocate for processing. Default: 4
   
 1. To determine which configuration parameters are use for each `<subcommand>`, run:

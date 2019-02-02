@@ -33,7 +33,7 @@ except:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-01-24'
+__updated__ = '2019-02-01'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -209,6 +209,14 @@ def get_parser():
 
     subparser_6 = subparsers.add_parser('version', help='Print version of stream-loader.py.')
 
+    subparser_7 = subparsers.add_parser('kafka-test', help='Read JSON Lines from Apache Kafka topic. Do not send to Senzing.')
+    subparser_7.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
+    subparser_7.add_argument("--kafka-bootstrap-server", dest="kafka_bootstrap_server", metavar="SENZING_KAFKA_BOOTSTRAP_SERVER", help="Kafka bootstrap server. Default: localhost:9092")
+    subparser_7.add_argument("--kafka-group", dest="kafka_group", metavar="SENZING_KAFKA_GROUP", help="Kafka group. Default: senzing-kafka-group")
+    subparser_7.add_argument("--kafka-topic", dest="kafka_topic", metavar="SENZING_KAFKA_TOPIC", help="Kafka topic. Default: senzing-kafka-topic")
+    subparser_7.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in seconds, between monitoring reports. Default: 300")
+    subparser_7.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
+
     return parser
 
 # -----------------------------------------------------------------------------
@@ -282,6 +290,7 @@ message_dictionary = {
     "902": "Processed: {0}",
     "903": "{0} queued: {1}",
     "904": "{0} processed: {1}",
+    "905": "{0} Kafka read: {1} Kafka commit: {2}",
     "999": "{0}",
 }
 
@@ -432,6 +441,8 @@ def get_configuration(args):
     result['counter_processed_records'] = 0
     result['counter_queued_records'] = 0
     result['counter_bad_records'] = 0
+    result['kafka_commit_elapsed'] = 0
+    result['kafka_poll_elapsed'] = 0
 
     return result
 
@@ -523,6 +534,43 @@ class KafkaProcess(multiprocessing.Process):
         # Create monitor thread for this process.
 
         thread = MonitorThread(config, g2_engine, self.threads)
+        thread.name = "{0}-thread-monitor".format(self.name)
+        self.threads.append(thread)
+
+    def run(self):
+
+        # Start threads.
+
+        for thread in self.threads:
+            thread.start()
+
+        # Collect inactive threads.
+
+        for thread in self.threads:
+            thread.join()
+
+# -----------------------------------------------------------------------------
+# Class: KafkaTestProcess
+# -----------------------------------------------------------------------------
+
+
+class KafkaTestProcess(multiprocessing.Process):
+
+    def __init__(self, config):
+        multiprocessing.Process.__init__(self)
+
+        # Create kafka reader threads.
+
+        self.threads = []
+        threads_per_process = config.get('threads_per_process')
+        for i in xrange(0, threads_per_process):
+            thread = ReadKafkaTestThread(config)
+            thread.name = "{0}-thread-{1}".format(self.name, i)
+            self.threads.append(thread)
+
+        # Create monitor thread for this process.
+
+        thread = MonitorTestThread(config, self.threads)
         thread.name = "{0}-thread-monitor".format(self.name)
         self.threads.append(thread)
 
@@ -648,6 +696,80 @@ class ReadKafkaWriteG2Thread(threading.Thread):
             # After successful import into Senzing, tell Kafka we're done with message.
 
             consumer.commit()
+
+        consumer.close()
+
+# -----------------------------------------------------------------------------
+# Class: ReadKafkaTestThread
+# -----------------------------------------------------------------------------
+
+
+class ReadKafkaTestThread(threading.Thread):
+
+    def __init__(self, config):
+        threading.Thread.__init__(self)
+        self.config = config
+
+    def run(self):
+        '''Process for reading lines from Kafka and feeding them to a process_function() function'''
+
+        logging.info(message_info(129, threading.current_thread().name))
+
+        # Create Kafka client.
+
+        consumer_configuration = {
+            'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
+            'group.id': self.config.get("kafka_group"),
+            'enable.auto.commit': False,
+            'auto.offset.reset': 'earliest'
+            }
+        consumer = confluent_kafka.Consumer(consumer_configuration)
+        consumer.subscribe([self.config.get("kafka_topic")])
+
+        # In a loop, get messages from Kafka.
+
+        while True:
+
+            # Get message from Kafka queue.
+            # Timeout quickly to allow other co-routines to process.
+
+            before_poll = time.time()
+            kafka_message = consumer.poll(1.0)
+            after_poll = time.time()
+
+            # Handle non-standard Kafka output.
+
+            if kafka_message is None:
+                continue
+            if kafka_message.error():
+                if kafka_message.error().code() == confluent_kafka.KafkaError._PARTITION_EOF:
+                    continue
+                else:
+                    logging.error(message_error(508, kafka_message.error()))
+                    continue
+
+            # Construct and verify Kafka message.
+
+            kafka_message_string = kafka_message.value().strip()
+            if not kafka_message_string:
+                continue
+            self.config['counter_queued_records'] += 1
+
+            # After successful import into Senzing, tell Kafka we're done with message.
+
+            before_commit = time.time()
+            consumer.commit()
+            after_commit = time.time()
+
+            # Compute elapsed times for monitoring.
+
+            poll_elapsed = after_poll - before_poll
+            self.config['kafka_poll_elapsed'] += poll_elapsed
+
+            commit_elapsed = after_commit - before_commit
+            self.config['kafka_commit_elapsed'] += commit_elapsed
+
+            logging.debug(message_debug(905, threading.current_thread().name, poll_elapsed, commit_elapsed))
 
         consumer.close()
 
@@ -961,6 +1083,107 @@ class MonitorThread(threading.Thread):
             last_time = now
 
 # -----------------------------------------------------------------------------
+# Class: MonitorThread
+# -----------------------------------------------------------------------------
+
+
+class MonitorTestThread(threading.Thread):
+
+    def __init__(self, config, workers):
+        threading.Thread.__init__(self)
+        self.config = config
+        self.workers = workers
+
+    def run(self):
+        '''Periodically monitor what is happening.'''
+
+        last_queued_records = 0
+        last_kafka_poll = 0
+        last_kafka_commit = 0
+        last_time = time.time()
+
+        # Define monitoring report interval.
+
+        sleep_time = self.config.get('monitoring_period')
+
+        # Sleep-monitor loop.
+
+        while True:
+
+            time.sleep(sleep_time)
+
+            # Calculate active Threads.
+
+            active_workers = len(self.workers)
+            for worker in self.workers:
+                if not worker.is_alive():
+                    active_workers -= 1
+
+            # Determine if we're running out of workers.
+
+            if (active_workers / float(len(self.workers))) < 0.5:
+                logging.warn(message_warn(502))
+
+            # Calculate rates.
+
+            now = time.time()
+            uptime = now - self.config.get('start_time', now)
+            elapsed_time = now - last_time
+
+            queued_records_total = self.config['counter_queued_records']
+            queued_records_interval = queued_records_total - last_queued_records
+            rate_queued_total = queued_records_total / uptime
+            rate_queued_interval = queued_records_interval / elapsed_time
+
+            kafka_poll_total = self.config['kafka_poll_elapsed']
+            kafka_poll_interval = kafka_poll_total - last_kafka_poll
+            rate_kafka_poll_total = kafka_poll_total / uptime
+            rate_kafka_poll_interval = kafka_poll_interval / elapsed_time
+
+            kafka_commit_total = self.config['kafka_commit_elapsed']
+            kafka_commit_interval = kafka_commit_total - last_kafka_commit
+            rate_kafka_commit_total = kafka_commit_total / uptime
+            rate_kafka_commit_interval = kafka_commit_interval / elapsed_time
+
+            # Calculate averages.
+
+            average_rate_kafka_commit_interval = 0
+            average_rate_kafka_poll_interval = 0
+            if queued_records_interval > 0:
+                average_rate_kafka_commit_interval = rate_kafka_commit_interval / queued_records_interval
+                average_rate_kafka_poll_interval = rate_kafka_poll_interval / queued_records_interval
+
+            # Construct and log monitor statistics.
+
+            stats = {
+                "average_rate_kafka_commit_interval": average_rate_kafka_commit_interval,
+                "average_rate_kafka_poll_interval": average_rate_kafka_poll_interval,
+                "kafka_commit_interval": kafka_commit_interval,
+                "kafka_commit_total": kafka_commit_total,
+                "kafka_poll_interval": kafka_poll_interval,
+                "kafka_poll_total": kafka_poll_total,
+                "queued_records_interval": queued_records_interval,
+                "queued_records_total": queued_records_total,
+                "rate_kafka_commit_interval": rate_kafka_commit_interval,
+                "rate_kafka_commit_total": rate_kafka_commit_total,
+                "rate_kafka_poll_interval": rate_kafka_poll_interval,
+                "rate_kafka_poll_total": rate_kafka_poll_total,
+                "rate_queued_interval": rate_queued_interval,
+                "rate_queued_total": rate_queued_total,
+                "uptime": int(uptime),
+                "workers_total": len(self.workers),
+                "workers_active": active_workers,
+            }
+            logging.info(message_info(127, json.dumps(stats, sort_keys=True)))
+
+            # Store values for next iteration of loop.
+
+            last_queued_records = queued_records_total
+            last_kafka_poll = kafka_poll_total
+            last_kafka_commit = kafka_commit_total
+            last_time = now
+
+# -----------------------------------------------------------------------------
 # Utility functions
 # -----------------------------------------------------------------------------
 
@@ -1269,6 +1492,38 @@ def do_kafka(args):
     # Cleanup.
 
     g2_engine.destroy()
+
+    # Epilog.
+
+    logging.info(exit_template(config))
+
+
+def do_kafka_test(args):
+    '''Read from Kafka.'''
+
+    # Get context from CLI, environment variables, and ini files.
+
+    config = get_configuration(args)
+
+    # Perform common initialization tasks.
+
+    common_prolog(config)
+
+    # Pull values from configuration.
+
+    number_of_processes = config.get('processes')
+
+    # Start processes.
+
+    processes = []
+    for i in xrange(0, number_of_processes):
+        process = KafkaTestProcess(config)
+        process.start()
+
+    # Collect inactive processes.
+
+    for process in processes:
+        process.join()
 
     # Epilog.
 

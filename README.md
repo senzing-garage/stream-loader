@@ -3,24 +3,26 @@
 ## Overview
 
 The [stream-loader.py](stream-loader.py) python script consumes data from various sources (Kafka, URLs) and publishes it to Senzing.
-The `senzing/stream-loader` docker images is a wrapper for use in docker formations (e.g. docker-compose, kubernetes).
+The `senzing/stream-loader` docker image is a wrapper for use in docker formations (e.g. docker-compose, kubernetes).
 
 To see all of the subcommands, run:
 
 ```console
 $ ./stream-loader.py --help
-usage: stream-loader.py [-h] {kafka,sleep,url,version} ...
+usage: stream-loader.py [-h] {kafka,sleep,url,version,kafka-test} ...
 
 Load Senzing from a stream. For more information, see
 https://github.com/senzing/stream-loader
 
 positional arguments:
-  {kafka,sleep,url,version}
+  {kafka,sleep,url,version,kafka-test}
                         Subcommands (SENZING_SUBCOMMAND):
     kafka               Read JSON Lines from Apache Kafka topic.
     sleep               Do nothing but sleep. For Docker testing.
     url                 Read JSON Lines from URL-addressable file.
     version             Print version of stream-loader.py.
+    kafka-test          Read JSON Lines from Apache Kafka topic. Do not send
+                        to Senzing.
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -93,8 +95,8 @@ To see the options for a subcommand, run commands like:
   Number of processes to allocated for processing. Default: 1
 - **SENZING_QUEUE_MAX** -
   Maximum items for internal queue. Default: 10
-- **SENZING_DIR** -
-  Location of Senzing directory. Default: /opt/senzing
+- **SENZING_SUBCOMMAND** -
+  Amount of time to sleep, in seconds for `stream-loader.py sleep` subcommand. Default: 600.
 - **SENZING_THREADS_PER_PROCESS** -
   Number of threads per process to allocate for processing. Default: 4
   
@@ -121,6 +123,10 @@ To see the options for a subcommand, run commands like:
 
     ```console
     export SENZING_SUBCOMMAND=url
+    export SENZING_DATA_SOURCE=PEOPLE
+    export SENZING_DIR=/opt/senzing
+    export SENZING_INPUT_URL=https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json
+    export SENZING_MONITORING_PERIOD=60
 
     export DATABASE_PROTOCOL=mysql
     export DATABASE_USERNAME=g2
@@ -128,12 +134,7 @@ To see the options for a subcommand, run commands like:
     export DATABASE_HOST=senzing-mysql
     export DATABASE_PORT=3306
     export DATABASE_DATABASE=G2
-
     export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
-    export SENZING_DATA_SOURCE=PEOPLE
-    export SENZING_DIR=/opt/senzing
-    export SENZING_INPUT_URL=https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json
-    export SENZING_MONITORING_PERIOD=60
 
     sudo docker run -it \
       --volume ${SENZING_DIR}:/opt/senzing \
@@ -161,6 +162,11 @@ To see the options for a subcommand, run commands like:
 
     ```console
     export SENZING_SUBCOMMAND=kafka
+    export SENZING_DATA_SOURCE=PEOPLE
+    export SENZING_DIR=/opt/senzing
+    export SENZING_KAFKA_BOOTSTRAP_SERVER=senzing-kafka:9092
+    export SENZING_KAFKA_TOPIC=senzing-kafka-topic
+    export SENZING_MONITORING_PERIOD=60
 
     export DATABASE_PROTOCOL=mysql
     export DATABASE_USERNAME=g2
@@ -168,13 +174,7 @@ To see the options for a subcommand, run commands like:
     export DATABASE_HOST=senzing-mysql
     export DATABASE_PORT=3306
     export DATABASE_DATABASE=G2
-
     export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
-    export SENZING_DATA_SOURCE=PEOPLE
-    export SENZING_DIR=/opt/senzing
-    export SENZING_KAFKA_BOOTSTRAP_SERVER=senzing-kafka:9092
-    export SENZING_KAFKA_TOPIC=senzing-kafka-topic
-    export SENZING_MONITORING_PERIOD=60
 
     sudo docker run -it \
       --volume ${SENZING_DIR}:/opt/senzing \

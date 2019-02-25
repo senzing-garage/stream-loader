@@ -16,7 +16,6 @@ RUN yum -y install \
 RUN pip install \
     configparser \
     confluent-kafka \
-    gevent \
     psutil
 
 # Copy into the app directory.

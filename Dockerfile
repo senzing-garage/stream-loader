@@ -1,17 +1,22 @@
-FROM senzing/python-base
+ARG BASE_CONTAINER=senzing/python-base
+FROM ${BASE_CONTAINER}
 
 ENV REFRESHED_AT=2018-11-08
 
-RUN yum -y update; yum clean all
-RUN yum -y install epel-release; yum clean all
+RUN yum -y update \
+ && yum clean all
+ 
+RUN yum -y install epel-release \
+ && yum clean all
+
 RUN yum -y install \
     curl \
     librdkafka-devel \
     python-devel \
-    python-pip; \
-    yum clean all
+    python-pip \
+ && yum clean all
 
-# Perform PIP installs
+# Perform PIP installs.
 
 RUN pip install \
     configparser \

@@ -1,5 +1,5 @@
-ARG BASE_CONTAINER=senzing/python-base
-FROM ${BASE_CONTAINER}
+ARG BASE_IMAGE=senzing/python-base
+FROM ${BASE_IMAGE}
 
 ENV REFRESHED_AT=2018-11-08
 

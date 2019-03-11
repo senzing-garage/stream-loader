@@ -50,8 +50,8 @@ To see the options for a subcommand, run commands like:
 ### Install
 
 1. Install prerequisites:
-    1. [Debian-based installation](doc/debian-based-installation.md) - For Ubuntu and [others](https://en.wikipedia.org/wiki/List_of_Linux_distributions#Debian-based)
-    1. [RPM-based installation](doc/rpm-based-installation.md) - For Red Hat, CentOS, openSuse and [others](https://en.wikipedia.org/wiki/List_of_Linux_distributions#RPM-based).
+    1. [Debian-based installation](docs/debian-based-installation.md) - For Ubuntu and [others](https://en.wikipedia.org/wiki/List_of_Linux_distributions#Debian-based)
+    1. [RPM-based installation](docs/rpm-based-installation.md) - For Red Hat, CentOS, openSuse and [others](https://en.wikipedia.org/wiki/List_of_Linux_distributions#RPM-based).
 1. Install mock-data-generator
     1. See [github.com/Senzing/mock-data-generator](https://github.com/Senzing/mock-data-generator#using-command-line)
 
@@ -187,7 +187,30 @@ To see the options for a subcommand, run commands like:
       --env SENZING_MONITORING_PERIOD="${SENZING_MONITORING_PERIOD}" \
       senzing/stream-loader
     ```
-  
+
+## Alternative Docker builds
+
+### stream-loader-db2-cluster
+
+This build is for use with a DB2 Cluster.
+
+Build steps:
+
+1. Build [senzing/python-db2-cluster-base](https://github.com/Senzing/docker-python-db2-cluster-base).
+1. Build `senzing/stream-loader-db2-cluster`.
+
+    ```console
+    sudo docker build \
+      --build-arg BASE_IMAGE=senzing/python-db2-cluster-base \
+      --tag senzing/stream-loader-db2-cluster \
+      https://github.com/senzing/stream-loader.git
+    ```
+
+Examples of use:
+
+1. [docker-compose-db2-cluster-demo](https://github.com/Senzing/docker-compose-db2-cluster-demo)
+1. [rancher-demo](https://github.com/Senzing/rancher-demo/tree/master/docs/db2-cluster-demo.md)
+
 ## Errors
 
-1. See [doc/errors.md](doc/errors.md).
+1. See [docs/errors.md](docs/errors.md).

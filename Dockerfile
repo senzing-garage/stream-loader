@@ -1,20 +1,15 @@
 ARG BASE_IMAGE=senzing/python-base
 FROM ${BASE_IMAGE}
 
-ENV REFRESHED_AT=2018-11-08
+ENV REFRESHED_AT=2019-03-14
 
-RUN yum -y update \
- && yum clean all
- 
-RUN yum -y install epel-release \
- && yum clean all
+LABEL Name="senzing/stream-loader" \
+      Version="1.0.0"
 
-RUN yum -y install \
-    curl \
-    librdkafka-devel \
-    python-devel \
-    python-pip \
- && yum clean all
+RUN apt-get update \
+ && apt-get -y install \
+    librdkafka-dev \
+ && rm -rf /var/lib/apt/lists/*
 
 # Perform PIP installs.
 
@@ -30,4 +25,5 @@ COPY ./stream-loader.py /app/
 # Override parent docker image.
 
 WORKDIR /app
-ENTRYPOINT ["/app/stream-loader.py"]
+ENTRYPOINT ["/app/docker-entrypoint.sh", "/app/stream-loader.py" ]
+CMD [""]

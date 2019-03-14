@@ -61,12 +61,25 @@ To see the options for a subcommand, run commands like:
 
 ### Build docker image
 
-1. Build a [senzing/python-base](https://github.com/Senzing/docker-python-base) docker image.
-
-1. Build docker image.
+1. Build a [senzing/python-base](https://github.com/Senzing/docker-python-base) docker image.  Example:
 
     ```console
-    sudo docker build --tag senzing/stream-loader https://github.com/senzing/stream-loader.git
+    export BASE_IMAGE=senzing/python-mysql-base
+
+    sudo docker build \
+      --tag ${BASE_IMAGE} \
+      https://github.com/senzing/docker-python-mysql-base.git
+    ```
+
+1. Build docker image. Example:
+
+    ```console
+    export BASE_IMAGE=senzing/python-mysql-base
+
+    sudo docker build \
+      --tag senzing/stream-loader \
+      --build-arg BASE_IMAGE=${BASE_IMAGE} \
+      https://github.com/senzing/stream-loader.git
     ```
 
 ### Configuration
@@ -122,20 +135,20 @@ To see the options for a subcommand, run commands like:
 1. Run the docker container. Example:
 
     ```console
-    export SENZING_SUBCOMMAND=url
-    export SENZING_DATA_SOURCE=PEOPLE
-    export SENZING_DIR=/opt/senzing
-    export SENZING_INPUT_URL=https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json
-    export SENZING_MONITORING_PERIOD=60
-
     export DATABASE_PROTOCOL=mysql
     export DATABASE_USERNAME=g2
     export DATABASE_PASSWORD=g2
     export DATABASE_HOST=senzing-mysql
     export DATABASE_PORT=3306
     export DATABASE_DATABASE=G2
-    export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
 
+    export SENZING_SUBCOMMAND=url
+    export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
+    export SENZING_DATA_SOURCE=PEOPLE
+    export SENZING_DIR=/opt/senzing
+    export SENZING_INPUT_URL=https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json
+    export SENZING_MONITORING_PERIOD=60
+    
     sudo docker run -it \
       --volume ${SENZING_DIR}:/opt/senzing \
       --net ${SENZING_NETWORK} \
@@ -161,20 +174,20 @@ To see the options for a subcommand, run commands like:
 1. Run the docker container. Example:
 
     ```console
-    export SENZING_SUBCOMMAND=kafka
-    export SENZING_DATA_SOURCE=PEOPLE
-    export SENZING_DIR=/opt/senzing
-    export SENZING_KAFKA_BOOTSTRAP_SERVER=senzing-kafka:9092
-    export SENZING_KAFKA_TOPIC=senzing-kafka-topic
-    export SENZING_MONITORING_PERIOD=60
-
     export DATABASE_PROTOCOL=mysql
     export DATABASE_USERNAME=g2
     export DATABASE_PASSWORD=g2
     export DATABASE_HOST=senzing-mysql
     export DATABASE_PORT=3306
     export DATABASE_DATABASE=G2
+
+    export SENZING_SUBCOMMAND=kafka
     export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
+    export SENZING_DATA_SOURCE=PEOPLE
+    export SENZING_DIR=/opt/senzing
+    export SENZING_KAFKA_BOOTSTRAP_SERVER=senzing-kafka:9092
+    export SENZING_KAFKA_TOPIC=senzing-kafka-topic
+    export SENZING_MONITORING_PERIOD=60
 
     sudo docker run -it \
       --volume ${SENZING_DIR}:/opt/senzing \

@@ -1,10 +1,12 @@
-ARG BASE_IMAGE=senzing/python-base
+ARG BASE_IMAGE=senzing/senzing-base
 FROM ${BASE_IMAGE}
 
-ENV REFRESHED_AT=2019-03-14
+ENV REFRESHED_AT=2019-03-22
 
 LABEL Name="senzing/stream-loader" \
       Version="1.0.0"
+
+# Install packages via apt.
 
 RUN apt-get update \
  && apt-get -y install \

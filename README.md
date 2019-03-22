@@ -43,6 +43,7 @@ To see the options for a subcommand, run commands like:
     1. [Build docker image](#build-docker-image)
     1. [Configuration](#configuration)
     1. [Run docker image](#run-docker-image)
+1. [Examples](#examples)
 1. [Errors](errors)
 
 ## Using Command Line
@@ -61,24 +62,11 @@ To see the options for a subcommand, run commands like:
 
 ### Build docker image
 
-1. Build a [senzing/python-base](https://github.com/Senzing/docker-python-base) docker image.  Example:
-
-    ```console
-    export BASE_IMAGE=senzing/python-mysql-base
-
-    sudo docker build \
-      --tag ${BASE_IMAGE} \
-      https://github.com/senzing/docker-python-mysql-base.git
-    ```
-
 1. Build docker image. Example:
 
     ```console
-    export BASE_IMAGE=senzing/python-mysql-base
-
     sudo docker build \
       --tag senzing/stream-loader \
-      --build-arg BASE_IMAGE=${BASE_IMAGE} \
       https://github.com/senzing/stream-loader.git
     ```
 
@@ -148,15 +136,18 @@ To see the options for a subcommand, run commands like:
     export SENZING_DIR=/opt/senzing
     export SENZING_INPUT_URL=https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json
     export SENZING_MONITORING_PERIOD=60
-    
-    sudo docker run -it \
-      --volume ${SENZING_DIR}:/opt/senzing \
-      --net ${SENZING_NETWORK} \
+
+    sudo docker run \
       --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
       --env SENZING_DATABASE_URL="${SENZING_DATABASE_URL}" \
       --env SENZING_DATA_SOURCE="${SENZING_DATA_SOURCE}" \
       --env SENZING_INPUT_URL="${SENZING_INPUT_URL}" \
       --env SENZING_MONITORING_PERIOD="${SENZING_MONITORING_PERIOD}" \
+      --interactive \
+      --net ${SENZING_NETWORK} \
+      --rm \
+      --tty \
+      --volume ${SENZING_DIR}:/opt/senzing \
       senzing/stream-loader
     ```
 
@@ -190,39 +181,25 @@ To see the options for a subcommand, run commands like:
     export SENZING_MONITORING_PERIOD=60
 
     sudo docker run -it \
-      --volume ${SENZING_DIR}:/opt/senzing \
-      --net ${SENZING_NETWORK} \
       --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
       --env SENZING_DATABASE_URL="${SENZING_DATABASE_URL}" \
       --env SENZING_DATA_SOURCE="${SENZING_DATA_SOURCE}" \
       --env SENZING_KAFKA_BOOTSTRAP_SERVER="${SENZING_KAFKA_BOOTSTRAP_SERVER}" \
       --env SENZING_KAFKA_TOPIC="${SENZING_KAFKA_TOPIC}" \
       --env SENZING_MONITORING_PERIOD="${SENZING_MONITORING_PERIOD}" \
+      --interactive \
+      --net ${SENZING_NETWORK} \
+      --rm \
+      --tty \
+      --volume ${SENZING_DIR}:/opt/senzing \
       senzing/stream-loader
     ```
 
-## Alternative Docker builds
+## Examples
 
-### stream-loader-db2-cluster
-
-This build is for use with a DB2 Cluster.
-
-Build steps:
-
-1. Build [senzing/python-db2-cluster-base](https://github.com/Senzing/docker-python-db2-cluster-base).
-1. Build `senzing/stream-loader-db2-cluster`.
-
-    ```console
-    sudo docker build \
-      --build-arg BASE_IMAGE=senzing/python-db2-cluster-base \
-      --tag senzing/stream-loader-db2-cluster \
-      https://github.com/senzing/stream-loader.git
-    ```
-
-Examples of use:
-
-1. [docker-compose-db2-cluster-demo](https://github.com/Senzing/docker-compose-db2-cluster-demo)
-1. [rancher-demo](https://github.com/Senzing/rancher-demo/tree/master/docs/db2-cluster-demo.md)
+1. Examples of use:
+    1. [docker-compose-db2-cluster-demo](https://github.com/Senzing/docker-compose-db2-cluster-demo)
+    1. [rancher-demo](https://github.com/Senzing/rancher-demo/tree/master/docs/db2-cluster-demo.md)
 
 ## Errors
 

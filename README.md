@@ -180,7 +180,7 @@ To see the options for a subcommand, run commands like:
     export SENZING_KAFKA_TOPIC=senzing-kafka-topic
     export SENZING_MONITORING_PERIOD=60
 
-    sudo docker run -it \
+    sudo docker run \
       --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
       --env SENZING_DATABASE_URL="${SENZING_DATABASE_URL}" \
       --env SENZING_DATA_SOURCE="${SENZING_DATA_SOURCE}" \

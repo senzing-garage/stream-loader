@@ -504,7 +504,7 @@ def validate_configuration(config):
 
     # Log where to go for help.
 
-    if len(user_warning_messages) > 0 or len(user_error_messages) > 0 :
+    if len(user_warning_messages) > 0 or len(user_error_messages) > 0:
         logging.info(message_info(198))
 
     # If there are error messages, exit.
@@ -1291,7 +1291,7 @@ def get_g2_product(config):
 
 def cleanup_after_past_invocations():
     '''Remove residual artifacts from prior invocations of loader.'''
-    for filename in glob('pyG2*') :
+    for filename in glob('pyG2*'):
         os.remove(filename)
 
 

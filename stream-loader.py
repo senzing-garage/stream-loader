@@ -867,12 +867,9 @@ class ReadRabbitMqTestThread(threading.Thread):
     def __init__(self, config):
         threading.Thread.__init__(self)
         self.config = config
-        self.record_count = 0
 
     def callback(self, ch, method, properties, body):
         after_poll = time.time()
-
-        self.record_count = self.record_count + 1
 
         before_ack = time.time()
         ch.basic_ack(delivery_tag=method.delivery_tag)

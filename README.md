@@ -23,6 +23,8 @@ positional arguments:
     version             Print version of stream-loader.py.
     kafka-test          Read JSON Lines from Apache Kafka topic. Do not send
                         to Senzing.
+    rabbitmq            Read JSON Lines from RabbitMQ queue.
+    rabbitmq-test       Read JSON Lines from RabbitMQ. Do not send to Senzing.
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -72,34 +74,42 @@ To see the options for a subcommand, run commands like:
 
 ### Configuration
 
-- **SENZING_SUBCOMMAND** -
+* **SENZING_SUBCOMMAND** -
   Identify the subcommand to be run. See `stream-loader.py --help` for complete list.
-- **SENZING_DATA_SOURCE** -
+* **SENZING_DATA_SOURCE** -
   Default "DATA_SOURCE" value for incoming records.
-- **SENZING_DIR** -
+* **SENZING_DIR** -
   Location of Senzing libraries. Default: "/opt/senzing".
-- **SENZING_ENTITY_TYPE** -
+* **SENZING_ENTITY_TYPE** -
   Default "ENTITY_TYPE" value for incoming records.
-- **SENZING_INPUT_URL** -
+* **SENZING_INPUT_URL** -
   URL of source file.
-- **SENZING_KAFKA_BOOTSTRAP_SERVER** -
+* **SENZING_KAFKA_BOOTSTRAP_SERVER** -
   Hostname and port of Kafka server.  Default: "localhost:9092"
-- **SENZING_KAFKA_GROUP** -
+* **SENZING_KAFKA_GROUP** -
   Kafka group. Default: "senzing-kafka-group"
-- **SENZING_KAFKA_TOPIC** -
+* **SENZING_KAFKA_TOPIC** -
   Kafka topic. Default: "senzing-kafka-topic"
-- **SENZING_LOG_LEVEL** -
+* **SENZING_LOG_LEVEL** -
   Level of logging. {notset, debug, info, warning, error, critical}. Default: info
-- **SENZING_MONITORING_PERIOD** -
+* **SENZING_MONITORING_PERIOD** -
   Time, in seconds, between monitoring log records. Default: 300
-- **SENZING_PROCESSES** -
+* **SENZING_PROCESSES** -
   Number of processes to allocated for processing. Default: 1
-- **SENZING_QUEUE_MAX** -
+* **SENZING_QUEUE_MAX** -
   Maximum items for internal queue. Default: 10
-- **SENZING_SUBCOMMAND** -
+* **SENZING_SUBCOMMAND** -
   Amount of time to sleep, in seconds for `stream-loader.py sleep` subcommand. Default: 600.
-- **SENZING_THREADS_PER_PROCESS** -
+* **SENZING_THREADS_PER_PROCESS** -
   Number of threads per process to allocate for processing. Default: 4
+* **SENZING_RABBITMQ_HOST** -
+  Host name of the RabbitMQ exchange
+* **SENZING_RABBITMQ_QUEUE** -
+  Name of the RabbitMQ queue to create/connect with
+* **SENZING_RABBITMQ_USERNAME** -
+  The username for the RabbitMQ queue
+* **SENZING_RABBITMQ_PASSWORD** -
+  The password for the RabbitMQ queue
   
 1. To determine which configuration parameters are use for each `<subcommand>`, run:
 

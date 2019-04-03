@@ -18,7 +18,8 @@ RUN apt-get update \
 RUN pip install \
     configparser \
     confluent-kafka \
-    psutil
+    psutil \
+    pika
 
 # Copy into the app directory.
 

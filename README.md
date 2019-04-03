@@ -23,6 +23,8 @@ positional arguments:
     version             Print version of stream-loader.py.
     kafka-test          Read JSON Lines from Apache Kafka topic. Do not send
                         to Senzing.
+    rabbitmq            Read JSON Lines from RabbitMQ queue.
+    rabbitmq-test       Read JSON Lines from RabbitMQ. Do not send to Senzing.
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -100,6 +102,13 @@ To see the options for a subcommand, run commands like:
   Amount of time to sleep, in seconds for `stream-loader.py sleep` subcommand. Default: 600.
 - **SENZING_THREADS_PER_PROCESS** -
   Number of threads per process to allocate for processing. Default: 4
+- **SENZING_RABBITMQ_HOST**
+  Host name of the RabbitMQ exchange
+- **SENZING_RABBITMQ_QUEUE**
+  Name of the RabbitMQ queue to create/connect with
+- **SENZING_RABBITMQ_PASSWORD**
+  The password for the RabbitMQ queue
+- **
   
 1. To determine which configuration parameters are use for each `<subcommand>`, run:
 

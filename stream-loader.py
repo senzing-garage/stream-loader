@@ -122,7 +122,7 @@ configuration_locator = {
     },
     "rabbitmq_password": {
         "default": "bitnami",
-        "env": "SENZING_RABBITMQ_password",
+        "env": "SENZING_RABBITMQ_PASSWORD",
         "cli": "rabbitmq-password",
     },
     "ld_library_path": {

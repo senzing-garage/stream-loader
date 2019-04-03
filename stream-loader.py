@@ -638,7 +638,7 @@ class KafkaTestProcess(multiprocessing.Process):
             thread.join()
 
 # -----------------------------------------------------------------------------
-# Class: KafkaProcess
+# Class: RabbitMQProcess
 # -----------------------------------------------------------------------------
 
 

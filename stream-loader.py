@@ -898,7 +898,7 @@ class ReadRabbitMQWriteG2Thread(threading.Thread):
         rabbitmq_host = self.config.get("rabbitmq_host")
         self.data_source = self.config.get("data_source")
         self.entitiy_type = self.config.get("entity_type")
-        
+
         # Connect to RabbitMQ queue
         try:
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
@@ -995,6 +995,7 @@ class ReadKafkaTestThread(threading.Thread):
 # -----------------------------------------------------------------------------
 # Class: ReadRabbitMqTestThread
 # -----------------------------------------------------------------------------
+
 
 class ReadRabbitMqTestThread(threading.Thread):
 

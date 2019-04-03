@@ -76,6 +76,8 @@ To see the options for a subcommand, run commands like:
   Identify the subcommand to be run. See `stream-loader.py --help` for complete list.
 - **SENZING_DATA_SOURCE** -
   Default "DATA_SOURCE" value for incoming records.
+- **SENZING_DEBUG** -
+  Enable debug information. Values: 0=no debug; 1=debug. Default: 0.
 - **SENZING_DIR** -
   Location of Senzing libraries. Default: "/opt/senzing".
 - **SENZING_ENTITY_TYPE** -

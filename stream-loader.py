@@ -292,6 +292,7 @@ message_dictionary = {
     "127": "Monitor: {0}",
     "128": "Sleeping {0} seconds.",
     "129": "{0} is running.",
+    "130": "RabbitMQ channel closed by the broker. Shutting down thread {0}.",
     "197": "Version: {0}  Updated: {1}",
     "198": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "199": "{0}",
@@ -308,7 +309,7 @@ message_dictionary = {
     "408": "Running with less than the recommended total memory of {0} GiB.",
     "409": "Running with less than the recommended available memory of {0} GiB.",
     "411": "SENZING_KAFKA_BOOTSTRAP_SERVER not set. See ./stream-loader.py kafka --help.",
-    "412": "Invalid JSON received from Kafka: {0}",
+    "412": "Invalid JSON received: {0}",
     "414": "LD_LIBRARY_PATH environment variable not set.",
     "415": "PYTHONPATH environment variable not set.",
     "416": "SENZING_PROCESSES for 'url' subcommand must be 1. Currently set to {0}.",
@@ -635,6 +636,43 @@ class KafkaTestProcess(multiprocessing.Process):
             thread.join()
 
 # -----------------------------------------------------------------------------
+# Class: KafkaProcess
+# -----------------------------------------------------------------------------
+
+
+class RabbitMQProcess(multiprocessing.Process):
+
+    def __init__(self, config, g2_engine):
+        multiprocessing.Process.__init__(self)
+
+        # Create RabbitMQ reader threads.
+
+        self.threads = []
+        threads_per_process = config.get('threads_per_process')
+        for i in xrange(0, threads_per_process):
+            thread = ReadRabbitMQWriteG2Thread(config, g2_engine)
+            thread.name = "{0}-thread-{1}".format(self.name, i)
+            self.threads.append(thread)
+
+        # Create monitor thread for this process.
+
+        thread = MonitorThread(config, g2_engine, self.threads)
+        thread.name = "{0}-thread-monitor".format(self.name)
+        self.threads.append(thread)
+
+    def run(self):
+
+        # Start threads.
+
+        for thread in self.threads:
+            thread.start()
+
+        # Collect inactive threads.
+
+        for thread in self.threads:
+            thread.join()
+
+# -----------------------------------------------------------------------------
 # Class: RabbitMqTestProcess
 # -----------------------------------------------------------------------------
 
@@ -785,6 +823,102 @@ class ReadKafkaWriteG2Thread(threading.Thread):
         consumer.close()
 
 # -----------------------------------------------------------------------------
+# Class: ReadRabbitMQWriteG2Thread
+# -----------------------------------------------------------------------------
+
+
+class ReadRabbitMQWriteG2Thread(threading.Thread):
+
+    def __init__(self, config, g2_engine):
+        threading.Thread.__init__(self)
+        self.config = config
+        self.g2_engine = g2_engine
+
+    def send_jsonline_to_g2_engine(self, jsonline):
+        '''Send the JSONline to G2 engine.'''
+
+        json_dictionary = json.loads(jsonline)
+        record_id = str(json_dictionary['RECORD_ID'])
+        try:
+            self.g2_engine.addRecord(self.data_source, record_id, jsonline)
+        except G2Exception.TranslateG2ModuleException as err:
+            logging.error(message_error(512, err, jsonline))
+        except G2Exception.G2ModuleException as err:
+            logging.error(message_error(501, err, jsonline))
+        except G2Exception.G2ModuleGenericException as err:
+            logging.error(message_error(501, err, jsonline))
+        except Exception as err:
+            logging.error(message_error(510, err, jsonline))
+        except:
+            logging.error(message_error(511, jsonline))
+        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
+
+    def callback(self, ch, method, properties, body):
+        logging.debug(message_debug(903, threading.current_thread().name, body))
+        self.config['counter_queued_records'] += 1
+
+        # Verify that message is valid JSON.
+
+        try:
+            rabbitmq_message_dictionary = json.loads(body)
+        except:
+            logging.info(message_debug(412, body))
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            return
+
+        # If needed, modify JSON message.
+
+        if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
+            rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
+        if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
+            rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
+        rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
+
+        # Send valid JSON to Senzing.
+        self.send_jsonline_to_g2_engine(rabbitmq_message_string)
+
+        # Record successful transfer to Senzing.
+
+        self.config['counter_processed_records'] += 1
+
+        # After successful import into Senzing, tell Kafka we're done with message.
+
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+
+    def run(self):
+        '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''
+
+        logging.info(message_info(129, threading.current_thread().name))
+
+        # Get config parameters
+
+        rabbitmq_queue = self.config.get("rabbitmq_queue")
+        rabbitmq_username = self.config.get("rabbitmq_username")
+        rabbitmq_password = self.config.get("rabbitmq_password")
+        rabbitmq_host = self.config.get("rabbitmq_host")
+        self.data_source = self.config.get("data_source")
+        self.entitiy_type = self.config.get("entity_type")
+        
+        # Connect to RabbitMQ queue
+        try:
+            credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, credentials=credentials))
+            channel = connection.channel()
+            channel.queue_declare(queue=rabbitmq_queue)
+            channel.basic_qos(prefetch_count=1)
+            channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
+        except pika.exceptions.AMQPConnectionError as err:
+            exit_error(418, err, rabbitmq_host)
+        except BaseException as err:
+            exit_error(417, err)
+
+        # Start consuming
+        try:
+            channel.start_consuming()
+        except pika.exceptions.ChannelClosed:
+            logging.info(message_info(130))
+
+# -----------------------------------------------------------------------------
 # Class: ReadKafkaTestThread
 # -----------------------------------------------------------------------------
 
@@ -902,7 +1036,7 @@ class ReadRabbitMqTestThread(threading.Thread):
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, credentials=credentials))
             channel = connection.channel()
-            channel.queue_declare(queue=rabbitmq_queue, durable=True)
+            channel.queue_declare(queue=rabbitmq_queue)
             channel.basic_qos(prefetch_count=1)
             channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
         except (pika.exceptions.AMQPConnectionError) as err:
@@ -911,8 +1045,12 @@ class ReadRabbitMqTestThread(threading.Thread):
             exit_error(417, err)
 
         # Start consuming
+
         self.before_poll = time.time()
-        channel.start_consuming()
+        try:
+            channel.start_consuming()
+        except pika.exceptions.ChannelClosed:
+            logging.info(message_info(130, threading.current_thread().name))
 
 # -----------------------------------------------------------------------------
 # Class: UrlProcess
@@ -1702,7 +1840,7 @@ def do_rabbitmq(args):
 
     threads = []
     for i in xrange(0, threads_per_process):
-        thread = ReadKafkaWriteG2Thread(config, g2_engine)
+        thread = ReadRabbitMQWriteG2Thread(config, g2_engine)
         thread.name = "RabbitMQProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
@@ -1721,7 +1859,7 @@ def do_rabbitmq(args):
 
     processes = []
     for i in xrange(1, number_of_processes):  # Tricky: 1, not 0 because master process is first process.
-        process = KafkaProcess(config, g2_engine)
+        process = RabbitMQProcess(config, g2_engine)
         process.start()
 
     # Collect inactive processes.

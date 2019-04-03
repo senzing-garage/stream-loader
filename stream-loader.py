@@ -34,7 +34,7 @@ except:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-02-01'
+__updated__ = '2019-03-29'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -163,7 +163,7 @@ configuration_locator = {
         "cli": "senzing-dir"
     },
     "sleep_time": {
-        "default": 600,
+        "default": 0,
         "env": "SENZING_SLEEP_TIME",
         "cli": "sleep-time"
     },
@@ -201,7 +201,7 @@ def get_parser():
     subparser_1.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
 
     subparser_2 = subparsers.add_parser('sleep', help='Do nothing but sleep. For Docker testing.')
-    subparser_2.add_argument("--sleep-time", dest="sleep_time", metavar="SENZING_SLEEP_TIME", help="Sleep time in seconds. DEFAULT: 600")
+    subparser_2.add_argument("--sleep-time", dest="sleep_time", metavar="SENZING_SLEEP_TIME", help="Sleep time in seconds. DEFAULT: 0 (infinite)")
 
 #    subparser_3 = subparsers.add_parser('stdin', help='Read JSON Lines from STDIN.')
 #    subparser_3.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Used when JSON line does not have a `DATA_SOURCE` key.")
@@ -293,6 +293,7 @@ message_dictionary = {
     "128": "Sleeping {0} seconds.",
     "129": "{0} is running.",
     "130": "RabbitMQ channel closed by the broker. Shutting down thread {0}.",
+    "131": "Sleeping infinitely.",
     "197": "Version: {0}  Updated: {1}",
     "198": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "199": "{0}",
@@ -397,7 +398,8 @@ def get_g2project_ini_filename(args_dictionary):
 
     # If file not found, return error.
 
-    exit_error(406)
+    logging.warn(message_warn(406))
+    return None
 
 
 def get_configuration(args):
@@ -916,7 +918,7 @@ class ReadRabbitMQWriteG2Thread(threading.Thread):
         try:
             channel.start_consuming()
         except pika.exceptions.ChannelClosed:
-            logging.info(message_info(130))
+            logging.info(message_info(131))
 
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaTestThread
@@ -1051,7 +1053,7 @@ class ReadRabbitMqTestThread(threading.Thread):
         try:
             channel.start_consuming()
         except pika.exceptions.ChannelClosed:
-            logging.info(message_info(130, threading.current_thread().name))
+            logging.info(message_info(131, threading.current_thread().name))
 
 # -----------------------------------------------------------------------------
 # Class: UrlProcess
@@ -1927,13 +1929,20 @@ def do_sleep(args):
 
     # Pull values from configuration.
 
-    sleep_time = int(config.get('sleep_time'))
+    sleep_time = config.get('sleep_time')
 
     # Sleep
+    
+    if sleep_time > 0: 
+        logging.info(message_info(128, sleep_time))
+        time.sleep(sleep_time)
 
-    logging.info(message_info(128, sleep_time))
-    time.sleep(sleep_time)
-
+    else:
+        sleep_time = 3600
+        while True:
+            logging.info(message_info(130))
+            time.sleep(sleep_time)
+        
     # Epilog.
 
     logging.info(exit_template(config))

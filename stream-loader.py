@@ -1566,7 +1566,7 @@ def get_g2_product(config):
     try:
         result = G2Product()
         result.init(product_name, config.get('g2project_ini'), config.get('debug'))
-    except G2ModuleException as err:
+    except G2Exception.G2ModuleException as err:
         exit_error(504, config.get('g2project_ini'), err)
     return result
 

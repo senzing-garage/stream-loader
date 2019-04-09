@@ -907,7 +907,7 @@ class ReadRabbitMQWriteG2Thread(threading.Thread):
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, credentials=credentials))
             channel = connection.channel()
             channel.queue_declare(queue=rabbitmq_queue)
-            channel.basic_qos(prefetch_count=1)
+            channel.basic_qos(prefetch_count=10)
             channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
         except pika.exceptions.AMQPConnectionError as err:
             exit_error(418, err, rabbitmq_host)

@@ -9,6 +9,7 @@ import configparser
 import confluent_kafka
 from glob import glob
 import json
+import linecache
 import logging
 import multiprocessing
 from Queue import Empty
@@ -34,7 +35,7 @@ except:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-03-29'
+__updated__ = '2019-04-10'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -299,6 +300,7 @@ message_dictionary = {
     "199": "{0}",
     "200": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}W",
     "201": "Python 'psutil' not installed. Could not report memory.",
+    "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "400": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "401": "Missing G2 database URL.",
     "402": "Missing configuration table file.",
@@ -368,6 +370,24 @@ def message_error(index, *args):
 
 def message_debug(index, *args):
     return message_generic(900, index, *args)
+
+
+def get_exception():
+    ''' Get details about an exception. '''
+    exception_type, exception_object, traceback = sys.exc_info()
+    frame = traceback.tb_frame
+    line_number = traceback.tb_lineno
+    filename = frame.f_code.co_filename
+    linecache.checkcache(filename)
+    line = linecache.getline(filename, line_number, frame.f_globals)
+    return {
+        "filename": filename,
+        "line_number": line_number,
+        "line": line.strip(),
+        "exception": exception_object,
+        "type": exception_type,
+        "traceback": traceback,
+    }
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -1484,6 +1504,21 @@ def add_data_sources(config):
 
     try:
         g2_config_tables = G2ConfigTables(config_table_file, g2_module_path)
+
+        # Add explicitly specified DATA_SOURCE.
+
+        data_source = config.get('data_source')
+        if data_source:
+            g2_config_tables.addDataSource(data_source)
+
+        # Add explicitly specified ENTITY_TYPE.
+
+        entity_type = config.get('entity_type')
+        if entity_type:
+            g2_config_tables.addEntityType(entity_type)
+
+        # Add data sources / entity types from project file.
+
         product_name = "loader_G2_product"
         cfg_attr = g2_config_tables.loadConfig('CFG_ATTR')
         g2_project = G2Project(cfg_attr, project_filename, project_filespec)
@@ -1496,7 +1531,8 @@ def add_data_sources(config):
             except G2Exception.G2DBException as err:
                 exit_error(507, err)
     except:
-        pass
+        exception = get_exception()
+        logging.warn(message_warn(202, exception.get('line_number'), exception.get('line'), exception.get('exception')))
 
 
 def create_signal_handler_function(args):

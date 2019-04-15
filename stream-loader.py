@@ -35,7 +35,7 @@ except:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-04-10'
+__updated__ = '2019-04-15'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -445,7 +445,7 @@ def get_configuration(args):
 
         result['g2project_ini'] = g2project_ini_filename
 
-        config_parser = configparser.ConfigParser()
+        config_parser = configparser.RawConfigParser()
         config_parser.read(g2project_ini_filename)
 
         for key, value in configuration_locator.items():

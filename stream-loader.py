@@ -4,15 +4,15 @@
 # stream-loader.py Loader for streaming input.
 # -----------------------------------------------------------------------------
 
+from Queue import Empty
 import argparse
 import configparser
-import confluent_kafka
 from glob import glob
 import json
 import linecache
 import logging
+import math
 import multiprocessing
-from Queue import Empty
 import os
 import signal
 import sys
@@ -20,6 +20,8 @@ import threading
 import time
 import urllib2
 from urlparse import urlparse
+
+import confluent_kafka
 import pika
 
 # Import Senzing libraries.
@@ -29,13 +31,14 @@ try:
     import G2Exception
     from G2Product import G2Product
     from G2Project import G2Project
+    from G2Diagnostic import G2Diagnostic
 except:
     pass
 
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-04-15'
+__updated__ = '2019-04-22'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -295,6 +298,18 @@ message_dictionary = {
     "129": "{0} is running.",
     "130": "RabbitMQ channel closed by the broker. Shutting down thread {0}.",
     "131": "Sleeping infinitely.",
+    "140": "System Resources:",
+    "141": "    Physical cores: {0}",
+    "142": "     Logical cores: {0}",
+    "143": "      Total Memory: {0:.1f} GB",
+    "144": "  Available Memory: {0:.1f} GB",
+    "145": "Resource requested:",
+    "146": "                    Processes: {0}",
+    "147": "          Threads per process: {0}",
+    "148": "    Minimum recommended cores: {0}",
+    "149": "   Minimum recommended memory: {0:.1f} GB",
+    "150": "Insertion test: {0} records inserted in {1}ms with an average of {2:.2f}ms per insert.",
+    "151": "For database tuning help, see: https://senzing.zendesk.com/hc/en-us/sections/360000386433-Technical-Database",
     "197": "Version: {0}  Updated: {1}",
     "198": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "199": "{0}",
@@ -318,6 +333,10 @@ message_dictionary = {
     "416": "SENZING_PROCESSES for 'url' subcommand must be 1. Currently set to {0}.",
     "417": "Unknown RabbitMQ error when connecting: {0}.",
     "418": "Could not connect to RabbitMQ host at {1}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
+    "419": "Could not perform database performance test.",
+    "420": "Database performance of {0:.2f}ms per insert is slower than the recommended minimum performance of {1:.2f}ms per insert",
+    "421": "System has {0} cores which is less than the recommended minimum of {1} cores for this configuration.",
+    "422": "System has {0:.1f} GB memory which is less than the recommended minimum of {1:.1f} GB memory",
     "498": "Bad SENZING_SUBCOMMAND: {0}.",
     "499": "No processing done.",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
@@ -333,6 +352,9 @@ message_dictionary = {
     "510": "g2_engine_addRecord() failed with {0} on {1}",
     "511": "g2_engine_addRecord() failed on {0}",
     "512": "TranslateG2ModuleException {0}",
+    "513": "Could not do performance test. G2 Translation error at {0}. Error: {1}",
+    "514": "Could not do performance test. G2 module initialization error at {0}. Error: {1}",
+    "515": "Could not do performance test. G2 generic exeption at {0}. Error: {1}",
     "599": "Program terminated with error.",
     "900": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}D",
     "901": "Queued: {0}",
@@ -1658,6 +1680,82 @@ def log_license(g2_product):
     logging.info(message_info(199, '-' * 49))
 
 
+def log_performance(config):
+    '''Log performance estimates.'''
+
+    try:
+
+        # Initialized G2Diagnostic object.
+
+        diagnostic_name = "loader-G2-diagnostic"
+        g2_diagnostic = G2Diagnostic()
+        g2_diagnostic.init(diagnostic_name, config.get('g2_module_path'), config.get('debug', False))
+
+        # Calculations for memory.
+
+        total_system_memory = g2_diagnostic.getTotalSystemMemory() / float(GIGABYTES)
+        total_available_memory = g2_diagnostic.getAvailableMemory() / float(GIGABYTES)
+
+        # Log messages for system.
+
+        logging.info(message_info(140))
+        logging.info(message_info(141, g2_diagnostic.getPhysicalCores()))
+        if g2_diagnostic.getPhysicalCores() != g2_diagnostic.getLogicalCores():
+            logging.info(message_info(142, g2_diagnostic.getLogicalCores()))
+        logging.info(message_info(143, total_system_memory))
+        logging.info(message_info(144, total_available_memory))
+
+        # Calculations for processes, threads, and cores.
+
+        processes = config.get('processes')
+        threads_per_process = config.get('threads_per_process')
+        memory_per_process = 2.5
+        memory_per_thread = 0.5
+        threads_per_core = float(4 + 1)
+        minimum_recommended_cores = int(math.ceil((processes * threads_per_process) / threads_per_core))
+        minimum_recommended_memory = (processes * memory_per_process) + (threads_per_process * memory_per_thread)
+
+        # Log messages for resource request.
+
+        logging.info(message_info(145))
+        logging.info(message_info(146, processes))
+        logging.info(message_info(147, threads_per_process))
+        logging.info(message_info(148, minimum_recommended_cores))
+        logging.info(message_info(149, minimum_recommended_memory))
+
+        # Database performance testing.
+
+        performance_information = json.loads(g2_diagnostic.checkDBPerf(3))
+        number_of_records_inserted = performance_information.get('numRecordsInserted', 0)
+        time_to_insert = performance_information.get('insertTime', 0)
+        time_per_insert = None
+        if number_of_records_inserted and time_to_insert:
+            time_per_insert = time_to_insert / float(number_of_records_inserted)
+            logging.info(message_info(150, number_of_records_inserted, time_to_insert, time_per_insert))
+        else:
+            logging.warn(message_warn(419))
+
+        # Analysis.
+
+        maximum_time_allowed_per_insert_in_ms = 4
+        if time_per_insert and (time_per_insert > maximum_time_allowed_per_insert_in_ms):
+            logging.warn(message_warn(420, time_per_insert, maximum_time_allowed_per_insert_in_ms))
+            logging.info(message_info(151))
+
+        if g2_diagnostic.getPhysicalCores() < minimum_recommended_cores:
+            logging.warn(message_warn(421, g2_diagnostic.getPhysicalCores(), minimum_recommended_cores))
+
+        if total_available_memory < minimum_recommended_memory:
+            logging.warn(message_warn(422, total_available_memory, minimum_recommended_memory))
+
+    except G2Exception.TranslateG2ModuleException as err:
+        logging.warn(message_warn(513, config.get('g2_module_path'), err))
+    except G2Exception.G2ModuleNotInitialized as err:
+        logging.warn(message_warn(514, config.get('g2_module_path'), err))
+    except G2Exception.G2ModuleGenericException as err:
+        logging.warn(message_warn(515, config.get('g2_module_path'), err))
+
+
 def log_memory():
     '''Write total and available memory to log.  Check if it meets minimums.'''
     try:
@@ -1737,6 +1835,10 @@ def common_prolog(config):
     # Write memory statistics to log.
 
     log_memory()
+
+    # Test performance.
+
+    log_performance(config)
 
 # -----------------------------------------------------------------------------
 # do_* functions

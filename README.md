@@ -146,53 +146,6 @@ This repository assumes a working knowledge of:
 
 ### Run docker container
 
-#### Demonstrate URL to Senzing
-
-1. :pencil2: Determine docker network.  Example:
-
-    ```console
-    sudo docker network ls
-
-    # Choose value from NAME column of docker network ls
-    export SENZING_NETWORK=nameofthe_network
-    ```
-
-1. :pencil2: Set environment variables.  Example:
-
-    ```console
-    export DATABASE_PROTOCOL=mysql
-    export DATABASE_USERNAME=g2
-    export DATABASE_PASSWORD=g2
-    export DATABASE_HOST=senzing-mysql
-    export DATABASE_PORT=3306
-    export DATABASE_DATABASE=G2
-
-    export SENZING_SUBCOMMAND=url
-    export SENZING_DATA_SOURCE=PEOPLE
-    export SENZING_DIR=/opt/senzing
-    export SENZING_INPUT_URL=https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json
-    export SENZING_MONITORING_PERIOD=60
-    ```
-
-1. Run the docker container. Example:
-
-    ```console
-    export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
-
-    sudo docker run \
-      --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
-      --env SENZING_DATABASE_URL="${SENZING_DATABASE_URL}" \
-      --env SENZING_DATA_SOURCE="${SENZING_DATA_SOURCE}" \
-      --env SENZING_INPUT_URL="${SENZING_INPUT_URL}" \
-      --env SENZING_MONITORING_PERIOD="${SENZING_MONITORING_PERIOD}" \
-      --interactive \
-      --net ${SENZING_NETWORK} \
-      --rm \
-      --tty \
-      --volume ${SENZING_DIR}:/opt/senzing \
-      senzing/stream-loader
-    ```
-
 #### Demonstrate Kafka to Senzing
 
 1. :pencil2: Determine docker network.  Example:

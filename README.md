@@ -38,17 +38,40 @@ To see the options for a subcommand, run commands like:
 
 ### Contents
 
-1. [Using Command Line](#using-command-line)
+1. [Expectations](#expectations)
+    1. [Space](#space)
+    1. [Time](#time)
+    1. [Background knowledge](#background-knowledge)
+1. [Demonstrate using Command Line](#demonstrate-using-command-line)
     1. [Install](#install)
-    1. [Demonstrate](#demonstrate)
-1. [Using Docker](#using-docker)
-    1. [Build docker image](#build-docker-image)
+1. [Demonstrate using Docker](#demonstrate-using-docker)
+    1. [Create SENZING_DIR](#create-senzing_dir)
     1. [Configuration](#configuration)
-    1. [Run docker image](#run-docker-image)
+    1. [Run docker container](#run-docker-container)
+1. [Develop](#develop)
+    1. [Prerequisite software](#prerequisite-software)
+    1. [Clone repository](#clone-repository)
+    1. [Build docker image for development](#build-docker-image-for-development)
 1. [Examples](#examples)
-1. [Errors](errors)
+1. [Errors](#errors)
 
-## Using Command Line
+## Expectations
+
+### Space
+
+This repository and demonstration require 6 GB free disk space.
+
+### Time
+
+Budget 40 minutes to get the demonstration up-and-running, depending on CPU and network speeds.
+
+### Background knowledge
+
+This repository assumes a working knowledge of:
+
+1. [Docker](https://github.com/Senzing/knowledge-base/blob/master/WHATIS/docker.md)
+
+## Demonstrate using Command Line
 
 ### Install
 
@@ -58,24 +81,15 @@ To see the options for a subcommand, run commands like:
 1. Install mock-data-generator
     1. See [github.com/Senzing/mock-data-generator](https://github.com/Senzing/mock-data-generator#using-command-line)
 
-### Demonstrate
+## Demonstrate using Docker
 
-## Using Docker
+### Create SENZING_DIR
 
-### Build docker image
-
-1. Build docker image. Example:
-
-    ```console
-    sudo docker build \
-      --tag senzing/stream-loader \
-      https://github.com/senzing/stream-loader.git
-    ```
+1. If `/opt/senzing` directory is not on local system, visit
+   [HOWTO - Create SENZING_DIR](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/create-senzing-dir.md).
 
 ### Configuration
 
-* **SENZING_SUBCOMMAND** -
-  Identify the subcommand to be run. See `stream-loader.py --help` for complete list.
 * **SENZING_DATA_SOURCE** -
   Default "DATA_SOURCE" value for incoming records.
 * **SENZING_DATABASE_URL** -
@@ -109,8 +123,10 @@ To see the options for a subcommand, run commands like:
   Number of processes to allocated for processing. Default: 1
 * **SENZING_QUEUE_MAX** -
   Maximum items for internal queue. Default: 10
-* **SENZING_SUBCOMMAND** -
+* **SENZING_SLEEP_TIME** -
   Amount of time to sleep, in seconds for `stream-loader.py sleep` subcommand. Default: 600.
+* **SENZING_SUBCOMMAND** -
+  Identify the subcommand to be run. See `stream-loader.py --help` for complete list.  
 * **SENZING_THREADS_PER_PROCESS** -
   Number of threads per process to allocate for processing. Default: 4
 * **SENZING_RABBITMQ_HOST** -
@@ -128,20 +144,20 @@ To see the options for a subcommand, run commands like:
     ./stream-loader.py <subcommand> --help
     ```
 
-### Run docker image
+### Run docker container
 
 #### Demonstrate URL to Senzing
 
-1. Determine docker network:
+1. :pencil2: Determine docker network.  Example:
 
     ```console
-    docker network ls
+    sudo docker network ls
 
     # Choose value from NAME column of docker network ls
     export SENZING_NETWORK=nameofthe_network
     ```
 
-1. Run the docker container. Example:
+1. :pencil2: Set environment variables.  Example:
 
     ```console
     export DATABASE_PROTOCOL=mysql
@@ -152,11 +168,16 @@ To see the options for a subcommand, run commands like:
     export DATABASE_DATABASE=G2
 
     export SENZING_SUBCOMMAND=url
-    export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
     export SENZING_DATA_SOURCE=PEOPLE
     export SENZING_DIR=/opt/senzing
     export SENZING_INPUT_URL=https://s3.amazonaws.com/public-read-access/TestDataSets/loadtest-dataset-1M.json
     export SENZING_MONITORING_PERIOD=60
+    ```
+
+1. Run the docker container. Example:
+
+    ```console
+    export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
 
     sudo docker run \
       --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
@@ -174,16 +195,16 @@ To see the options for a subcommand, run commands like:
 
 #### Demonstrate Kafka to Senzing
 
-1. Determine docker network:
+1. :pencil2: Determine docker network.  Example:
 
     ```console
-    docker network ls
+    sudo docker network ls
 
     # Choose value from NAME column of docker network ls
     export SENZING_NETWORK=nameofthe_network
     ```
 
-1. Run the docker container. Example:
+1. :pencil2: Set environment variables.  Example:
 
     ```console
     export DATABASE_PROTOCOL=mysql
@@ -194,12 +215,17 @@ To see the options for a subcommand, run commands like:
     export DATABASE_DATABASE=G2
 
     export SENZING_SUBCOMMAND=kafka
-    export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
     export SENZING_DATA_SOURCE=PEOPLE
     export SENZING_DIR=/opt/senzing
     export SENZING_KAFKA_BOOTSTRAP_SERVER=senzing-kafka:9092
     export SENZING_KAFKA_TOPIC=senzing-kafka-topic
     export SENZING_MONITORING_PERIOD=60
+    ```
+
+1. Run the docker container.  Example:
+
+    ```console
+    export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
 
     sudo docker run \
       --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
@@ -216,10 +242,59 @@ To see the options for a subcommand, run commands like:
       senzing/stream-loader
     ```
 
+## Develop
+
+### Prerequisite software
+
+The following software programs need to be installed:
+
+1. [git](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/install-git.md)
+1. [make](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/install-make.md)
+1. [docker](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/install-docker.md)
+
+### Clone repository
+
+1. Set these environment variable values:
+
+    ```console
+    export GIT_ACCOUNT=senzing
+    export GIT_REPOSITORY=stream-loader
+    ```
+
+1. Follow steps in [clone-repository](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/clone-repository.md) to install the Git repository.
+
+1. After the repository has been cloned, be sure the following are set:
+
+    ```console
+    export GIT_ACCOUNT_DIR=~/${GIT_ACCOUNT}.git
+    export GIT_REPOSITORY_DIR="${GIT_ACCOUNT_DIR}/${GIT_REPOSITORY}"
+    ```
+
+### Build docker image for development
+
+1. Option #1 - Using docker command and GitHub.
+
+    ```console
+    sudo docker build --tag senzing/stream-loader https://github.com/senzing/docker-template.git
+    ```
+
+1. Option #2 - Using docker command and local repository.
+
+    ```console
+    cd ${GIT_REPOSITORY_DIR}
+    sudo docker build --tag senzing/stream-loader .
+    ```
+
+1. Option #3 - Using make command.
+
+    ```console
+    cd ${GIT_REPOSITORY_DIR}
+    sudo make docker-build
+    ```
+
 ## Examples
 
 1. Examples of use:
-    1. [docker-compose-db2-cluster-demo](https://github.com/Senzing/docker-compose-db2-cluster-demo)
     1. [rancher-demo](https://github.com/Senzing/rancher-demo/tree/master/docs/db2-cluster-demo.md)
 
 ## Errors

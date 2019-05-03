@@ -38,7 +38,7 @@ except:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-04-22'
+__updated__ = '2019-05-03'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -109,26 +109,6 @@ configuration_locator = {
         "env": "SENZING_KAFKA_TOPIC",
         "cli": "kafka-topic"
     },
-    "rabbitmq_host": {
-        "default": "localhost:5672",
-        "env": "SENZING_RABBITMQ_HOST",
-        "cli": "rabbitmq-host",
-    },
-    "rabbitmq_queue": {
-        "default": "senzing-rabbitmq-queue",
-        "env": "SENZING_RABBITMQ_QUEUE",
-        "cli": "rabbitmq-queue",
-    },
-    "rabbitmq_username": {
-        "default": "user",
-        "env": "SENZING_RABBITMQ_USERNAME",
-        "cli": "rabbitmq-username",
-    },
-    "rabbitmq_password": {
-        "default": "bitnami",
-        "env": "SENZING_RABBITMQ_PASSWORD",
-        "cli": "rabbitmq-password",
-    },
     "ld_library_path": {
         "env": "LD_LIBRARY_PATH"
     },
@@ -160,6 +140,26 @@ configuration_locator = {
     "queue_maxsize": {
         "default": 10,
         "env": "SENZING_QUEUE_MAX",
+    },
+    "rabbitmq_host": {
+        "default": "localhost:5672",
+        "env": "SENZING_RABBITMQ_HOST",
+        "cli": "rabbitmq-host",
+    },
+    "rabbitmq_password": {
+        "default": "bitnami",
+        "env": "SENZING_RABBITMQ_PASSWORD",
+        "cli": "rabbitmq-password",
+    },
+    "rabbitmq_queue": {
+        "default": "senzing-rabbitmq-queue",
+        "env": "SENZING_RABBITMQ_QUEUE",
+        "cli": "rabbitmq-queue",
+    },
+    "rabbitmq_username": {
+        "default": "user",
+        "env": "SENZING_RABBITMQ_USERNAME",
+        "cli": "rabbitmq-username",
     },
     "senzing_dir": {
         "default": "/opt/senzing",
@@ -310,6 +310,7 @@ message_dictionary = {
     "149": "   Minimum recommended memory: {0:.1f} GB",
     "150": "Insertion test: {0} records inserted in {1}ms with an average of {2:.2f}ms per insert.",
     "151": "For database tuning help, see: https://senzing.zendesk.com/hc/en-us/sections/360000386433-Technical-Database",
+    "152": "Sleeping {0} seconds before deploying administrative threads.",
     "197": "Version: {0}  Updated: {1}",
     "198": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "199": "{0}",
@@ -332,7 +333,7 @@ message_dictionary = {
     "415": "PYTHONPATH environment variable not set.",
     "416": "SENZING_PROCESSES for 'url' subcommand must be 1. Currently set to {0}.",
     "417": "Unknown RabbitMQ error when connecting: {0}.",
-    "418": "Could not connect to RabbitMQ host at {1}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
+    "418": "Could not connect to RabbitMQ host at {1}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details. Error: {0}",
     "419": "Could not perform database performance test.",
     "420": "Database performance of {0:.2f}ms per insert is slower than the recommended minimum performance of {1:.2f}ms per insert",
     "421": "System has {0} cores which is less than the recommended minimum of {1} cores for this configuration.",
@@ -624,17 +625,21 @@ class KafkaProcess(multiprocessing.Process):
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
 
-        # Create monitor thread for this process.
+        # Create administrative threads for this process.
 
+        self.adminThreads = []
         thread = MonitorThread(config, g2_engine, self.threads)
         thread.name = "{0}-thread-monitor".format(self.name)
-        self.threads.append(thread)
+        self.adminThreads.append(thread)
 
     def run(self):
 
         # Start threads.
 
         for thread in self.threads:
+            thread.start()
+
+        for thread in self.adminThreads:
             thread.start()
 
         # Collect inactive threads.
@@ -661,17 +666,21 @@ class KafkaTestProcess(multiprocessing.Process):
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
 
-        # Create monitor thread for this process.
+        # Create administrative threads for this process.
 
+        self.adminThreads = []
         thread = MonitorTestThread(config, self.threads)
         thread.name = "{0}-thread-monitor".format(self.name)
-        self.threads.append(thread)
+        self.adminThreads.append(thread)
 
     def run(self):
 
         # Start threads.
 
         for thread in self.threads:
+            thread.start()
+
+        for thread in self.adminThreads:
             thread.start()
 
         # Collect inactive threads.
@@ -698,11 +707,12 @@ class RabbitMQProcess(multiprocessing.Process):
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
 
-        # Create monitor thread for this process.
+        # Create administrative threads for this process.
 
+        self.adminThreads = []
         thread = MonitorThread(config, g2_engine, self.threads)
         thread.name = "{0}-thread-monitor".format(self.name)
-        self.threads.append(thread)
+        self.adminThreads.append(thread)
 
     def run(self):
 
@@ -711,22 +721,25 @@ class RabbitMQProcess(multiprocessing.Process):
         for thread in self.threads:
             thread.start()
 
+        for thread in self.adminThreads:
+            thread.start()
+
         # Collect inactive threads.
 
         for thread in self.threads:
             thread.join()
 
 # -----------------------------------------------------------------------------
-# Class: RabbitMqTestProcess
+# Class: RabbitMQTestProcess
 # -----------------------------------------------------------------------------
 
 
-class RabbitMqTestProcess(multiprocessing.Process):
+class RabbitMQTestProcess(multiprocessing.Process):
 
     def __init__(self, config):
         multiprocessing.Process.__init__(self)
 
-        # Create kafka reader threads.
+        # Create RabbitMQ reader threads.
 
         self.threads = []
         threads_per_process = config.get('threads_per_process')
@@ -735,17 +748,21 @@ class RabbitMqTestProcess(multiprocessing.Process):
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
 
-        # Create monitor thread for this process.
+        # Create administrative threads for this process.
 
+        self.adminThreads = []
         thread = MonitorTestThread(config, self.threads)
         thread.name = "{0}-thread-monitor".format(self.name)
-        self.threads.append(thread)
+        self.adminThreads.append(thread)
 
     def run(self):
 
         # Start threads.
 
         for thread in self.threads:
+            thread.start()
+
+        for thread in self.adminThreads:
             thread.start()
 
         # Collect inactive threads.
@@ -919,13 +936,14 @@ class ReadRabbitMQWriteG2Thread(threading.Thread):
         rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
 
         # Send valid JSON to Senzing.
+
         self.send_jsonline_to_g2_engine(rabbitmq_message_string)
 
         # Record successful transfer to Senzing.
 
         self.config['counter_processed_records'] += 1
 
-        # After successful import into Senzing, tell Kafka we're done with message.
+        # After successful import into Senzing, tell RabbitMQ we're done with message.
 
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -934,7 +952,7 @@ class ReadRabbitMQWriteG2Thread(threading.Thread):
 
         logging.info(message_info(129, threading.current_thread().name))
 
-        # Get config parameters
+        # Get config parameters.
 
         rabbitmq_queue = self.config.get("rabbitmq_queue")
         rabbitmq_username = self.config.get("rabbitmq_username")
@@ -943,7 +961,8 @@ class ReadRabbitMQWriteG2Thread(threading.Thread):
         self.data_source = self.config.get("data_source")
         self.entitiy_type = self.config.get("entity_type")
 
-        # Connect to RabbitMQ queue
+        # Connect to RabbitMQ queue.
+
         try:
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, credentials=credentials))
@@ -956,7 +975,8 @@ class ReadRabbitMQWriteG2Thread(threading.Thread):
         except BaseException as err:
             exit_error(417, err)
 
-        # Start consuming
+        # Start consuming.
+
         try:
             channel.start_consuming()
         except pika.exceptions.ChannelClosed:
@@ -1068,10 +1088,9 @@ class ReadRabbitMqTestThread(threading.Thread):
     def run(self):
         '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''
         self.thread_name = threading.current_thread().name
-
         logging.info(message_info(129, threading.current_thread().name))
 
-        # Connect to RabbitMQ queue
+        # Connect to RabbitMQ queue.
 
         rabbitmq_queue = self.config.get("rabbitmq_queue")
         rabbitmq_username = self.config.get("rabbitmq_username")
@@ -1089,7 +1108,7 @@ class ReadRabbitMqTestThread(threading.Thread):
         except BaseException as err:
             exit_error(417, err)
 
-        # Start consuming
+        # Start consuming.
 
         self.before_poll = time.time()
         try:
@@ -1345,7 +1364,12 @@ class MonitorThread(threading.Thread):
 
         # Sleep-monitor loop.
 
-        while True:
+        active_workers = len(self.workers)
+        for worker in self.workers:
+            if not worker.is_alive():
+                active_workers -= 1
+
+        while active_workers > 0:
 
             time.sleep(sleep_time)
 
@@ -1432,7 +1456,12 @@ class MonitorTestThread(threading.Thread):
 
         # Sleep-monitor loop.
 
-        while True:
+        active_workers = len(self.workers)
+        for worker in self.workers:
+            if not worker.is_alive():
+                active_workers -= 1
+
+        while active_workers > 0:
 
             time.sleep(sleep_time)
 
@@ -1883,13 +1912,26 @@ def do_kafka(args):
 
     # Create monitor thread for master process.
 
+    adminThreads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "KafkaProcess-0-thread-monitor"
-    threads.append(thread)
+    adminThreads.append(thread)
 
     # Start threads for master process.
 
     for thread in threads:
+        thread.start()
+
+    # Sleep, if requested.
+
+    sleep_time = config.get('sleep_time')
+    if sleep_time > 0:
+        logging.info(message_info(152, sleep_time))
+        time.sleep(sleep_time)
+
+    # Start administrative threads for master process.
+
+    for thread in adminThreads:
         thread.start()
 
     # Start additional processes. (if 2 or more processes are requested.)
@@ -1898,6 +1940,7 @@ def do_kafka(args):
     for i in xrange(1, number_of_processes):  # Tricky: 1, not 0 because master process is first process.
         process = KafkaProcess(config, g2_engine)
         process.start()
+        processes.append(process)
 
     # Collect inactive processes.
 
@@ -1977,7 +2020,7 @@ def do_rabbitmq(args):
     except G2Exception.G2ModuleException as err:
         exit_error(503, g2_module_path, err)
 
-    # Create kafka reader threads for master process.
+    # Create RabbitMQ reader threads for master process.
 
     threads = []
     for i in xrange(0, threads_per_process):
@@ -1987,13 +2030,26 @@ def do_rabbitmq(args):
 
     # Create monitor thread for master process.
 
+    adminThreads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "RabbitMQProcess-0-thread-monitor"
-    threads.append(thread)
+    adminThreads.append(thread)
 
     # Start threads for master process.
 
     for thread in threads:
+        thread.start()
+
+    # Sleep, if requested.
+
+    sleep_time = config.get('sleep_time')
+    if sleep_time > 0:
+        logging.info(message_info(152, sleep_time))
+        time.sleep(sleep_time)
+
+    # Start administrative threads for master process.
+
+    for thread in adminThreads:
         thread.start()
 
     # Start additional processes. (if 2 or more processes are requested.)
@@ -2002,6 +2058,7 @@ def do_rabbitmq(args):
     for i in xrange(1, number_of_processes):  # Tricky: 1, not 0 because master process is first process.
         process = RabbitMQProcess(config, g2_engine)
         process.start()
+        processes.append(process)
 
     # Collect inactive processes.
 
@@ -2041,7 +2098,7 @@ def do_rabbitmq_test(args):
 
     processes = []
     for i in xrange(0, number_of_processes):
-        process = RabbitMqTestProcess(config)
+        process = RabbitMQTestProcess(config)
         process.start()
 
     # Collect inactive processes.

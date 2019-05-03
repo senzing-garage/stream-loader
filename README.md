@@ -92,14 +92,23 @@ This repository assumes a working knowledge of:
 
 * **SENZING_DATA_SOURCE** -
   Default "DATA_SOURCE" value for incoming records.
+  No default.
 * **SENZING_DATABASE_URL** -
-  Database URI in the form: `${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}`  
+  Database URI in the form: `${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}`
+  Default:  [internal SQLite database]  
 * **SENZING_DEBUG** -
-  Enable debug information. Values: 0=no debug; 1=debug. Default: 0.
+  Enable debug information. Values: 0=no debug; 1=debug.
+  Default: 0.
 * **SENZING_DIR** -
-  Location of Senzing libraries. Default: "/opt/senzing".
+  Path on the local system where
+  [Senzing_API.tgz](https://s3.amazonaws.com/public-read-access/SenzingComDownloads/Senzing_API.tgz)
+  has been extracted.
+  See [Create SENZING_DIR](#create-senzing_dir).
+  No default.
+  Usually set to "/opt/senzing".
 * **SENZING_ENTITY_TYPE** -
   Default "ENTITY_TYPE" value for incoming records.
+  No default.
 * **SENZING_ENTRYPOINT_SLEEP** -
   Sleep, in seconds, before executing.
   0 for sleeping infinitely.
@@ -109,34 +118,48 @@ This repository assumes a working knowledge of:
   Default: [not-set].  
 * **SENZING_INPUT_URL** -
   URL of source file.
+  No default.
 * **SENZING_KAFKA_BOOTSTRAP_SERVER** -
-  Hostname and port of Kafka server.  Default: "localhost:9092"
+  Hostname and port of Kafka server.
+  Default: "localhost:9092"
 * **SENZING_KAFKA_GROUP** -
-  Kafka group. Default: "senzing-kafka-group"
+  Kafka group.
+  Default: "senzing-kafka-group"
 * **SENZING_KAFKA_TOPIC** -
-  Kafka topic. Default: "senzing-kafka-topic"
+  Kafka topic.
+  Default: "senzing-kafka-topic"
 * **SENZING_LOG_LEVEL** -
-  Level of logging. {notset, debug, info, warning, error, critical}. Default: info
+  Level of logging. {notset, debug, info, warning, error, critical}.
+  Default: info
 * **SENZING_MONITORING_PERIOD** -
-  Time, in seconds, between monitoring log records. Default: 300
+  Time, in seconds, between monitoring log records.
+  Default: 300
 * **SENZING_PROCESSES** -
-  Number of processes to allocated for processing. Default: 1
+  Number of processes to allocated for processing.
+  Default: 1
 * **SENZING_QUEUE_MAX** -
-  Maximum items for internal queue. Default: 10
+  Maximum items for internal queue.
+  Default: 10
+* **SENZING_RABBITMQ_HOST** -
+  Host name of the RabbitMQ exchange.
+  Default: "localhost:5672"
+* **SENZING_RABBITMQ_PASSWORD** -
+  The password for the RabbitMQ queue.
+  Default: "bitnami"
+* **SENZING_RABBITMQ_QUEUE** -
+  Name of the RabbitMQ queue used for communication.
+  Default: "senzing-rabbitmq-queue"
+* **SENZING_RABBITMQ_USERNAME** -
+  The username for the RabbitMQ queue.
+  Default: "user"
 * **SENZING_SLEEP_TIME** -
-  Amount of time to sleep, in seconds for `stream-loader.py sleep` subcommand. Default: 600.
+  Amount of time to sleep, in seconds for `stream-loader.py sleep` subcommand.
+  Default: 600.
 * **SENZING_SUBCOMMAND** -
   Identify the subcommand to be run. See `stream-loader.py --help` for complete list.  
 * **SENZING_THREADS_PER_PROCESS** -
-  Number of threads per process to allocate for processing. Default: 4
-* **SENZING_RABBITMQ_HOST** -
-  Host name of the RabbitMQ exchange
-* **SENZING_RABBITMQ_QUEUE** -
-  Name of the RabbitMQ queue to create/connect with
-* **SENZING_RABBITMQ_USERNAME** -
-  The username for the RabbitMQ queue
-* **SENZING_RABBITMQ_PASSWORD** -
-  The password for the RabbitMQ queue
+  Number of threads per process to allocate for processing.
+  Default: 4
   
 1. To determine which configuration parameters are use for each `<subcommand>`, run:
 
@@ -248,7 +271,7 @@ The following software programs need to be installed:
 ## Examples
 
 1. Examples of use:
-    1. [docker-compose-stream-loader-kafka-demo](https://github.com/Senzing/docker-compose-stream-loader-kafka-demo)
+    1. [docker-compose-demo](https://github.com/Senzing/docker-compose-demo)
     1. [kubernetes-demo](https://github.com/Senzing/kubernetes-demo)
     1. [rancher-demo](https://github.com/Senzing/rancher-demo/tree/master/docs/db2-cluster-demo.md)
 

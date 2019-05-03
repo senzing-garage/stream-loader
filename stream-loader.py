@@ -635,10 +635,10 @@ class KafkaProcess(multiprocessing.Process):
 
         # Start threads.
 
-        for thread in self.adminThreads:
+        for thread in self.threads:
             thread.start()
 
-        for thread in self.threads:
+        for thread in self.adminThreads:
             thread.start()
 
         # Collect inactive threads.
@@ -676,10 +676,10 @@ class KafkaTestProcess(multiprocessing.Process):
 
         # Start threads.
 
-        for thread in self.adminThreads:
+        for thread in self.threads:
             thread.start()
 
-        for thread in self.threads:
+        for thread in self.adminThreads:
             thread.start()
 
         # Collect inactive threads.
@@ -717,10 +717,10 @@ class RabbitMQProcess(multiprocessing.Process):
 
         # Start threads.
 
-        for thread in self.adminThreads:
+        for thread in self.threads:
             thread.start()
 
-        for thread in self.threads:
+        for thread in self.adminThreads:
             thread.start()
 
         # Collect inactive threads.
@@ -758,10 +758,10 @@ class RabbitMQTestProcess(multiprocessing.Process):
 
         # Start threads.
 
-        for thread in self.adminThreads:
+        for thread in self.threads:
             thread.start()
 
-        for thread in self.threads:
+        for thread in self.adminThreads:
             thread.start()
 
         # Collect inactive threads.
@@ -1364,6 +1364,10 @@ class MonitorThread(threading.Thread):
         # Sleep-monitor loop.
 
         active_workers = len(self.workers)
+        for worker in self.workers:
+            if not worker.is_alive():
+                active_workers -= 1
+
         while active_workers > 0:
 
             time.sleep(sleep_time)
@@ -1452,6 +1456,10 @@ class MonitorTestThread(threading.Thread):
         # Sleep-monitor loop.
 
         active_workers = len(self.workers)
+        for worker in self.workers:
+            if not worker.is_alive():
+                active_workers -= 1
+
         while active_workers > 0:
 
             time.sleep(sleep_time)
@@ -1910,10 +1918,10 @@ def do_kafka(args):
 
     # Start threads for master process.
 
-    for thread in adminThreads:
+    for thread in threads:
         thread.start()
 
-    for thread in threads:
+    for thread in adminThreads:
         thread.start()
 
     # Start additional processes. (if 2 or more processes are requested.)
@@ -2019,10 +2027,10 @@ def do_rabbitmq(args):
 
     # Start threads for master process.
 
-    for thread in adminThreads:
+    for thread in threads:
         thread.start()
 
-    for thread in threads:
+    for thread in adminThreads:
         thread.start()
 
     # Start additional processes. (if 2 or more processes are requested.)

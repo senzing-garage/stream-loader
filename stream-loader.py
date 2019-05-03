@@ -310,6 +310,7 @@ message_dictionary = {
     "149": "   Minimum recommended memory: {0:.1f} GB",
     "150": "Insertion test: {0} records inserted in {1}ms with an average of {2:.2f}ms per insert.",
     "151": "For database tuning help, see: https://senzing.zendesk.com/hc/en-us/sections/360000386433-Technical-Database",
+    "152": "Sleeping {0} seconds before deploying administrative threads.",
     "197": "Version: {0}  Updated: {1}",
     "198": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "199": "{0}",
@@ -1921,6 +1922,15 @@ def do_kafka(args):
     for thread in threads:
         thread.start()
 
+    # Sleep, if requested.
+
+    sleep_time = config.get('sleep_time')
+    if sleep_time > 0:
+        logging.info(message_info(152, sleep_time))
+        time.sleep(sleep_time)
+
+    # Start administrative threads for master process.
+
     for thread in adminThreads:
         thread.start()
 
@@ -2029,6 +2039,15 @@ def do_rabbitmq(args):
 
     for thread in threads:
         thread.start()
+
+    # Sleep, if requested.
+
+    sleep_time = config.get('sleep_time')
+    if sleep_time > 0:
+        logging.info(message_info(152, sleep_time))
+        time.sleep(sleep_time)
+
+    # Start administrative threads for master process.
 
     for thread in adminThreads:
         thread.start()

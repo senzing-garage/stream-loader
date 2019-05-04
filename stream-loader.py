@@ -1359,6 +1359,7 @@ class MonitorThread(threading.Thread):
         self.config = config
         self.g2_engine = g2_engine
         self.workers = workers
+        # FIXME: self.last_daily = datetime. 
 
     def run(self):
         '''Periodically monitor what is happening.'''
@@ -1381,6 +1382,10 @@ class MonitorThread(threading.Thread):
         while active_workers > 0:
 
             time.sleep(sleep_time)
+            
+            # FIXME: Determine if once-a-day messages should be processed.
+            
+            # FIXME: if ......
 
             # Calculate active Threads.
 
@@ -1698,18 +1703,12 @@ def send_jsonline_to_g2_engine(jsonline, g2_engine):
 # -----------------------------------------------------------------------------
 
 
-def log_license(config, g2_product):
+def log_license(config):
     '''Capture the license and version info in the log.'''
+
+    g2_product = get_g2_product(config)
     license = json.loads(g2_product.license())
     version = json.loads(g2_product.version())
-
-    # Calculations
-
-#     expire_date = datetime.datetime.strptime(license['expireDate'], '%Y-%m-%d')
-#     today = datetime.datetime.today()
-#     remaining_time = expire_date - today
-#     print(remaining_time)
-#     print(remaining_time.days)
 
     logging.info(message_info(103, '-' * 20))
     if 'VERSION' in version:
@@ -1739,6 +1738,10 @@ def log_license(config, g2_product):
     if 'contract' in license:
         logging.info(message_info(110, license['contract']))
     logging.info(message_info(199, '-' * 49))
+
+    # Garbage collect g2_product.
+
+    g2_product.destroy()
 
 
 def log_performance(config):
@@ -1889,9 +1892,7 @@ def common_prolog(config):
 
     # Write license information to log.
 
-    g2_product = get_g2_product(config)
-    log_license(config, g2_product)
-    g2_product.destroy()
+    log_license(config)
 
     # Write memory statistics to log.
 

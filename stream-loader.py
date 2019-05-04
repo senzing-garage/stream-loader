@@ -7,6 +7,7 @@
 from Queue import Empty
 import argparse
 import configparser
+import datetime
 from glob import glob
 import json
 import linecache
@@ -76,6 +77,11 @@ configuration_locator = {
         "default": None,
         "env": "SENZING_ENTITY_TYPE",
         "cli": "entity-type"
+    },
+    "expiration_warning_in_days": {
+        "default": 30,
+        "env": "SENZING_EXPIRATION_WARNING_IN_DAYS",
+        "cli": "expiration-warning-in-days"
     },
     "g2_database_url": {
         "ini": {
@@ -282,12 +288,13 @@ message_dictionary = {
     "101": "Enter {0}",
     "102": "Exit {0}",
     "103": "{0} LICENSE {0}",
-    "104": "     Version: {0} ({1})",
-    "105": "    Customer: {0}",
-    "106": "        Type: {0}",
-    "107": "  Expiration: {0}",
-    "108": "     Records: {0}",
-    "109": "    Contract: {0}",
+    "104": "          Version: {0} ({1})",
+    "105": "         Customer: {0}",
+    "106": "             Type: {0}",
+    "107": "  Expiration date: {0}",
+    "108": "  Expiration time: {0} days until expiration",
+    "109": "          Records: {0}",
+    "110": "         Contract: {0}",
     "122": "Quitting time!",
     "123": "Total     memory: {0:>15} bytes",
     "124": "Available memory: {0:>15} bytes",
@@ -317,6 +324,7 @@ message_dictionary = {
     "200": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}W",
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
+    "203": "          WARNING: License will expire soon. Only {0} days left.",
     "400": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "401": "Missing G2 database URL.",
     "402": "Missing configuration table file.",
@@ -519,7 +527,8 @@ def get_configuration(args):
 
     # Special case: Change integer strings to integers.
 
-    integers = ['monitoring_period',
+    integers = ['expiration_warning_in_days',
+                'monitoring_period',
                 'processes',
                 'threads_per_process',
                 'queue_maxsize',
@@ -1689,10 +1698,19 @@ def send_jsonline_to_g2_engine(jsonline, g2_engine):
 # -----------------------------------------------------------------------------
 
 
-def log_license(g2_product):
+def log_license(config, g2_product):
     '''Capture the license and version info in the log.'''
     license = json.loads(g2_product.license())
     version = json.loads(g2_product.version())
+
+    # Calculations
+
+#     expire_date = datetime.datetime.strptime(license['expireDate'], '%Y-%m-%d')
+#     today = datetime.datetime.today()
+#     remaining_time = expire_date - today
+#     print(remaining_time)
+#     print(remaining_time.days)
+
     logging.info(message_info(103, '-' * 20))
     if 'VERSION' in version:
         logging.info(message_info(104, version['VERSION'], version['BUILD_DATE']))
@@ -1702,10 +1720,24 @@ def log_license(g2_product):
         logging.info(message_info(106, license['licenseType']))
     if 'expireDate' in license:
         logging.info(message_info(107, license['expireDate']))
+
+        # Calculate days remaining.
+
+        expire_date = datetime.datetime.strptime(license['expireDate'], '%Y-%m-%d')
+        today = datetime.datetime.today()
+        remaining_time = expire_date - today
+        logging.info(message_info(108, remaining_time.days))
+
+        # Issue warning if license is about to expire.
+
+        expiration_warning_in_days = config.get('expiration_warning_in_days')
+        if remaining_time.days < expiration_warning_in_days:
+            logging.warn(message_warn(203, remaining_time.days))
+
     if 'recordLimit' in license:
-        logging.info(message_info(108, license['recordLimit']))
+        logging.info(message_info(109, license['recordLimit']))
     if 'contract' in license:
-        logging.info(message_info(109, license['contract']))
+        logging.info(message_info(110, license['contract']))
     logging.info(message_info(199, '-' * 49))
 
 
@@ -1858,7 +1890,7 @@ def common_prolog(config):
     # Write license information to log.
 
     g2_product = get_g2_product(config)
-    log_license(g2_product)
+    log_license(config, g2_product)
     g2_product.destroy()
 
     # Write memory statistics to log.
@@ -2121,6 +2153,10 @@ def do_sleep(args):
     # Prolog.
 
     logging.info(entry_template(config))
+
+    # # FIXME:  temp
+
+    common_prolog(config)
 
     # Pull values from configuration.
 

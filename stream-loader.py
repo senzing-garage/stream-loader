@@ -4,9 +4,9 @@
 # stream-loader.py Loader for streaming input.
 # -----------------------------------------------------------------------------
 
-from Queue import Empty
 import argparse
 import configparser
+import datetime
 from glob import glob
 import json
 import linecache
@@ -18,13 +18,28 @@ import signal
 import sys
 import threading
 import time
-import urllib2
-from urlparse import urlparse
-
 import confluent_kafka
 import pika
 
+# Python 2 / 3 migration.
+
+try:
+    from urllib.request import urlopen
+except ImportError:
+    from urllib2 import urlopen
+
+try:
+    import queue
+except ImportError:
+    import Queue as queue
+
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
+
 # Import Senzing libraries.
+
 try:
     from G2ConfigTables import G2ConfigTables
     from G2Engine import G2Engine
@@ -32,13 +47,13 @@ try:
     from G2Product import G2Product
     from G2Project import G2Project
     from G2Diagnostic import G2Diagnostic
-except:
+except ImportError:
     pass
 
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-05-03'
+__updated__ = '2019-05-07'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -76,6 +91,11 @@ configuration_locator = {
         "default": None,
         "env": "SENZING_ENTITY_TYPE",
         "cli": "entity-type"
+    },
+    "expiration_warning_in_days": {
+        "default": 30,
+        "env": "SENZING_EXPIRATION_WARNING_IN_DAYS",
+        "cli": "expiration-warning-in-days"
     },
     "g2_database_url": {
         "ini": {
@@ -282,12 +302,13 @@ message_dictionary = {
     "101": "Enter {0}",
     "102": "Exit {0}",
     "103": "{0} LICENSE {0}",
-    "104": "     Version: {0} ({1})",
-    "105": "    Customer: {0}",
-    "106": "        Type: {0}",
-    "107": "  Expiration: {0}",
-    "108": "     Records: {0}",
-    "109": "    Contract: {0}",
+    "104": "          Version: {0} ({1})",
+    "105": "         Customer: {0}",
+    "106": "             Type: {0}",
+    "107": "  Expiration date: {0}",
+    "108": "  Expiration time: {0} days until expiration",
+    "109": "          Records: {0}",
+    "110": "         Contract: {0}",
     "122": "Quitting time!",
     "123": "Total     memory: {0:>15} bytes",
     "124": "Available memory: {0:>15} bytes",
@@ -317,6 +338,7 @@ message_dictionary = {
     "200": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}W",
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
+    "203": "          WARNING: License will expire soon. Only {0} days left.",
     "400": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "401": "Missing G2 database URL.",
     "402": "Missing configuration table file.",
@@ -519,7 +541,8 @@ def get_configuration(args):
 
     # Special case: Change integer strings to integers.
 
-    integers = ['monitoring_period',
+    integers = ['expiration_warning_in_days',
+                'monitoring_period',
                 'processes',
                 'threads_per_process',
                 'queue_maxsize',
@@ -1335,7 +1358,7 @@ class ReadQueueWriteG2Thread(threading.Thread):
                 jsonline = self.queue.get()
                 self.send_jsonline_to_g2_engine(jsonline)
                 self.config['counter_processed_records'] += 1
-            except Empty:
+            except queue.Empty:
                 logging.info(message_info(122))
 
 # -----------------------------------------------------------------------------
@@ -1350,6 +1373,7 @@ class MonitorThread(threading.Thread):
         self.config = config
         self.g2_engine = g2_engine
         self.workers = workers
+        # FIXME: self.last_daily = datetime.
 
     def run(self):
         '''Periodically monitor what is happening.'''
@@ -1372,6 +1396,10 @@ class MonitorThread(threading.Thread):
         while active_workers > 0:
 
             time.sleep(sleep_time)
+
+            # FIXME: Determine if once-a-day messages should be processed.
+
+            # FIXME: if ......
 
             # Calculate active Threads.
 
@@ -1598,6 +1626,10 @@ def create_signal_handler_function(args):
     return result_function
 
 
+def bootstrap_signal_handler(signal, frame):
+    sys.exit(0)
+
+
 def entry_template(config):
     '''Format of entry message.'''
     config['start_time'] = time.time()
@@ -1689,10 +1721,13 @@ def send_jsonline_to_g2_engine(jsonline, g2_engine):
 # -----------------------------------------------------------------------------
 
 
-def log_license(g2_product):
+def log_license(config):
     '''Capture the license and version info in the log.'''
+
+    g2_product = get_g2_product(config)
     license = json.loads(g2_product.license())
     version = json.loads(g2_product.version())
+
     logging.info(message_info(103, '-' * 20))
     if 'VERSION' in version:
         logging.info(message_info(104, version['VERSION'], version['BUILD_DATE']))
@@ -1702,11 +1737,29 @@ def log_license(g2_product):
         logging.info(message_info(106, license['licenseType']))
     if 'expireDate' in license:
         logging.info(message_info(107, license['expireDate']))
+
+        # Calculate days remaining.
+
+        expire_date = datetime.datetime.strptime(license['expireDate'], '%Y-%m-%d')
+        today = datetime.datetime.today()
+        remaining_time = expire_date - today
+        logging.info(message_info(108, remaining_time.days))
+
+        # Issue warning if license is about to expire.
+
+        expiration_warning_in_days = config.get('expiration_warning_in_days')
+        if remaining_time.days < expiration_warning_in_days:
+            logging.warn(message_warn(203, remaining_time.days))
+
     if 'recordLimit' in license:
-        logging.info(message_info(108, license['recordLimit']))
+        logging.info(message_info(109, license['recordLimit']))
     if 'contract' in license:
-        logging.info(message_info(109, license['contract']))
+        logging.info(message_info(110, license['contract']))
     logging.info(message_info(199, '-' * 49))
+
+    # Garbage collect g2_product.
+
+    g2_product.destroy()
 
 
 def log_performance(config):
@@ -1825,7 +1878,7 @@ def worker_send_jsonlines_to_g2_engine(config, g2_engine):
             jsonline = jsonlines_queue.get()
             send_jsonline_to_g2_engine(jsonline, g2_engine)
             config['counter_processed_records'] += 1
-    except Empty:
+    except queue.Empty:
         logging.info(message_info(122))
 
 
@@ -1835,7 +1888,7 @@ def worker_send_jsonlines_to_log(config):
         while True:
             jsonline = jsonlines_queue.get(timeout=1)
             logging.info(message_info(199, jsonline))
-    except Empty:
+    except queue.Empty:
         logging.info(message_info(122))
 
 
@@ -1857,9 +1910,7 @@ def common_prolog(config):
 
     # Write license information to log.
 
-    g2_product = get_g2_product(config)
-    log_license(g2_product)
-    g2_product.destroy()
+    log_license(config)
 
     # Write memory statistics to log.
 
@@ -2306,6 +2357,11 @@ if __name__ == "__main__":
     log_level = log_level_map.get(log_level_parameter, logging.INFO)
     logging.basicConfig(format=log_format, level=log_level)
 
+    # Trap signals temporarily until args are parsed.
+
+    signal.signal(signal.SIGTERM, bootstrap_signal_handler)
+    signal.signal(signal.SIGINT, bootstrap_signal_handler)
+
     # Parse the command line arguments.
 
     subcommand = os.getenv("SENZING_SUBCOMMAND", None)
@@ -2317,12 +2373,17 @@ if __name__ == "__main__":
         args = argparse.Namespace(subcommand=subcommand)
     else:
         parser.print_help()
+        if len(os.getenv("SENZING_DOCKER_LAUNCHED", "")):
+            subcommand = "sleep"
+            args = argparse.Namespace(subcommand=subcommand)
+            do_sleep(args)
         exit_silently()
 
     # Catch interrupts. Tricky code: Uses currying.
 
     signal_handler = create_signal_handler_function(args)
     signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     # Transform subcommand from CLI parameter to function name string.
 

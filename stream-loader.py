@@ -4,7 +4,6 @@
 # stream-loader.py Loader for streaming input.
 # -----------------------------------------------------------------------------
 
-from Queue import Empty
 import argparse
 import configparser
 import datetime
@@ -19,13 +18,28 @@ import signal
 import sys
 import threading
 import time
-import urllib2
-from urlparse import urlparse
-
 import confluent_kafka
 import pika
 
+# Python 2 / 3 migration.
+
+try:
+    from urllib.request import urlopen
+except ImportError:
+    from urllib2 import urlopen
+
+try:
+    import queue
+except ImportError:
+    import Queue as queue
+
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
+
 # Import Senzing libraries.
+
 try:
     from G2ConfigTables import G2ConfigTables
     from G2Engine import G2Engine
@@ -33,13 +47,13 @@ try:
     from G2Product import G2Product
     from G2Project import G2Project
     from G2Diagnostic import G2Diagnostic
-except:
+except ImportError:
     pass
 
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-05-03'
+__updated__ = '2019-05-07'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -1344,7 +1358,7 @@ class ReadQueueWriteG2Thread(threading.Thread):
                 jsonline = self.queue.get()
                 self.send_jsonline_to_g2_engine(jsonline)
                 self.config['counter_processed_records'] += 1
-            except Empty:
+            except queue.Empty:
                 logging.info(message_info(122))
 
 # -----------------------------------------------------------------------------
@@ -1359,7 +1373,7 @@ class MonitorThread(threading.Thread):
         self.config = config
         self.g2_engine = g2_engine
         self.workers = workers
-        # FIXME: self.last_daily = datetime. 
+        # FIXME: self.last_daily = datetime.
 
     def run(self):
         '''Periodically monitor what is happening.'''
@@ -1382,9 +1396,9 @@ class MonitorThread(threading.Thread):
         while active_workers > 0:
 
             time.sleep(sleep_time)
-            
+
             # FIXME: Determine if once-a-day messages should be processed.
-            
+
             # FIXME: if ......
 
             # Calculate active Threads.
@@ -1610,6 +1624,10 @@ def create_signal_handler_function(args):
         sys.exit(0)
 
     return result_function
+
+
+def bootstrap_signal_handler(signal, frame):
+    sys.exit(0)
 
 
 def entry_template(config):
@@ -1860,7 +1878,7 @@ def worker_send_jsonlines_to_g2_engine(config, g2_engine):
             jsonline = jsonlines_queue.get()
             send_jsonline_to_g2_engine(jsonline, g2_engine)
             config['counter_processed_records'] += 1
-    except Empty:
+    except queue.Empty:
         logging.info(message_info(122))
 
 
@@ -1870,7 +1888,7 @@ def worker_send_jsonlines_to_log(config):
         while True:
             jsonline = jsonlines_queue.get(timeout=1)
             logging.info(message_info(199, jsonline))
-    except Empty:
+    except queue.Empty:
         logging.info(message_info(122))
 
 
@@ -2155,10 +2173,6 @@ def do_sleep(args):
 
     logging.info(entry_template(config))
 
-    # # FIXME:  temp
-
-    common_prolog(config)
-
     # Pull values from configuration.
 
     sleep_time = config.get('sleep_time')
@@ -2343,6 +2357,11 @@ if __name__ == "__main__":
     log_level = log_level_map.get(log_level_parameter, logging.INFO)
     logging.basicConfig(format=log_format, level=log_level)
 
+    # Trap signals temporarily until args are parsed.
+
+    signal.signal(signal.SIGTERM, bootstrap_signal_handler)
+    signal.signal(signal.SIGINT, bootstrap_signal_handler)
+
     # Parse the command line arguments.
 
     subcommand = os.getenv("SENZING_SUBCOMMAND", None)
@@ -2354,12 +2373,17 @@ if __name__ == "__main__":
         args = argparse.Namespace(subcommand=subcommand)
     else:
         parser.print_help()
+        if len(os.getenv("SENZING_DOCKER_LAUNCHED", "")):
+            subcommand = "sleep"
+            args = argparse.Namespace(subcommand=subcommand)
+            do_sleep(args)
         exit_silently()
 
     # Catch interrupts. Tricky code: Uses currying.
 
     signal_handler = create_signal_handler_function(args)
     signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     # Transform subcommand from CLI parameter to function name string.
 

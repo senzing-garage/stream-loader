@@ -1,10 +1,13 @@
 ARG BASE_IMAGE=senzing/senzing-base
 FROM ${BASE_IMAGE}
 
-ENV REFRESHED_AT=2019-03-22
+ENV REFRESHED_AT=2019-05-01
 
 LABEL Name="senzing/stream-loader" \
+      Maintainer="support@senzing.com" \
       Version="1.0.0"
+
+HEALTHCHECK CMD ["/app/healthcheck.sh"]
 
 # Install packages via apt.
 
@@ -13,7 +16,7 @@ RUN apt-get update \
     librdkafka-dev \
  && rm -rf /var/lib/apt/lists/*
 
-# Perform PIP installs.
+# Install packages via PIP.
 
 RUN pip install \
     configparser \
@@ -21,11 +24,14 @@ RUN pip install \
     psutil \
     pika
 
-# Copy into the app directory.
+# Copy files from repository.
 
+COPY ./rootfs /
 COPY ./stream-loader.py /app/
 
-# Override parent docker image.
+# Runtime execution.
+
+ENV SENZING_DOCKER_LAUNCHED=true
 
 WORKDIR /app
 ENTRYPOINT ["/app/docker-entrypoint.sh", "/app/stream-loader.py" ]

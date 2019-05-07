@@ -284,6 +284,8 @@ def get_parser():
     subparser_9.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in seconds, between monitoring reports. Default: 300")
     subparser_9.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
 
+    subparser_10 = subparsers.add_parser('docker-acceptance-test', help='For Docker acceptance testing.')
+
     return parser
 
 # -----------------------------------------------------------------------------
@@ -1924,6 +1926,22 @@ def common_prolog(config):
 # do_* functions
 #   Common function signature: do_XXX(args)
 # -----------------------------------------------------------------------------
+
+
+def do_docker_acceptance_test(args):
+    '''Sleep.'''
+
+    # Get context from CLI, environment variables, and ini files.
+
+    config = get_configuration(args)
+
+    # Prolog.
+
+    logging.info(entry_template(config))
+
+    # Epilog.
+
+    logging.info(exit_template(config))
 
 
 def do_kafka(args):

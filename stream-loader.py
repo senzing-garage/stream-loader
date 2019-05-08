@@ -53,7 +53,7 @@ except ImportError:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-05-07'
+__updated__ = '2019-05-08'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -2181,7 +2181,7 @@ def do_rabbitmq_test(args):
 
 
 def do_sleep(args):
-    '''Sleep.'''
+    '''Sleep.  Used for debugging.'''
 
     # Get context from CLI, environment variables, and ini files.
 
@@ -2417,4 +2417,3 @@ if __name__ == "__main__":
     # Tricky code for calling function based on string.
 
     globals()[subcommand_function_name](args)
-

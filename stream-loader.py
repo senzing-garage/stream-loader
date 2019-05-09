@@ -132,10 +132,15 @@ configuration_locator = {
     "ld_library_path": {
         "env": "LD_LIBRARY_PATH"
     },
-    "monitoring_period": {
-        "default": 300,
-        "env": "SENZING_MONITORING_PERIOD",
-        "cli": "monitoring-period",
+    "log_license_period_in_seconds": {
+        "default": 60 * 60 * 24,
+        "env": "SENZING_LOG_LICENSE_PERIOD_IN_SECONDS",
+        "cli": "log-license-period-in-seconds"
+    },
+    "monitoring_period_in_seconds": {
+        "default": 60 * 10,
+        "env": "SENZING_MONITORING_PERIOD_IN_SECONDS",
+        "cli": "monitoring-period-in-seconds",
     },
     "processes": {
         "default": 1,
@@ -186,10 +191,10 @@ configuration_locator = {
         "env": "SENZING_DIR",
         "cli": "senzing-dir"
     },
-    "sleep_time": {
+    "sleep_time_in_seconds": {
         "default": 0,
-        "env": "SENZING_SLEEP_TIME",
-        "cli": "sleep-time"
+        "env": "SENZING_SLEEP_TIME_IN_SECONDS",
+        "cli": "sleep-time-in-seconds"
     },
     "subcommand": {
         "default": None,
@@ -219,20 +224,20 @@ def get_parser():
     subparser_1.add_argument("--kafka-bootstrap-server", dest="kafka_bootstrap_server", metavar="SENZING_KAFKA_BOOTSTRAP_SERVER", help="Kafka bootstrap server. Default: localhost:9092")
     subparser_1.add_argument("--kafka-group", dest="kafka_group", metavar="SENZING_KAFKA_GROUP", help="Kafka group. Default: senzing-kafka-group")
     subparser_1.add_argument("--kafka-topic", dest="kafka_topic", metavar="SENZING_KAFKA_TOPIC", help="Kafka topic. Default: senzing-kafka-topic")
-    subparser_1.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in seconds, between monitoring reports. Default: 300")
+    subparser_1.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in seconds, between monitoring reports. Default: 300")
     subparser_1.add_argument("--processes", dest="processes", metavar="SENZING_PROCESSES", help="Number of processes. Default: 1")
     subparser_1.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing")
     subparser_1.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
 
     subparser_2 = subparsers.add_parser('sleep', help='Do nothing but sleep. For Docker testing.')
-    subparser_2.add_argument("--sleep-time", dest="sleep_time", metavar="SENZING_SLEEP_TIME", help="Sleep time in seconds. DEFAULT: 0 (infinite)")
+    subparser_2.add_argument("--sleep-time-in-seconds", dest="sleep_time_in_seconds", metavar="SENZING_SLEEP_TIME_IN_SECONDS", help="Sleep time in seconds. DEFAULT: 0 (infinite)")
 
 #    subparser_3 = subparsers.add_parser('stdin', help='Read JSON Lines from STDIN.')
 #    subparser_3.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Used when JSON line does not have a `DATA_SOURCE` key.")
 #    subparser_3.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
 #    subparser_3.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
 #    subparser_3.add_argument("--input-workers", dest="input_workers", metavar="SENZING_INPUT_WORKERS", help="Number of workers receiving input. Default: 3")
-#    subparser_3.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in second between monitoring reports. Default: 300")
+#    subparser_3.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in second between monitoring reports. Default: 300")
 #    subparser_3.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
 #    subparser_3.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing ")
 
@@ -248,7 +253,7 @@ def get_parser():
     subparser_5.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
     subparser_5.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
     subparser_5.add_argument("--input-url", dest="input_url", metavar="SENZING_INPUT_URL", help="URL to file of JSON lines.")
-    subparser_5.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in seconds, between monitoring reports. Default: 300")
+    subparser_5.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in seconds, between monitoring reports. Default: 300")
     subparser_5.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing")
     subparser_5.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
 
@@ -259,7 +264,7 @@ def get_parser():
     subparser_7.add_argument("--kafka-bootstrap-server", dest="kafka_bootstrap_server", metavar="SENZING_KAFKA_BOOTSTRAP_SERVER", help="Kafka bootstrap server. Default: localhost:9092")
     subparser_7.add_argument("--kafka-group", dest="kafka_group", metavar="SENZING_KAFKA_GROUP", help="Kafka group. Default: senzing-kafka-group")
     subparser_7.add_argument("--kafka-topic", dest="kafka_topic", metavar="SENZING_KAFKA_TOPIC", help="Kafka topic. Default: senzing-kafka-topic")
-    subparser_7.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in seconds, between monitoring reports. Default: 300")
+    subparser_7.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in seconds, between monitoring reports. Default: 300")
     subparser_7.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
 
     subparser_8 = subparsers.add_parser('rabbitmq', help='Read JSON Lines from RabbitMQ queue.')
@@ -270,7 +275,7 @@ def get_parser():
     subparser_8.add_argument("--rabbitmq-queue", dest="rabbitmq_queue", metavar="SENZING_RABBITMQ_QUEUE", help="RabbitMQ queue. Default: senzing-rabbitmq-queue")
     subparser_8.add_argument("--rabbitmq-username", dest="rabbitmq_username", metavar="SENZING_RABBITMQ_USERNAME", help="RabbitMQ username. Default: user")
     subparser_8.add_argument("--rabbitmq-password", dest="rabbitmq_password", metavar="SENZING_RABBITMQ_PASSWORD", help="RabbitMQ password. Default: bitnami")
-    subparser_8.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in seconds, between monitoring reports. Default: 300")
+    subparser_8.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in seconds, between monitoring reports. Default: 300")
     subparser_8.add_argument("--processes", dest="processes", metavar="SENZING_PROCESSES", help="Number of processes. Default: 1")
     subparser_8.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing")
     subparser_8.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
@@ -281,7 +286,7 @@ def get_parser():
     subparser_9.add_argument("--rabbitmq-queue", dest="rabbitmq_queue", metavar="SENZING_RABBITMQ_QUEUE", help="RabbitMQ queue. Default: senzing-rabbitmq-queue")
     subparser_9.add_argument("--rabbitmq-username", dest="rabbitmq_username", metavar="SENZING_RABBITMQ_USERNAME", help="RabbitMQ username. Default: user")
     subparser_9.add_argument("--rabbitmq-password", dest="rabbitmq_password", metavar="SENZING_RABBITMQ_PASSWORD", help="RabbitMQ password. Default: bitnami")
-    subparser_9.add_argument("--monitoring-period", dest="monitoring_period", metavar="SENZING_MONITORING_PERIOD", help="Period, in seconds, between monitoring reports. Default: 300")
+    subparser_9.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in seconds, between monitoring reports. Default: 300")
     subparser_9.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
 
     subparser_10 = subparsers.add_parser('docker-acceptance-test', help='For Docker acceptance testing.')
@@ -544,11 +549,12 @@ def get_configuration(args):
     # Special case: Change integer strings to integers.
 
     integers = ['expiration_warning_in_days',
-                'monitoring_period',
+                'log_license_period_in_seconds',
+                'monitoring_period_in_seconds',
                 'processes',
-                'threads_per_process',
                 'queue_maxsize',
-                'sleep_time']
+                'sleep_time_in_seconds',
+                'threads_per_process']
     for integer in integers:
         integer_string = result.get(integer)
         result[integer] = int(integer_string)
@@ -1383,10 +1389,12 @@ class MonitorThread(threading.Thread):
         last_processed_records = 0
         last_queued_records = 0
         last_time = time.time()
+        last_log_license = time.time()
+        log_license_period_in_seconds = self.config.get("log_license_period_in_seconds")
 
         # Define monitoring report interval.
 
-        sleep_time = self.config.get('monitoring_period')
+        sleep_time_in_seconds = self.config.get('monitoring_period_in_seconds')
 
         # Sleep-monitor loop.
 
@@ -1397,11 +1405,7 @@ class MonitorThread(threading.Thread):
 
         while active_workers > 0:
 
-            time.sleep(sleep_time)
-
-            # FIXME: Determine if once-a-day messages should be processed.
-
-            # FIXME: if ......
+            time.sleep(sleep_time_in_seconds)
 
             # Calculate active Threads.
 
@@ -1415,11 +1419,20 @@ class MonitorThread(threading.Thread):
             if (active_workers / float(len(self.workers))) < 0.5:
                 logging.warn(message_warn(502))
 
-            # Calculate rates.
+            # Calculate times.
 
             now = time.time()
             uptime = now - self.config.get('start_time', now)
             elapsed_time = now - last_time
+            elapsed_log_license = now - last_log_license
+
+            # Log license periodically to show days left in license.
+
+            if elapsed_log_license > log_license_period_in_seconds:
+                log_license(self.config)
+                last_log_license = now
+
+            # Calculate rates.
 
             processed_records_total = self.config['counter_processed_records']
             processed_records_interval = processed_records_total - last_processed_records
@@ -1482,7 +1495,7 @@ class MonitorTestThread(threading.Thread):
 
         # Define monitoring report interval.
 
-        sleep_time = self.config.get('monitoring_period')
+        sleep_time_in_seconds = self.config.get('monitoring_period_in_seconds')
 
         # Sleep-monitor loop.
 
@@ -1493,7 +1506,7 @@ class MonitorTestThread(threading.Thread):
 
         while active_workers > 0:
 
-            time.sleep(sleep_time)
+            time.sleep(sleep_time_in_seconds)
 
             # Calculate active Threads.
 
@@ -1993,10 +2006,10 @@ def do_kafka(args):
 
     # Sleep, if requested.
 
-    sleep_time = config.get('sleep_time')
-    if sleep_time > 0:
-        logging.info(message_info(152, sleep_time))
-        time.sleep(sleep_time)
+    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
+    if sleep_time_in_seconds > 0:
+        logging.info(message_info(152, sleep_time_in_seconds))
+        time.sleep(sleep_time_in_seconds)
 
     # Start administrative threads for master process.
 
@@ -2111,10 +2124,10 @@ def do_rabbitmq(args):
 
     # Sleep, if requested.
 
-    sleep_time = config.get('sleep_time')
-    if sleep_time > 0:
-        logging.info(message_info(152, sleep_time))
-        time.sleep(sleep_time)
+    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
+    if sleep_time_in_seconds > 0:
+        logging.info(message_info(152, sleep_time_in_seconds))
+        time.sleep(sleep_time_in_seconds)
 
     # Start administrative threads for master process.
 
@@ -2193,19 +2206,19 @@ def do_sleep(args):
 
     # Pull values from configuration.
 
-    sleep_time = config.get('sleep_time')
+    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
 
     # Sleep
 
-    if sleep_time > 0:
-        logging.info(message_info(128, sleep_time))
-        time.sleep(sleep_time)
+    if sleep_time_in_seconds > 0:
+        logging.info(message_info(128, sleep_time_in_seconds))
+        time.sleep(sleep_time_in_seconds)
 
     else:
-        sleep_time = 3600
+        sleep_time_in_seconds = 3600
         while True:
             logging.info(message_info(131))
-            time.sleep(sleep_time)
+            time.sleep(sleep_time_in_seconds)
 
     # Epilog.
 

@@ -1463,8 +1463,9 @@ class MonitorThread(threading.Thread):
 
             # Log engine statistics with sorted JSON keys.
 
-            g2_engine_stats_string = self.g2_engine.stats()
-            g2_engine_stats_dictionary = json.loads(g2_engine_stats_string)
+            g2_engine_stats_response = bytearray()
+            self.g2_engine.stats(g2_engine_stats_response)
+            g2_engine_stats_dictionary = json.loads(g2_engine_stats_response.decode())
             logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
 
             # Store values for next iteration of loop.
@@ -1614,8 +1615,7 @@ def add_data_sources(config):
         # Add data sources / entity types from project file.
 
         product_name = "loader_G2_product"
-        cfg_attr = g2_config_tables.loadConfig('CFG_ATTR')
-        g2_project = G2Project(cfg_attr, project_filename, project_filespec)
+        g2_project = G2Project(g2_config_tables, project_filename, project_filespec)
         if not g2_config_tables.verifyEntityTypeExists("GENERIC"):
             exit_error(506)
         for source in g2_project.sourceList:
@@ -1822,7 +1822,9 @@ def log_performance(config):
 
         # Database performance testing.
 
-        performance_information = json.loads(g2_diagnostic.checkDBPerf(3))
+        db_perf_response = bytearray()
+        g2_diagnostic.checkDBPerf(3, db_perf_response)
+        performance_information = json.loads(db_perf_response.decode())
         number_of_records_inserted = performance_information.get('numRecordsInserted', 0)
         time_to_insert = performance_information.get('insertTime', 0)
         time_per_insert = None

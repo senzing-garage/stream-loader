@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 # -----------------------------------------------------------------------------
 # stream-loader.py Loader for streaming input.
@@ -53,7 +53,7 @@ except ImportError:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-05-08'
+__updated__ = '2019-07-10'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -480,12 +480,12 @@ def get_configuration(args):
 
     # Copy default values into configuration dictionary.
 
-    for key, value in configuration_locator.items():
+    for key, value in list(configuration_locator.items()):
         result[key] = value.get('default', None)
 
     # "Prime the pump" with command line args. This will be done again as the last step.
 
-    for key, value in args.__dict__.items():
+    for key, value in list(args.__dict__.items()):
         new_key = key.format(subcommand.replace('-', '_'))
         if value:
             result[new_key] = value
@@ -500,7 +500,7 @@ def get_configuration(args):
         config_parser = configparser.RawConfigParser()
         config_parser.read(g2project_ini_filename)
 
-        for key, value in configuration_locator.items():
+        for key, value in list(configuration_locator.items()):
             keyword_args = value.get('ini', None)
             if keyword_args:
                 try:
@@ -510,7 +510,7 @@ def get_configuration(args):
 
     # Copy OS environment variables into configuration dictionary.
 
-    for key, value in configuration_locator.items():
+    for key, value in list(configuration_locator.items()):
         os_env_var = value.get('env', None)
         if os_env_var:
             os_env_value = os.getenv(os_env_var, None)
@@ -519,7 +519,7 @@ def get_configuration(args):
 
     # Copy 'args' into configuration dictionary.
 
-    for key, value in args.__dict__.items():
+    for key, value in list(args.__dict__.items()):
         new_key = key.format(subcommand.replace('-', '_'))
         if value:
             result[new_key] = value
@@ -651,7 +651,7 @@ class KafkaProcess(multiprocessing.Process):
 
         self.threads = []
         threads_per_process = config.get('threads_per_process')
-        for i in xrange(0, threads_per_process):
+        for i in range(0, threads_per_process):
             thread = ReadKafkaWriteG2Thread(config, g2_engine)
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
@@ -692,7 +692,7 @@ class KafkaTestProcess(multiprocessing.Process):
 
         self.threads = []
         threads_per_process = config.get('threads_per_process')
-        for i in xrange(0, threads_per_process):
+        for i in range(0, threads_per_process):
             thread = ReadKafkaTestThread(config)
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
@@ -733,7 +733,7 @@ class RabbitMQProcess(multiprocessing.Process):
 
         self.threads = []
         threads_per_process = config.get('threads_per_process')
-        for i in xrange(0, threads_per_process):
+        for i in range(0, threads_per_process):
             thread = ReadRabbitMQWriteG2Thread(config, g2_engine)
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
@@ -774,7 +774,7 @@ class RabbitMQTestProcess(multiprocessing.Process):
 
         self.threads = []
         threads_per_process = config.get('threads_per_process')
-        for i in xrange(0, threads_per_process):
+        for i in range(0, threads_per_process):
             thread = ReadRabbitMqTestThread(config)
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
@@ -1179,7 +1179,7 @@ class UrlProcess(multiprocessing.Process):
         # Create URL writer threads.
 
         threads_per_process = config.get('threads_per_process')
-        for i in xrange(0, threads_per_process):
+        for i in range(0, threads_per_process):
             thread = ReadQueueWriteG2Thread(config, self.g2_engine, work_queue)
             thread.name = "{0}-writer-{1}".format(self.name, i)
             self.threads.append(thread)
@@ -1253,7 +1253,7 @@ class ReadUrlWriteQueueThread(threading.Thread):
         def input_lines_from_url(self, output_line_function):
             '''Process for reading lines from a URL and feeding them to a output_line_function() function'''
             input_url = self.config.get('input_url')
-            data = urllib2.urlopen(input_url)
+            data = urllib.request.urlopen(input_url)
             for line in data:
                 self.config['counter_queued_records'] += 1
                 logging.debug(message_debug(901, line))
@@ -1989,7 +1989,7 @@ def do_kafka(args):
     # Create kafka reader threads for master process.
 
     threads = []
-    for i in xrange(0, threads_per_process):
+    for i in range(0, threads_per_process):
         thread = ReadKafkaWriteG2Thread(config, g2_engine)
         thread.name = "KafkaProcess-0-thread-{0}".format(i)
         threads.append(thread)
@@ -2021,7 +2021,7 @@ def do_kafka(args):
     # Start additional processes. (if 2 or more processes are requested.)
 
     processes = []
-    for i in xrange(1, number_of_processes):  # Tricky: 1, not 0 because master process is first process.
+    for i in range(1, number_of_processes):  # Tricky: 1, not 0 because master process is first process.
         process = KafkaProcess(config, g2_engine)
         process.start()
         processes.append(process)
@@ -2063,7 +2063,7 @@ def do_kafka_test(args):
     # Start processes.
 
     processes = []
-    for i in xrange(0, number_of_processes):
+    for i in range(0, number_of_processes):
         process = KafkaTestProcess(config)
         process.start()
 
@@ -2107,7 +2107,7 @@ def do_rabbitmq(args):
     # Create RabbitMQ reader threads for master process.
 
     threads = []
-    for i in xrange(0, threads_per_process):
+    for i in range(0, threads_per_process):
         thread = ReadRabbitMQWriteG2Thread(config, g2_engine)
         thread.name = "RabbitMQProcess-0-thread-{0}".format(i)
         threads.append(thread)
@@ -2139,7 +2139,7 @@ def do_rabbitmq(args):
     # Start additional processes. (if 2 or more processes are requested.)
 
     processes = []
-    for i in xrange(1, number_of_processes):  # Tricky: 1, not 0 because master process is first process.
+    for i in range(1, number_of_processes):  # Tricky: 1, not 0 because master process is first process.
         process = RabbitMQProcess(config, g2_engine)
         process.start()
         processes.append(process)
@@ -2181,7 +2181,7 @@ def do_rabbitmq_test(args):
     # Start processes.
 
     processes = []
-    for i in xrange(0, number_of_processes):
+    for i in range(0, number_of_processes):
         process = RabbitMQTestProcess(config)
         process.start()
 
@@ -2348,7 +2348,7 @@ def do_url(args):
     # Start processes.
 
     processes = []
-    for i in xrange(0, number_of_processes):
+    for i in range(0, number_of_processes):
         process = UrlProcess(config, work_queue)
         process.start()
 

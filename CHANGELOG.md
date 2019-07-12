@@ -8,13 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.1] - 2019-07-10
 
-### Changed
+### Changed in 1.0.1
 
 - Migrate to python3
 
 ## [1.0.0] - 2019-07-10
 
-### Added
+### Added in 1.0.0
 
 - Python 2.7 implementation.
 - Support Kafka consumer.

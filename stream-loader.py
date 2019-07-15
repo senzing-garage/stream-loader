@@ -41,11 +41,10 @@ except ImportError:
 # Import Senzing libraries.
 
 try:
-    from G2ConfigTables import G2ConfigTables
+    from G2Config import G2Config
     from G2Engine import G2Engine
     import G2Exception
     from G2Product import G2Product
-    from G2Project import G2Project
     from G2Diagnostic import G2Diagnostic
 except ImportError:
     pass
@@ -53,7 +52,7 @@ except ImportError:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-07-10'
+__updated__ = '2019-07-15'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -71,12 +70,6 @@ MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES = 6
 # 1) Command line options, 2) Environment variables, 3) Configuration files, 4) Default values
 
 configuration_locator = {
-    "config_table_file": {
-        "ini": {
-            "section": "g2",
-            "option": "G2ConfigFile"
-        }
-    },
     "data_source": {
         "default": None,
         "env": "SENZING_DATA_SOURCE",
@@ -146,18 +139,6 @@ configuration_locator = {
         "default": 1,
         "env": "SENZING_PROCESSES",
         "cli": "processes",
-    },
-    "project_filename": {
-        "ini": {
-            "section": "project",
-            "option": "projectFileName"
-        }
-    },
-    "project_filespec": {
-        "ini": {
-            "section": "project",
-            "option": "projectFileSpec"
-        }
     },
     "python_path": {
         "env": "PYTHONPATH"
@@ -372,8 +353,8 @@ message_dictionary = {
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "501": "Error: {0} for {1}",
     "502": "Running low on workers.  May need to restart",
-    "503": "Could not start the G2 engine at {0}. Error: {1}",
-    "504": "Could not start the G2 product module at {0}. Error: {1}",
+    "503": "Could not initialize G2Engine with path {0}. Error: {1}",
+    "504": "Could not initialize G2Product with path {0}. Error: {1}",
     "505": "Could not create G2Project. {0}",
     "506": "The G2 generic configuration must be updated before loading.",
     "507": "Could not prepare G2 database. Error: {0}",
@@ -385,6 +366,8 @@ message_dictionary = {
     "513": "Could not do performance test. G2 Translation error at {0}. Error: {1}",
     "514": "Could not do performance test. G2 module initialization error at {0}. Error: {1}",
     "515": "Could not do performance test. G2 generic exeption at {0}. Error: {1}",
+    "516": "Could not initialize G2Config with path {0}. Error: {1}",
+    "517": "Could not initialize G2Diagnostic with path {0}. Error: {1}",
     "599": "Program terminated with error.",
     "900": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}D",
     "901": "Queued: {0}",
@@ -524,11 +507,6 @@ def get_configuration(args):
         if value:
             result[new_key] = value
 
-    # Special case: Remove variable of less priority.
-
-    if result.get('project_filespec') and result.get('project_filename'):
-        result.pop('project_filename')  # Remove key
-
     # Special case: subcommand from command-line
 
     if args.subcommand:
@@ -580,12 +558,6 @@ def validate_configuration(config):
 
     if not config.get('g2_database_url'):
         user_error_messages.append(message_error(401))
-
-    if not config.get('config_table_file'):
-        user_error_messages.append(message_error(402))
-
-    if not (config.get('project_filespec') or config.get('project_filename')):
-        user_error_messages.append(message_error(403))
 
     # Perform subcommand specific checking.
 
@@ -1160,11 +1132,7 @@ class UrlProcess(multiprocessing.Process):
         # Get the G2Engine resource.
 
         engine_name = "loader-G2-engine-{0}".format(self.name)
-        try:
-            self.g2_engine = G2Engine()
-            self.g2_engine.init(engine_name, config.get('g2_module_path'), config.get('debug', False))
-        except G2Exception.G2ModuleException as err:
-            exit_error(503, config.get('g2_module_path'), err)
+        self.g2_engine = get_g2_engine(config, engine_name)
 
         # List of all threads.
 
@@ -1590,40 +1558,21 @@ def add_data_sources(config):
 
     # Pull values from configuration.
 
-    config_table_file = config.get('config_table_file')
-    g2_module_path = config.get('g2_module_path')
-    project_filename = config.get('project_filename')
-    project_filespec = config.get('project_filespec')
+    data_source = config.get('data_source')
 
-    # Add DATA_SOURCE and ENTRY_TYPE.
+    # Get the G2Config resource.
+
+    g2_config = get_g2_config(config)
+
+    # Add DATA_SOURCE.
 
     try:
-        g2_config_tables = G2ConfigTables(config_table_file, g2_module_path)
 
-        # Add explicitly specified DATA_SOURCE.
+        config_handle = g2_config.create()
 
-        data_source = config.get('data_source')
         if data_source:
-            g2_config_tables.addDataSource(data_source)
+            return_code = g2_config.addDataSource(config_handle, datasource_code)
 
-        # Add explicitly specified ENTITY_TYPE.
-
-        entity_type = config.get('entity_type')
-        if entity_type:
-            g2_config_tables.addEntityType(entity_type)
-
-        # Add data sources / entity types from project file.
-
-        product_name = "loader_G2_product"
-        g2_project = G2Project(g2_config_tables, project_filename, project_filespec)
-        if not g2_config_tables.verifyEntityTypeExists("GENERIC"):
-            exit_error(506)
-        for source in g2_project.sourceList:
-            try:
-                g2_config_tables.addDataSource(source.get('DATA_SOURCE'))
-                g2_config_tables.addEntityType(source.get('ENTITY_TYPE'))
-            except G2Exception.G2DBException as err:
-                exit_error(507, err)
     except:
         exception = get_exception()
         logging.warn(message_warn(202, exception.get('line_number'), exception.get('line'), exception.get('exception')))
@@ -1683,9 +1632,28 @@ def exit_silently():
 # -----------------------------------------------------------------------------
 
 
-def get_g2_engine(config):
+def get_g2_config(config, config_name="loader-G2-config"):
+    '''Get the G2Config resource.'''
+    try:
+        result = G2Config()
+        result.init(config_name, config.get('g2_module_path'), config.get('debug', False))
+    except G2Exception.G2ModuleException as err:
+        exit_error(516, config.get('g2_module_path'), err)
+    return result
+
+
+def get_g2_diagnostic(config, diagnostic_name="loader-G2-diagnostic"):
+    '''Get the G2Diagnostic resource.'''
+    try:
+        result = G2Diagnostic()
+        result.init(diagnostic_name, config.get('g2_module_path'), config.get('debug', False))
+    except G2Exception.G2ModuleException as err:
+        exit_error(517, config.get('g2_module_path'), err)
+    return result
+
+
+def get_g2_engine(config, engine_name="loader-G2-engine"):
     '''Get the G2Engine resource.'''
-    engine_name = "loader_G2_engine"
     try:
         result = G2Engine()
         result.init(engine_name, config.get('g2_module_path'), config.get('debug', False))
@@ -1694,15 +1662,18 @@ def get_g2_engine(config):
     return result
 
 
-def get_g2_product(config):
+def get_g2_product(config, product_name="loader-G2-product"):
     '''Get the G2Product resource.'''
-    product_name = "loader_G2_product"
     try:
         result = G2Product()
         result.init(product_name, config.get('g2project_ini'), config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(504, config.get('g2project_ini'), err)
     return result
+
+# -----------------------------------------------------------------------------
+# Utility functions.
+# -----------------------------------------------------------------------------
 
 
 def cleanup_after_past_invocations():
@@ -1784,9 +1755,7 @@ def log_performance(config):
 
         # Initialized G2Diagnostic object.
 
-        diagnostic_name = "loader-G2-diagnostic"
-        g2_diagnostic = G2Diagnostic()
-        g2_diagnostic.init(diagnostic_name, config.get('g2_module_path'), config.get('debug', False))
+        g2_diagnostic = get_g2_diagnostic(config)
 
         # Calculations for memory.
 
@@ -1972,19 +1941,12 @@ def do_kafka(args):
 
     # Pull values from configuration.
 
-    debug = config.get('debug', False)
-    g2_module_path = config.get('g2_module_path')
     number_of_processes = config.get('processes')
     threads_per_process = config.get('threads_per_process')
 
     # Get the G2Engine resource.
 
-    engine_name = "loader-G2-engine"
-    try:
-        g2_engine = G2Engine()
-        g2_engine.init(engine_name, g2_module_path, debug)
-    except G2Exception.G2ModuleException as err:
-        exit_error(503, g2_module_path, err)
+    g2_engine = get_g2_engine(config)
 
     # Create kafka reader threads for master process.
 
@@ -2090,19 +2052,12 @@ def do_rabbitmq(args):
 
     # Pull values from configuration.
 
-    debug = config.get('debug', False)
-    g2_module_path = config.get('g2_module_path')
     number_of_processes = config.get('processes')
     threads_per_process = config.get('threads_per_process')
 
     # Get the G2Engine resource.
 
-    engine_name = "loader-G2-engine"
-    try:
-        g2_engine = G2Engine()
-        g2_engine.init(engine_name, g2_module_path, debug)
-    except G2Exception.G2ModuleException as err:
-        exit_error(503, g2_module_path, err)
+    g2_engine = get_g2_engine(config)
 
     # Create RabbitMQ reader threads for master process.
 

@@ -4,25 +4,25 @@
 # stream-loader.py Loader for streaming input.
 # -----------------------------------------------------------------------------
 
+from glob import glob
 import argparse
 import configparser
+import confluent_kafka
 import datetime
-from glob import glob
 import json
 import linecache
 import logging
 import math
 import multiprocessing
 import os
+import pika
 import signal
+import string
 import sys
 import threading
 import time
-import confluent_kafka
-import pika
 
 # Python 2 / 3 migration.
-
 try:
     from urllib.request import urlopen
 except ImportError:
@@ -34,18 +34,19 @@ except ImportError:
     import Queue as queue
 
 try:
-    from urllib.parse import urlparse
+    from urllib.parse import urlparse, urlunparse
 except ImportError:
-    from urlparse import urlparse
+    from urlparse import urlparse, urlunparse
 
 # Import Senzing libraries.
 
 try:
     from G2Config import G2Config
-    from G2Engine import G2Engine
-    import G2Exception
-    from G2Product import G2Product
+    from G2ConfigMgr import G2ConfigMgr
     from G2Diagnostic import G2Diagnostic
+    from G2Engine import G2Engine
+    from G2Product import G2Product
+    import G2Exception
 except ImportError:
     pass
 
@@ -65,6 +66,12 @@ GIGABYTES = 1024 * MEGABYTES
 
 MINIMUM_TOTAL_MEMORY_IN_GIGABYTES = 8
 MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES = 6
+
+# Lists from https://www.ietf.org/rfc/rfc1738.txt
+
+safe_character_list = ['$', '-', '_', '.', '+', '!', '*', '(', ')', ',', '"' ] + list(string.ascii_letters)
+unsafe_character_list = [ '"', '<', '>', '#', '%', '{', '}', '|', '\\', '^', '~', '[', ']', '`']
+reserved_character_list = [ ';', ',', '/', '?', ':', '@', '=', '&']
 
 # The "configuration_locator" describes where configuration variables are in:
 # 1) Command line options, 2) Environment variables, 3) Configuration files, 4) Default values
@@ -90,17 +97,15 @@ configuration_locator = {
         "env": "SENZING_EXPIRATION_WARNING_IN_DAYS",
         "cli": "expiration-warning-in-days"
     },
-    "g2_database_url": {
-        "ini": {
-            "section": "g2",
-            "option": "G2Connection"
-        }
+    "g2_configuration_file": {
+        "default": "/opt/senzing/g2/python/g2config.json",
+        "env": "SENZING_G2_CONFIGURATION_FILE",
+        "cli": "g2-configuration-file"
     },
-    "g2_module_path": {
-        "ini": {
-            "section": "g2",
-            "option": "iniPath"
-        }
+    "g2_database_url_generic": {
+        "default": "sqlite3://na:na@/opt/senzing/g2/sqldb/G2C.db",
+        "env": "SENZING_DATABASE_URL",
+        "cli": "database-url"
     },
     "input_url": {
         "default": None,
@@ -180,6 +185,11 @@ configuration_locator = {
     "subcommand": {
         "default": None,
         "env": "SENZING_SUBCOMMAND",
+    },
+    "support_path": {
+        "default": "/opt/senzing/g2/data",
+        "env": "SENZING_SUPPORT_PATH",
+        "cli": "support-path"
     },
     "threads_per_process": {
         "default": 4,
@@ -279,8 +289,8 @@ def get_parser():
 # -----------------------------------------------------------------------------
 
 # 1xx Informational (i.e. logging.info())
-# 2xx Warning (i.e. logging.warn())
-# 4xx User configuration issues (either logging.warn() or logging.err() for Client errors)
+# 2xx Warning (i.e. logging.warning())
+# 4xx User configuration issues (either logging.warning() or logging.err() for Client errors)
 # 5xx Internal error (i.e. logging.error for Server errors)
 # 9xx Debugging (i.e. logging.debug())
 
@@ -320,6 +330,7 @@ message_dictionary = {
     "150": "Insertion test: {0} records inserted in {1}ms with an average of {2:.2f}ms per insert.",
     "151": "For database tuning help, see: https://senzing.zendesk.com/hc/en-us/sections/360000386433-Technical-Database",
     "152": "Sleeping {0} seconds before deploying administrative threads.",
+    "153": "Created datasource {0}. Return code: {1}",
     "197": "Version: {0}  Updated: {1}",
     "198": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "199": "{0}",
@@ -348,14 +359,15 @@ message_dictionary = {
     "420": "Database performance of {0:.2f}ms per insert is slower than the recommended minimum performance of {1:.2f}ms per insert",
     "421": "System has {0} cores which is less than the recommended minimum of {1} cores for this configuration.",
     "422": "System has {0:.1f} GB memory which is less than the recommended minimum of {1:.1f} GB memory",
+    "423": "Original and new database URLs do not match. Original URL: {0}; Reconstructed URL: {1}",
     "498": "Bad SENZING_SUBCOMMAND: {0}.",
     "499": "No processing done.",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "501": "Error: {0} for {1}",
     "502": "Running low on workers.  May need to restart",
-    "503": "Could not initialize G2Engine with path {0}. Error: {1}",
-    "504": "Could not initialize G2Product with path {0}. Error: {1}",
-    "505": "Could not create G2Project. {0}",
+    "503": "Could not initialize G2Engine with '{0}'. Error: {1}",
+    "504": "Could not initialize G2Product with '{0}'. Error: {1}",
+    "505": "Could not initialize G2Config with '{0}'. Error: {1}",
     "506": "The G2 generic configuration must be updated before loading.",
     "507": "Could not prepare G2 database. Error: {0}",
     "508": "Kafka commit failed for {0}",
@@ -363,11 +375,14 @@ message_dictionary = {
     "510": "g2_engine_addRecord() failed with {0} on {1}",
     "511": "g2_engine_addRecord() failed on {0}",
     "512": "TranslateG2ModuleException {0}",
-    "513": "Could not do performance test. G2 Translation error at {0}. Error: {1}",
-    "514": "Could not do performance test. G2 module initialization error at {0}. Error: {1}",
-    "515": "Could not do performance test. G2 generic exeption at {0}. Error: {1}",
-    "516": "Could not initialize G2Config with path {0}. Error: {1}",
-    "517": "Could not initialize G2Diagnostic with path {0}. Error: {1}",
+    "513": "Could not do performance test. G2 Translation error. Error: {0}",
+    "514": "Could not do performance test. G2 module initialization error. Error: {0}",
+    "515": "Could not do performance test. G2 generic exception. Error: {0}",
+    "516": "Could not initialize G2ConfigMgr with '{0}'. Error: {1}",
+    "517": "Could not initialize G2Diagnostic with '{0}'. Error: {1}",
+    "518": "Unknown database scheme '{0}' in database url '{1}'",
+    "519": "Could not initialize G2ConfigMgr with path '{0}'. Error: {1}",
+    "519": "There are not enough safe characters to do the translation. Unsafe Characters: {0}; Safe Characters: {1}",
     "599": "Program terminated with error.",
     "900": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}D",
     "901": "Queued: {0}",
@@ -395,7 +410,7 @@ def message_info(index, *args):
     return message_generic(100, index, *args)
 
 
-def message_warn(index, *args):
+def message_warning(index, *args):
     return message_generic(200, index, *args)
 
 
@@ -425,36 +440,124 @@ def get_exception():
     }
 
 # -----------------------------------------------------------------------------
+# Database URL parsing
+# -----------------------------------------------------------------------------
+
+
+def translate(map, astring):
+    new_string = str(astring)
+    for key, value in map.items():
+        new_string = new_string.replace(key, value)
+    return new_string
+
+
+def get_unsafe_characters(astring):
+    result = []
+    for unsafe_character in unsafe_character_list:
+        if unsafe_character in astring:
+            result.append(unsafe_character)
+    return result
+
+
+def get_safe_characters(astring):
+    result = []
+    for safe_character in safe_character_list:
+        if safe_character not in astring:
+            result.append(safe_character)
+    return result
+
+
+def parse_database_url(original_senzing_database_url):
+
+    result = {}
+
+    # Get the value of SENZING_DATABASE_URL environment variable.
+
+    senzing_database_url = original_senzing_database_url
+
+    # Create lists of safe and unsafe characters.
+
+    unsafe_characters = get_unsafe_characters(senzing_database_url)
+    safe_characters = get_safe_characters(senzing_database_url)
+
+    # Detect an error condition where there are not enough safe characters.
+
+    if len(unsafe_characters) > len(safe_characters):
+        logging.error(message_error(519, unsafe_characters, safe_characters))
+        return result
+
+    # Perform translation.
+    # This makes a map of safe character mapping to unsafe characters.
+    # "senzing_database_url" is modified to have only safe characters.
+
+    translation_map = {}
+    safe_characters_index = 0
+    for unsafe_character in unsafe_characters:
+        safe_character = safe_characters[safe_characters_index]
+        safe_characters_index += 1
+        translation_map[safe_character] = unsafe_character
+        senzing_database_url = senzing_database_url.replace(unsafe_character, safe_character)
+
+    # Parse "translated" URL.
+
+    parsed = urlparse(senzing_database_url)
+    schema = parsed.path.strip('/')
+
+    # Construct result.
+
+    result = {
+        'scheme': translate(translation_map, parsed.scheme),
+        'netloc': translate(translation_map, parsed.netloc),
+        'path': translate(translation_map, parsed.path),
+        'params': translate(translation_map, parsed.params),
+        'query': translate(translation_map, parsed.query),
+        'fragment': translate(translation_map, parsed.fragment),
+        'username': translate(translation_map, parsed.username),
+        'password': translate(translation_map, parsed.password),
+        'hostname': translate(translation_map, parsed.hostname),
+        'port': translate(translation_map, parsed.port),
+        'schema': translate(translation_map, schema),
+    }
+
+    # For safety, compare original URL with reconstructed URL.
+
+    url_parts = [
+        result.get('scheme'),
+        result.get('netloc'),
+        result.get('path'),
+        result.get('params'),
+        result.get('query'),
+        result.get('fragment'),
+    ]
+    test_senzing_database_url = urlunparse(url_parts)
+    if test_senzing_database_url != original_senzing_database_url:
+        logging.warning(message_warning(423, original_senzing_database_url, test_senzing_database_url))
+
+    # Return result.
+
+    return result
+
+# -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
 
 
-def get_g2project_ini_filename(args_dictionary):
-    ''' Find the G2Project.ini file in the filesystem.'''
+def get_g2_database_url_specific(generic_database_url):
+    result = ""
 
-    # Possible locations for G2Project.ini
+    parsed_database_url = parse_database_url(generic_database_url)
+    scheme = parsed_database_url.get('scheme')
 
-    filenames = [
-        "{0}/g2/python/G2Project.ini".format(args_dictionary.get('senzing_dir', None)),
-        "{0}/g2/python/G2Project.ini".format(os.getenv('SENZING_DIR', None)),
-        "{0}/G2Project.ini".format(os.getcwd()),
-        "{0}/G2Project.ini".format(os.path.dirname(os.path.realpath(__file__))),
-        "{0}/G2Project.ini".format(os.path.dirname(os.path.abspath(sys.argv[0]))),
-        "/etc/G2Project.ini",
-        "/opt/senzing/g2/python/G2Project.ini",
-    ]
+    if scheme in ['mysql']:
+        result = "{scheme}://{username}:{password}@{hostname}:{port}/?schema={schema}".format(**parsed_database_url)
+    elif scheme in ['postgresql']:
+        result = "{scheme}://{username}:{password}@{hostname}:{port}:{schema}/".format(**parsed_database_url)
+    elif scheme in ['db2']:
+        result = "{scheme}://{username}:{password}@{schema}".format(**parsed_database_url)
+    else:
+        logging.error(message_error(518, scheme, generic_database_url))
 
-    # Return first G2Project.ini found.
-
-    for filename in filenames:
-        final_filename = os.path.abspath(filename)
-        if os.path.isfile(final_filename):
-            return final_filename
-
-    # If file not found, return error.
-
-    logging.warn(message_warn(406))
-    return None
+    return result
 
 
 def get_configuration(args):
@@ -472,24 +575,6 @@ def get_configuration(args):
         new_key = key.format(subcommand.replace('-', '_'))
         if value:
             result[new_key] = value
-
-    # Copy INI values into configuration dictionary.
-
-    g2project_ini_filename = get_g2project_ini_filename(result)
-    if g2project_ini_filename:
-
-        result['g2project_ini'] = g2project_ini_filename
-
-        config_parser = configparser.RawConfigParser()
-        config_parser.read(g2project_ini_filename)
-
-        for key, value in list(configuration_locator.items()):
-            keyword_args = value.get('ini', None)
-            if keyword_args:
-                try:
-                    result[key] = config_parser.get(**keyword_args)
-                except:
-                    pass
 
     # Copy OS environment variables into configuration dictionary.
 
@@ -537,6 +622,10 @@ def get_configuration(args):
         integer_string = result.get(integer)
         result[integer] = int(integer_string)
 
+    # Special case:  Tailored database URL
+
+    result['g2_database_url_specific'] = get_g2_database_url_specific(result.get("g2_database_url_generic"))
+
     # Initialize counters.
 
     result['counter_processed_records'] = 0
@@ -556,7 +645,7 @@ def validate_configuration(config):
     user_warning_messages = []
     user_error_messages = []
 
-    if not config.get('g2_database_url'):
+    if not config.get('g2_database_url_generic'):
         user_error_messages.append(message_error(401))
 
     # Perform subcommand specific checking.
@@ -579,10 +668,10 @@ def validate_configuration(config):
     if subcommand in ['stdin']:
 
         if not config.get('data_source'):
-            user_warning_messages.append(message_warn(404))
+            user_warning_messages.append(message_warning(404))
 
         if not config.get('entity_type'):
-            user_warning_messages.append(message_warn(405))
+            user_warning_messages.append(message_warning(405))
 
     if subcommand in ['kafka']:
 
@@ -592,7 +681,7 @@ def validate_configuration(config):
     # Log warning messages.
 
     for user_warning_message in user_warning_messages:
-        logging.warn(user_warning_message)
+        logging.warning(user_warning_message)
 
     # Log error messages.
 
@@ -1385,7 +1474,7 @@ class MonitorThread(threading.Thread):
             # Determine if we're running out of workers.
 
             if (active_workers / float(len(self.workers))) < 0.5:
-                logging.warn(message_warn(502))
+                logging.warning(message_warning(502))
 
             # Calculate times.
 
@@ -1487,7 +1576,7 @@ class MonitorTestThread(threading.Thread):
             # Determine if we're running out of workers.
 
             if (active_workers / float(len(self.workers))) < 0.5:
-                logging.warn(message_warn(502))
+                logging.warning(message_warning(502))
 
             # Calculate rates.
 
@@ -1560,22 +1649,34 @@ def add_data_sources(config):
 
     data_source = config.get('data_source')
 
-    # Get the G2Config resource.
-
-    g2_config = get_g2_config(config)
-
     # Add DATA_SOURCE.
 
-    try:
+    if data_source:
+        try:
+            g2_config = get_g2_config(config)
+            config_handle = g2_config.create()
+            return_code = g2_config.addDataSource(config_handle, data_source)
+            logging.info(message_info(153, data_source, return_code))
 
-        config_handle = g2_config.create()
+#         try:
+#         g2_configuration_manager = get_g2_configuration_manager(config)
+#         config_handle = g2_configuration_manager.create()
+#         return_code = g2_configuration_manager.addDataSource(config_handle, data_source)
+#         logging.info(message_info(153, data_source, return_code))
+#
+#         response_bytearray = bytearray()
+#         return_code = g2_configuration_manager.save(config_handle, response_bytearray)
+#         response_dictionary = json.loads(response_bytearray)
+#         logging.info(message_info(999, json.dumps(response_dictionary)))
+#
+#         response_bytearray = bytearray()
+#         return_code = g2_configuration_manager.listDataSources(config_handle, response_bytearray)
+#         response_dictionary = json.loads(response_bytearray)
+#         logging.info(message_info(999, "Data Source list: {0}".format(json.dumps(response_dictionary))))
 
-        if data_source:
-            return_code = g2_config.addDataSource(config_handle, datasource_code)
-
-    except:
-        exception = get_exception()
-        logging.warn(message_warn(202, exception.get('line_number'), exception.get('line'), exception.get('exception')))
+        except:
+            exception = get_exception()
+            logging.warning(message_warning(202, exception.get('line_number'), exception.get('line'), exception.get('exception')))
 
 
 def create_signal_handler_function(args):
@@ -1628,45 +1729,81 @@ def exit_silently():
     sys.exit(1)
 
 # -----------------------------------------------------------------------------
+# Senzing configuration.
+# -----------------------------------------------------------------------------
+
+
+def get_g2_configuration_dictionary(config):
+    result = {
+        "PIPELINE": {
+            "SUPPORTPATH": config.get("support_path")
+        },
+        "SQL": {
+            "CONNECTION": config.get("g2_database_url_specific"),
+            "G2CONFIGFILE": config.get("g2_configuration_file")
+        }
+    }
+    return result
+
+
+def get_g2_configuration_json(config):
+    return json.dumps(get_g2_configuration_dictionary(config))
+
+# -----------------------------------------------------------------------------
 # Senzing services.
 # -----------------------------------------------------------------------------
 
 
-def get_g2_config(config, config_name="loader-G2-config"):
+def get_g2_config(config, g2_config_name="loader-G2-config"):
     '''Get the G2Config resource.'''
     try:
+        g2_configuration_json = get_g2_configuration_json(config)
         result = G2Config()
-        result.init(config_name, config.get('g2_module_path'), config.get('debug', False))
+        result.initV2(g2_config_name, g2_configuration_json, config.get('debug', False))
     except G2Exception.G2ModuleException as err:
-        exit_error(516, config.get('g2_module_path'), err)
+        exit_error(505, g2_configuration_json, err)
     return result
 
 
-def get_g2_diagnostic(config, diagnostic_name="loader-G2-diagnostic"):
+def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G2-configuration-manager"):
+    '''Get the G2Config resource.'''
+    try:
+        g2_configuration_json = get_g2_configuration_json(config)
+        result = G2ConfigMgr()
+        result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug', False))
+    except G2Exception.G2ModuleException as err:
+        exit_error(516, g2_configuration_json, err)
+    return result
+
+
+def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
     '''Get the G2Diagnostic resource.'''
     try:
+        g2_configuration_json = get_g2_configuration_json(config)
         result = G2Diagnostic()
-        result.init(diagnostic_name, config.get('g2_module_path'), config.get('debug', False))
+        result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug', False))
     except G2Exception.G2ModuleException as err:
-        exit_error(517, config.get('g2_module_path'), err)
+        exit_error(517, g2_configuration_json, err)
     return result
 
 
-def get_g2_engine(config, engine_name="loader-G2-engine"):
+def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
     '''Get the G2Engine resource.'''
     try:
+        g2_configuration_json = get_g2_configuration_json(config)
         result = G2Engine()
-        result.init(engine_name, config.get('g2_module_path'), config.get('debug', False))
+        result.initV2(g2_engine_name, g2_configuration_json, config.get('debug', False))
     except G2Exception.G2ModuleException as err:
-        exit_error(503, config.get('g2_module_path'), err)
+        exit_error(503, g2_configuration_json, err)
     return result
 
 
-def get_g2_product(config, product_name="loader-G2-product"):
+def get_g2_product(config, g2_product_name="loader-G2-product"):
     '''Get the G2Product resource.'''
     try:
+        g2_configuration_json = get_g2_configuration_json(config)
         result = G2Product()
-        result.init(product_name, config.get('g2project_ini'), config.get('debug'))
+        result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(504, config.get('g2project_ini'), err)
     return result
@@ -1735,7 +1872,7 @@ def log_license(config):
 
         expiration_warning_in_days = config.get('expiration_warning_in_days')
         if remaining_time.days < expiration_warning_in_days:
-            logging.warn(message_warn(203, remaining_time.days))
+            logging.warning(message_warning(203, remaining_time.days))
 
     if 'recordLimit' in license:
         logging.info(message_info(109, license['recordLimit']))
@@ -1801,27 +1938,27 @@ def log_performance(config):
             time_per_insert = time_to_insert / float(number_of_records_inserted)
             logging.info(message_info(150, number_of_records_inserted, time_to_insert, time_per_insert))
         else:
-            logging.warn(message_warn(419))
+            logging.warning(message_warning(419))
 
         # Analysis.
 
         maximum_time_allowed_per_insert_in_ms = 4
         if time_per_insert and (time_per_insert > maximum_time_allowed_per_insert_in_ms):
-            logging.warn(message_warn(420, time_per_insert, maximum_time_allowed_per_insert_in_ms))
+            logging.warning(message_warning(420, time_per_insert, maximum_time_allowed_per_insert_in_ms))
             logging.info(message_info(151))
 
         if g2_diagnostic.getPhysicalCores() < minimum_recommended_cores:
-            logging.warn(message_warn(421, g2_diagnostic.getPhysicalCores(), minimum_recommended_cores))
+            logging.warning(message_warning(421, g2_diagnostic.getPhysicalCores(), minimum_recommended_cores))
 
         if total_available_memory < minimum_recommended_memory:
-            logging.warn(message_warn(422, total_available_memory, minimum_recommended_memory))
+            logging.warning(message_warning(422, total_available_memory, minimum_recommended_memory))
 
     except G2Exception.TranslateG2ModuleException as err:
-        logging.warn(message_warn(513, config.get('g2_module_path'), err))
+        logging.warning(message_warning(513, err))
     except G2Exception.G2ModuleNotInitialized as err:
-        logging.warn(message_warn(514, config.get('g2_module_path'), err))
+        logging.warning(message_warning(514, err))
     except G2Exception.G2ModuleGenericException as err:
-        logging.warn(message_warn(515, config.get('g2_module_path'), err))
+        logging.warning(message_warning(515, err))
 
 
 def log_memory():
@@ -1841,16 +1978,16 @@ def log_memory():
 
         minimum_total_memory = MINIMUM_TOTAL_MEMORY_IN_GIGABYTES * GIGABYTES
         if total_memory < minimum_total_memory:
-            logging.warn(message_warn(408, MINIMUM_TOTAL_MEMORY_IN_GIGABYTES))
+            logging.warning(message_warning(408, MINIMUM_TOTAL_MEMORY_IN_GIGABYTES))
 
         # Check available memory.
 
         minimum_available_memory = MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES * GIGABYTES
         if available_memory < minimum_available_memory:
-            logging.warn(message_warn(409, MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES))
+            logging.warning(message_warning(409, MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES))
 
     except:
-        logging.warn(message_warn(201))
+        logging.warning(message_warning(201))
 
 # -----------------------------------------------------------------------------
 # Worker functions
@@ -2380,7 +2517,7 @@ if __name__ == "__main__":
     # Test to see if function exists in the code.
 
     if subcommand_function_name not in globals():
-        logging.warn(message_warn(498, subcommand))
+        logging.warning(message_warning(498, subcommand))
         parser.print_help()
         exit_silently()
 

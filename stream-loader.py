@@ -1647,19 +1647,20 @@ class MonitorTestThread(threading.Thread):
 def add_data_sources(config):
     '''Update Senzing configuration.'''
 
-    # Pull values from configuration.
-
-    data_source = config.get('data_source')
-
-    # Add DATA_SOURCE.
-
-    if data_source:
-        try:
-            g2_config = get_g2_config(config)
-            config_handle = g2_config.create()
-            return_code = g2_config.addDataSource(config_handle, data_source)
-            logging.info(message_info(153, data_source, return_code))
-
+    pass
+#     # Pull values from configuration.
+#
+#     data_source = config.get('data_source')
+#
+#     # Add DATA_SOURCE.
+#
+#     if data_source:
+#         try:
+#             g2_config = get_g2_config(config)
+#             config_handle = g2_config.create()
+#             return_code = g2_config.addDataSource(config_handle, data_source)
+#             logging.info(message_info(153, data_source, return_code))
+#
 #         try:
 #         g2_configuration_manager = get_g2_configuration_manager(config)
 #         config_handle = g2_configuration_manager.create()
@@ -1675,10 +1676,10 @@ def add_data_sources(config):
 #         return_code = g2_configuration_manager.listDataSources(config_handle, response_bytearray)
 #         response_dictionary = json.loads(response_bytearray)
 #         logging.info(message_info(999, "Data Source list: {0}".format(json.dumps(response_dictionary))))
-
-        except:
-            exception = get_exception()
-            logging.warning(message_warning(202, exception.get('line_number'), exception.get('line'), exception.get('exception')))
+#
+#         except:
+#             exception = get_exception()
+#             logging.warning(message_warning(202, exception.get('line_number'), exception.get('line'), exception.get('exception')))
 
 
 def create_signal_handler_function(args):
@@ -1742,11 +1743,22 @@ def get_g2_configuration_dictionary(config):
         },
         "SQL": {
             "CONNECTION": config.get("g2_database_url_specific"),
-            "G2CONFIGFILE": config.get("g2_configuration_file")
         }
     }
     return result
 
+
+# def get_g2_configuration_dictionary(config):
+#     result = {
+#         "PIPELINE": {
+#             "SUPPORTPATH": config.get("support_path")
+#         },
+#         "SQL": {
+#             "CONNECTION": config.get("g2_database_url_specific"),
+#             "G2CONFIGFILE": config.get("g2_configuration_file")
+#         }
+#     }
+#     return result
 
 def get_g2_configuration_json(config):
     return json.dumps(get_g2_configuration_dictionary(config))
@@ -1824,12 +1836,28 @@ def cleanup_after_past_invocations():
 def send_jsonline_to_g2_engine(jsonline, g2_engine):
     '''Send the JSONline to G2 engine.'''
 
+    # FIXME: Based on a timestamp in the "config" object,
+    # Periodically check the active vs. default config
+    # and refresh if they differ.
+
     logging.debug(message_debug(902, jsonline))
     json_dictionary = json.loads(jsonline)
     data_source = str(json_dictionary['DATA_SOURCE'])
     record_id = str(json_dictionary['RECORD_ID'])
     try:
-        g2_engine.addRecord(data_source, record_id, jsonline)
+        try:
+            g2_engine.addRecord(data_source, record_id, jsonline)
+        except Exception as err:
+            active_config_id = bytearray()
+            default_config_id = bytearray()
+            g2_engine.getActiveConfigID(active_config_id)
+            g2_configuration_manager = get_g2_configuration_manager(config)
+            g2_configuration_manager.getDefaultConfigID(default_config_id)
+            if active_config_id != default_config_id:
+                g2_engine.reinitV2(default_config_id)
+                g2_engine.addRecord(data_source, record_id, jsonline)
+            else:
+                raise err
     except G2Exception.TranslateG2ModuleException as err:
         logging.error(message_error(512, err, jsonline))
     except G2Exception.G2ModuleException as err:

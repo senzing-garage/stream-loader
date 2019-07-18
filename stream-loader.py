@@ -64,6 +64,11 @@ reserved_character_list = [ ';', ',', '/', '?', ':', '@', '=', '&']
 # 1) Command line options, 2) Environment variables, 3) Configuration files, 4) Default values
 
 configuration_locator = {
+    "configuration_check_frequency_in_seconds": {
+        "default": 60,
+        "env": "SENZING_CONFIGURATION_CHECK_FREQUENCY",
+        "cli": "configuration-check-frequency"
+    },
     "data_source": {
         "default": None,
         "env": "SENZING_DATA_SOURCE",
@@ -275,6 +280,7 @@ def get_parser():
 
 message_dictionary = {
     "100": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}I",
+    "121": "Adding JSON to failure queue: {0}",
     "122": "Quitting time!",
     "123": "Total     memory: {0:>15} bytes",
     "124": "Available memory: {0:>15} bytes",
@@ -308,6 +314,7 @@ message_dictionary = {
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
+    "292": "Configuration change detected.  Old: {0} New: {1}",
     "293": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "294": "Version: {0}  Updated: {1}",
     "295": "Sleeping infinitely.",
@@ -340,16 +347,17 @@ message_dictionary = {
     "698": "Program terminated with error.",
     "699": "{0}",
     "700": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
-    "720": "Error: {0} for {1}",
     "721": "Running low on workers.  May need to restart",
     "722": "Kafka commit failed for {0}",
-    "723": "g2_engine_addRecord() failed with {0} on {1}",
-    "724": "g2_engine_addRecord() failed on {0}",
-    "725": "TranslateG2ModuleException {0}",
     "726": "Could not do performance test. G2 Translation error. Error: {0}",
     "727": "Could not do performance test. G2 module initialization error. Error: {0}",
     "728": "Could not do performance test. G2 generic exception. Error: {0}",
     "730": "There are not enough safe characters to do the translation. Unsafe Characters: {0}; Safe Characters: {1}",
+    "886": "G2Engine.addRecord() bad return code: {0}; JSON: {1}",
+    "887": "G2Engine.addRecord() TranslateG2ModuleException: {0}; JSON: {1}",
+    "888": "G2Engine.addRecord() G2ModuleNotInitialized: {0}; JSON: {1}",
+    "889": "G2Engine.addRecord() G2ModuleGenericException: {0}; JSON: {1}",
+    "890": "G2Engine.addRecord() Exception: {0}; JSON: {1}",
     "891": "Original and new database URLs do not match. Original URL: {0}; Reconstructed URL: {1}",
     "892": "Could not initialize G2Product with '{0}'. Error: {1}",
     "893": "Could not initialize G2Hasher with '{0}'. Error: {1}",
@@ -588,7 +596,8 @@ def get_configuration(args):
 
     # Special case: Change integer strings to integers.
 
-    integers = ['expiration_warning_in_days',
+    integers = ['configuration_check_frequency_in_seconds',
+                'expiration_warning_in_days',
                 'log_license_period_in_seconds',
                 'monitoring_period_in_seconds',
                 'processes',
@@ -690,7 +699,7 @@ def redact_configuration(config):
 
 class KafkaProcess(multiprocessing.Process):
 
-    def __init__(self, config, g2_engine):
+    def __init__(self, config, g2_engine, g2_configuration_manager):
         multiprocessing.Process.__init__(self)
 
         # Create kafka reader threads.
@@ -698,7 +707,7 @@ class KafkaProcess(multiprocessing.Process):
         self.threads = []
         threads_per_process = config.get('threads_per_process')
         for i in range(0, threads_per_process):
-            thread = ReadKafkaWriteG2Thread(config, g2_engine)
+            thread = ReadKafkaWriteG2Thread(config, g2_engine, g2_configuration_manager)
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
 
@@ -772,7 +781,7 @@ class KafkaTestProcess(multiprocessing.Process):
 
 class RabbitMQProcess(multiprocessing.Process):
 
-    def __init__(self, config, g2_engine):
+    def __init__(self, config, g2_engine, g2_configuration_manager):
         multiprocessing.Process.__init__(self)
 
         # Create RabbitMQ reader threads.
@@ -780,7 +789,7 @@ class RabbitMQProcess(multiprocessing.Process):
         self.threads = []
         threads_per_process = config.get('threads_per_process')
         for i in range(0, threads_per_process):
-            thread = ReadRabbitMQWriteG2Thread(config, g2_engine)
+            thread = ReadRabbitMQWriteG2Thread(config, g2_engine, g2_configuration_manager)
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
 
@@ -847,39 +856,105 @@ class RabbitMQTestProcess(multiprocessing.Process):
         for thread in self.threads:
             thread.join()
 
-
 # -----------------------------------------------------------------------------
-# Class: ReadKafkaWriteG2Thread
+# Class: WriteG2Thread
 # -----------------------------------------------------------------------------
 
 
 class WriteG2Thread(threading.Thread):
 
-    def __init__(self, config, g2_engine):
+    def __init__(self, config, g2_engine, g2_configuration_manager):
         threading.Thread.__init__(self)
         self.config = config
         self.g2_engine = g2_engine
+        self.g2_configuration_manager = g2_configuration_manager
 
-    def send_jsonline_to_g2_engine(self, jsonline):
-        '''Send the JSONline to G2 engine.'''
+    def add_record_to_failure_queue(self, jsonline):
+        # FIXME: add functionality.
+        logging.info(message_info(121, jsonline))
 
+    def is_time_to_check_g2_configuration(self):
+        now = time.time()
+        next_check_time = config.get('last_configuration_check', time.time()) + config.get('configuration_check_frequency_in_seconds')
+        return now > next_check_time
+
+    def is_g2_default_configuration_changed(self):
+
+        # Update early to avoid "thundering heard problem".
+
+        config['last_configuration_check'] = time.time()
+
+        # Get active Configuration ID being used by g2_engine.
+
+        active_config_id = bytearray()
+        self.g2_engine.getActiveConfigID(active_config_id)
+
+        # Get most current Configuration ID from G2 database.
+
+        default_config_id = bytearray()
+        self.g2_configuration_manager.getDefaultConfigID(default_config_id)
+
+        # Determine if configuration has changed.
+
+        result = active_config_id != default_config_id
+        if result:
+            logging.info(message_info(292, active_config_id.decode(), default_config_id.decode()))
+
+        return result
+
+    def update_active_g2_configuration(self):
+
+        # Get most current Configuration ID from G2 database.
+
+        default_config_id = bytearray()
+        self.g2_configuration_manager.getDefaultConfigID(default_config_id)
+
+        # Apply new configuration to g2_engine.
+
+        self.g2_engine.reinitV2(default_config_id)
+
+    def add_record(self, jsonline):
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
         record_id = str(json_dictionary.get('RECORD_ID'))
         try:
-            self.g2_engine.addRecord(data_source, record_id, jsonline)
-        except G2Exception.TranslateG2ModuleException as err:
-            logging.error(message_error(725, err, jsonline))
-        except G2Exception.G2ModuleException as err:
-            logging.error(message_error(720, err, jsonline))
-        except G2Exception.G2ModuleGenericException as err:
-            logging.error(message_error(720, err, jsonline))
+            return_code = self.g2_engine.addRecord(data_source, record_id, jsonline)
         except Exception as err:
-            logging.error(message_error(723, err, jsonline))
-        except:
-            logging.error(message_error(724, jsonline))
-        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
+            if self.is_g2_configuration_changed():
+                self.update_active_g2_configuration()
+                return_code = self.g2_engine.addRecord(data_source, record_id, jsonline)
+            else:
+                raise err
+        return return_code
 
+    def send_jsonline_to_g2_engine(self, jsonline):
+        '''Send the JSONline to G2 engine.'''
+
+        # Periodically, check for configuration update.
+
+        if self.is_time_to_check_g2_configuration():
+            if self.is_g2_configuration_changed():
+                self.update_active_g2_configuration()
+
+        # Add Record to Senzing G2.
+
+        try:
+            return_code = self.add_record(jsonline)
+        except G2Exception.TranslateG2ModuleException as err:
+            logging.error(message_error(887, err, jsonline))
+            self.add_record_to_failure_queue(jsonline)
+        except G2Exception.G2ModuleNotInitialized as err:
+            exit_error(888, err, jsonline)
+        except G2Exception.G2ModuleGenericException as err:
+            logging.error(message_error(889, err, jsonline))
+            self.add_record_to_failure_queue(jsonline)
+        except Exception as err:
+            logging.error(message_error(890, err, jsonline))
+            self.add_record_to_failure_queue(jsonline)
+        if return_code != 0:
+            exit_error(886, return_code, method, parameters)
+
+        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaWriteG2Thread
@@ -888,8 +963,8 @@ class WriteG2Thread(threading.Thread):
 
 class ReadKafkaWriteG2Thread(WriteG2Thread):
 
-    def __init__(self, config, g2_engine):
-        super().__init__(config, g2_engine)
+    def __init__(self, config, g2_engine, g2_configuration_manager):
+        super().__init__(config, g2_engine, g2_configuration_manager)
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -979,8 +1054,8 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
 class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
-    def __init__(self, config, g2_engine):
-        super().__init__(config, g2_engine)
+    def __init__(self, config, g2_engine, g2_configuration_manager):
+        super().__init__(config, g2_engine, g2_configuration_manager)
 
     def callback(self, ch, method, properties, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -1213,7 +1288,7 @@ class UrlProcess(multiprocessing.Process):
 
         threads_per_process = config.get('threads_per_process')
         for i in range(0, threads_per_process):
-            thread = ReadQueueWriteG2Thread(config, self.g2_engine, work_queue)
+            thread = ReadQueueWriteG2Thread(config, self.g2_engine, self.g2_configuration_manager, work_queue)
             thread.name = "{0}-writer-{1}".format(self.name, i)
             self.threads.append(thread)
 
@@ -1367,8 +1442,8 @@ class ReadUrlWriteQueueThread(threading.Thread):
 class ReadQueueWriteG2Thread(WriteG2Thread):
     '''Thread for writing ...'''
 
-    def __init__(self, config, g2_engine, queue):
-        super().__init__(config, g2_engine)
+    def __init__(self, config, g2_engine, g2_configuration_manager, queue):
+        super().__init__(config, g2_engine, g2_configuration_manager)
         self.queue = queue
 
     def run(self):
@@ -1596,6 +1671,12 @@ class MonitorTestThread(threading.Thread):
 # -----------------------------------------------------------------------------
 
 
+def cleanup_after_past_invocations():
+    '''Remove residual artifacts from prior invocations of loader.'''
+    for filename in glob('pyG2*'):
+        os.remove(filename)
+
+
 def create_signal_handler_function(args):
     ''' Tricky code.  Uses currying technique. Create a function for signal handling.
         that knows about "args".
@@ -1713,6 +1794,7 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Engine()
         result.initV2(g2_engine_name, g2_configuration_json, config.get('debug', False))
+        config['last_configuration_check'] = time.time()
     except G2Exception.G2ModuleException as err:
         exit_error(898, g2_configuration_json, err)
     return result
@@ -1727,55 +1809,6 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
     except G2Exception.G2ModuleException as err:
         exit_error(892, config.get('g2project_ini'), err)
     return result
-
-# -----------------------------------------------------------------------------
-# Utility functions.
-# -----------------------------------------------------------------------------
-
-
-def cleanup_after_past_invocations():
-    '''Remove residual artifacts from prior invocations of loader.'''
-    for filename in glob('pyG2*'):
-        os.remove(filename)
-
-
-def send_jsonline_to_g2_engine(jsonline, g2_engine):
-    '''NOTE:  This function is not called.
-       There are send_jsonline_to_g2_engine() methods within classes that are called.
-    '''
-
-    # FIXME: Based on a timestamp in the "config" object,
-    # Periodically check the active vs. default config
-    # and refresh if they differ.
-
-    logging.debug(message_debug(902, jsonline))
-    json_dictionary = json.loads(jsonline)
-    data_source = str(json_dictionary['DATA_SOURCE'])
-    record_id = str(json_dictionary['RECORD_ID'])
-    try:
-        try:
-            g2_engine.addRecord(data_source, record_id, jsonline)
-        except Exception as err:
-            active_config_id = bytearray()
-            default_config_id = bytearray()
-            g2_engine.getActiveConfigID(active_config_id)
-            g2_configuration_manager = get_g2_configuration_manager(config)
-            g2_configuration_manager.getDefaultConfigID(default_config_id)
-            if active_config_id != default_config_id:
-                g2_engine.reinitV2(default_config_id)
-                g2_engine.addRecord(data_source, record_id, jsonline)
-            else:
-                raise err
-    except G2Exception.TranslateG2ModuleException as err:
-        logging.error(message_error(725, err, jsonline))
-    except G2Exception.G2ModuleException as err:
-        logging.error(message_error(720, err, jsonline))
-    except G2Exception.G2ModuleGenericException as err:
-        logging.error(message_error(720, err, jsonline))
-    except Exception as err:
-        logging.error(message_error(723, err, jsonline))
-    except:
-        logging.error(message_error(724, jsonline))
 
 # -----------------------------------------------------------------------------
 # Log information.
@@ -1994,15 +2027,16 @@ def do_kafka(args):
     number_of_processes = config.get('processes')
     threads_per_process = config.get('threads_per_process')
 
-    # Get the G2Engine resource.
+    # Get the Senzing G2 resources.
 
     g2_engine = get_g2_engine(config)
+    g2_configuration_manager = get_g2_configuration_manager(config)
 
     # Create kafka reader threads for master process.
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadKafkaWriteG2Thread(config, g2_engine)
+        thread = ReadKafkaWriteG2Thread(config, g2_engine, g2_configuration_manager)
         thread.name = "KafkaProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
@@ -2105,15 +2139,16 @@ def do_rabbitmq(args):
     number_of_processes = config.get('processes')
     threads_per_process = config.get('threads_per_process')
 
-    # Get the G2Engine resource.
+    # Get the Senzing G2 resources.
 
     g2_engine = get_g2_engine(config)
+    g2_configuration_manager = get_g2_configuration_manager(config)
 
     # Create RabbitMQ reader threads for master process.
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadRabbitMQWriteG2Thread(config, g2_engine)
+        thread = ReadRabbitMQWriteG2Thread(config, g2_engine, g2_configuration_manager)
         thread.name = "RabbitMQProcess-0-thread-{0}".format(i)
         threads.append(thread)
 

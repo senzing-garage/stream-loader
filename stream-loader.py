@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-07-17'
+__updated__ = '2019-07-18'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -216,22 +216,6 @@ def get_parser():
 
     subparser_2 = subparsers.add_parser('sleep', help='Do nothing but sleep. For Docker testing.')
     subparser_2.add_argument("--sleep-time-in-seconds", dest="sleep_time_in_seconds", metavar="SENZING_SLEEP_TIME_IN_SECONDS", help="Sleep time in seconds. DEFAULT: 0 (infinite)")
-
-#    subparser_3 = subparsers.add_parser('stdin', help='Read JSON Lines from STDIN.')
-#    subparser_3.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Used when JSON line does not have a `DATA_SOURCE` key.")
-#    subparser_3.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-#    subparser_3.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
-#    subparser_3.add_argument("--input-workers", dest="input_workers", metavar="SENZING_INPUT_WORKERS", help="Number of workers receiving input. Default: 3")
-#    subparser_3.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in second between monitoring reports. Default: 300")
-#    subparser_3.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
-#    subparser_3.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing ")
-
-#    subparser_4 = subparsers.add_parser('test', help='Read JSON Lines from STDIN. No changes to Senzing.')
-#    subparser_4.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Used when JSON line does not have a `DATA_SOURCE` key.")
-#    subparser_4.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-#    subparser_4.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
-#    subparser_4.add_argument("--input-url", dest="input_url", metavar="SENZING_INPUT_URL", help="URL to file of JSON lines.")
-#    subparser_4.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
 
     subparser_5 = subparsers.add_parser('url', help='Read JSON Lines from URL-addressable file.')
     subparser_5.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Data Source.")
@@ -863,12 +847,13 @@ class RabbitMQTestProcess(multiprocessing.Process):
         for thread in self.threads:
             thread.join()
 
+
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaWriteG2Thread
 # -----------------------------------------------------------------------------
 
 
-class ReadKafkaWriteG2Thread(threading.Thread):
+class WriteG2Thread(threading.Thread):
 
     def __init__(self, config, g2_engine):
         threading.Thread.__init__(self)
@@ -879,8 +864,8 @@ class ReadKafkaWriteG2Thread(threading.Thread):
         '''Send the JSONline to G2 engine.'''
 
         json_dictionary = json.loads(jsonline)
-        data_source = str(json_dictionary['DATA_SOURCE'])
-        record_id = str(json_dictionary['RECORD_ID'])
+        data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
+        record_id = str(json_dictionary.get('RECORD_ID'))
         try:
             self.g2_engine.addRecord(data_source, record_id, jsonline)
         except G2Exception.TranslateG2ModuleException as err:
@@ -894,6 +879,17 @@ class ReadKafkaWriteG2Thread(threading.Thread):
         except:
             logging.error(message_error(724, jsonline))
         logging.debug(message_debug(904, threading.current_thread().name, jsonline))
+
+
+# -----------------------------------------------------------------------------
+# Class: ReadKafkaWriteG2Thread
+# -----------------------------------------------------------------------------
+
+
+class ReadKafkaWriteG2Thread(WriteG2Thread):
+
+    def __init__(self, config, g2_engine):
+        super().__init__(config, g2_engine)
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -981,31 +977,10 @@ class ReadKafkaWriteG2Thread(threading.Thread):
 # -----------------------------------------------------------------------------
 
 
-class ReadRabbitMQWriteG2Thread(threading.Thread):
+class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
     def __init__(self, config, g2_engine):
-        threading.Thread.__init__(self)
-        self.config = config
-        self.g2_engine = g2_engine
-
-    def send_jsonline_to_g2_engine(self, jsonline):
-        '''Send the JSONline to G2 engine.'''
-
-        json_dictionary = json.loads(jsonline)
-        record_id = str(json_dictionary['RECORD_ID'])
-        try:
-            self.g2_engine.addRecord(self.data_source, record_id, jsonline)
-        except G2Exception.TranslateG2ModuleException as err:
-            logging.error(message_error(725, err, jsonline))
-        except G2Exception.G2ModuleException as err:
-            logging.error(message_error(720, err, jsonline))
-        except G2Exception.G2ModuleGenericException as err:
-            logging.error(message_error(720, err, jsonline))
-        except Exception as err:
-            logging.error(message_error(723, err, jsonline))
-        except:
-            logging.error(message_error(724, jsonline))
-        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
+        super().__init__(config, g2_engine)
 
     def callback(self, ch, method, properties, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -1389,34 +1364,12 @@ class ReadUrlWriteQueueThread(threading.Thread):
 # -----------------------------------------------------------------------------
 
 
-class ReadQueueWriteG2Thread(threading.Thread):
+class ReadQueueWriteG2Thread(WriteG2Thread):
     '''Thread for writing ...'''
 
     def __init__(self, config, g2_engine, queue):
-        threading.Thread.__init__(self)
-        self.config = config
-        self.g2_engine = g2_engine
+        super().__init__(config, g2_engine)
         self.queue = queue
-
-    def send_jsonline_to_g2_engine(self, jsonline):
-        '''Send the JSONline to G2 engine.'''
-
-        json_dictionary = json.loads(jsonline)
-        data_source = str(json_dictionary['DATA_SOURCE'])
-        record_id = str(json_dictionary['RECORD_ID'])
-        try:
-            self.g2_engine.addRecord(data_source, record_id, jsonline)
-        except G2Exception.TranslateG2ModuleException as err:
-            logging.error(message_error(725, err, jsonline))
-        except G2Exception.G2ModuleException as err:
-            logging.error(message_error(720, err, jsonline))
-        except G2Exception.G2ModuleGenericException as err:
-            logging.error(message_error(720, err, jsonline))
-        except Exception as err:
-            logging.error(message_error(723, err, jsonline))
-        except:
-            logging.error(message_error(724, jsonline))
-        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
     def run(self):
         while True:

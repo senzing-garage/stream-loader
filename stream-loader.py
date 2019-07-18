@@ -875,14 +875,14 @@ class WriteG2Thread(threading.Thread):
 
     def is_time_to_check_g2_configuration(self):
         now = time.time()
-        next_check_time = config.get('last_configuration_check', time.time()) + config.get('configuration_check_frequency_in_seconds')
+        next_check_time = self.config.get('last_configuration_check', time.time()) + self.config.get('configuration_check_frequency_in_seconds')
         return now > next_check_time
 
     def is_g2_default_configuration_changed(self):
 
         # Update early to avoid "thundering heard problem".
 
-        config['last_configuration_check'] = time.time()
+        self.config['last_configuration_check'] = time.time()
 
         # Get active Configuration ID being used by g2_engine.
 
@@ -920,7 +920,7 @@ class WriteG2Thread(threading.Thread):
         try:
             return_code = self.g2_engine.addRecord(data_source, record_id, jsonline)
         except Exception as err:
-            if self.is_g2_configuration_changed():
+            if self.is_g2_default_configuration_changed():
                 self.update_active_g2_configuration()
                 return_code = self.g2_engine.addRecord(data_source, record_id, jsonline)
             else:
@@ -933,7 +933,7 @@ class WriteG2Thread(threading.Thread):
         # Periodically, check for configuration update.
 
         if self.is_time_to_check_g2_configuration():
-            if self.is_g2_configuration_changed():
+            if self.is_g2_default_configuration_changed():
                 self.update_active_g2_configuration()
 
         # Add Record to Senzing G2.

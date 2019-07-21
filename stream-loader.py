@@ -5,6 +5,8 @@
 # -----------------------------------------------------------------------------
 
 from glob import glob
+from urllib.parse import urlparse, urlunparse
+from urllib.request import urlopen
 import argparse
 import configparser
 import confluent_kafka
@@ -16,27 +18,12 @@ import math
 import multiprocessing
 import os
 import pika
+import queue
 import signal
 import string
 import sys
 import threading
 import time
-
-# Python 2 / 3 migration.
-try:
-    from urllib.request import urlopen
-except ImportError:
-    from urllib2 import urlopen
-
-try:
-    import queue
-except ImportError:
-    import Queue as queue
-
-try:
-    from urllib.parse import urlparse, urlunparse
-except ImportError:
-    from urlparse import urlparse, urlunparse
 
 # Import Senzing libraries.
 
@@ -53,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-07-16'
+__updated__ = '2019-07-21'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -77,6 +64,11 @@ reserved_character_list = [ ';', ',', '/', '?', ':', '@', '=', '&']
 # 1) Command line options, 2) Environment variables, 3) Configuration files, 4) Default values
 
 configuration_locator = {
+    "configuration_check_frequency_in_seconds": {
+        "default": 60,
+        "env": "SENZING_CONFIGURATION_CHECK_FREQUENCY",
+        "cli": "configuration-check-frequency"
+    },
     "data_source": {
         "default": None,
         "env": "SENZING_DATA_SOURCE",
@@ -198,6 +190,13 @@ configuration_locator = {
     }
 }
 
+# Enumerate keys in 'configuration_locator' that should not be printed to the log.
+
+keys_to_redact = [
+    "g2_database_url_generic",
+    "g2_database_url_specific"
+    ]
+
 # -----------------------------------------------------------------------------
 # Define argument parser
 # -----------------------------------------------------------------------------
@@ -222,22 +221,6 @@ def get_parser():
 
     subparser_2 = subparsers.add_parser('sleep', help='Do nothing but sleep. For Docker testing.')
     subparser_2.add_argument("--sleep-time-in-seconds", dest="sleep_time_in_seconds", metavar="SENZING_SLEEP_TIME_IN_SECONDS", help="Sleep time in seconds. DEFAULT: 0 (infinite)")
-
-#    subparser_3 = subparsers.add_parser('stdin', help='Read JSON Lines from STDIN.')
-#    subparser_3.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Used when JSON line does not have a `DATA_SOURCE` key.")
-#    subparser_3.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-#    subparser_3.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
-#    subparser_3.add_argument("--input-workers", dest="input_workers", metavar="SENZING_INPUT_WORKERS", help="Number of workers receiving input. Default: 3")
-#    subparser_3.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in second between monitoring reports. Default: 300")
-#    subparser_3.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
-#    subparser_3.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing ")
-
-#    subparser_4 = subparsers.add_parser('test', help='Read JSON Lines from STDIN. No changes to Senzing.')
-#    subparser_4.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Used when JSON line does not have a `DATA_SOURCE` key.")
-#    subparser_4.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-#    subparser_4.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
-#    subparser_4.add_argument("--input-url", dest="input_url", metavar="SENZING_INPUT_URL", help="URL to file of JSON lines.")
-#    subparser_4.add_argument("--output-workers", dest="output_workers", metavar="SENZING_OUTPUT_WORKERS", help="Number of workers sending to Senzing G2. Default: 3")
 
     subparser_5 = subparsers.add_parser('url', help='Read JSON Lines from URL-addressable file.')
     subparser_5.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Data Source.")
@@ -289,34 +272,23 @@ def get_parser():
 # -----------------------------------------------------------------------------
 
 # 1xx Informational (i.e. logging.info())
-# 2xx Warning (i.e. logging.warning())
-# 4xx User configuration issues (either logging.warning() or logging.err() for Client errors)
-# 5xx Internal error (i.e. logging.error for Server errors)
+# 3xx Warning (i.e. logging.warning())
+# 5xx User configuration issues (either logging.warning() or logging.err() for Client errors)
+# 7xx Internal error (i.e. logging.error for Server errors)
 # 9xx Debugging (i.e. logging.debug())
 
 
 message_dictionary = {
     "100": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}I",
-    "101": "Enter {0}",
-    "102": "Exit {0}",
-    "103": "{0} LICENSE {0}",
-    "104": "          Version: {0} ({1})",
-    "105": "         Customer: {0}",
-    "106": "             Type: {0}",
-    "107": "  Expiration date: {0}",
-    "108": "  Expiration time: {0} days until expiration",
-    "109": "          Records: {0}",
-    "110": "         Contract: {0}",
+    "121": "Adding JSON to failure queue: {0}",
     "122": "Quitting time!",
     "123": "Total     memory: {0:>15} bytes",
     "124": "Available memory: {0:>15} bytes",
     "125": "G2 engine statistics: {0}",
     "126": "G2 project statistics: {0}",
     "127": "Monitor: {0}",
-    "128": "Sleeping {0} seconds.",
     "129": "{0} is running.",
     "130": "RabbitMQ channel closed by the broker. Shutting down thread {0}.",
-    "131": "Sleeping infinitely.",
     "140": "System Resources:",
     "141": "    Physical cores: {0}",
     "142": "     Logical cores: {0}",
@@ -331,59 +303,70 @@ message_dictionary = {
     "151": "For database tuning help, see: https://senzing.zendesk.com/hc/en-us/sections/360000386433-Technical-Database",
     "152": "Sleeping {0} seconds before deploying administrative threads.",
     "153": "Created datasource {0}. Return code: {1}",
-    "197": "Version: {0}  Updated: {1}",
-    "198": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
-    "199": "{0}",
-    "200": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}W",
+    "160": "{0} LICENSE {0}",
+    "161": "          Version: {0} ({1})",
+    "162": "         Customer: {0}",
+    "163": "             Type: {0}",
+    "164": "  Expiration date: {0}",
+    "165": "  Expiration time: {0} days until expiration",
+    "166": "          Records: {0}",
+    "167": "         Contract: {0}",
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
-    "400": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
-    "401": "Missing G2 database URL.",
-    "402": "Missing configuration table file.",
-    "403": "A project file name or file specification must be specified.",
-    "404": "SENZING_DATA_SOURCE not set.",
-    "405": "SENZING_ENTITY_TYPE not set.",
-    "406": "Cannot find G2Project.ini.",
-    "407": "G2Engine licensing error.  Error: {0}",
-    "408": "Running with less than the recommended total memory of {0} GiB.",
-    "409": "Running with less than the recommended available memory of {0} GiB.",
-    "411": "SENZING_KAFKA_BOOTSTRAP_SERVER not set. See ./stream-loader.py kafka --help.",
-    "412": "Invalid JSON received: {0}",
-    "414": "LD_LIBRARY_PATH environment variable not set.",
-    "415": "PYTHONPATH environment variable not set.",
-    "416": "SENZING_PROCESSES for 'url' subcommand must be 1. Currently set to {0}.",
-    "417": "Unknown RabbitMQ error when connecting: {0}.",
-    "418": "Could not connect to RabbitMQ host at {1}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details. Error: {0}",
-    "419": "Could not perform database performance test.",
-    "420": "Database performance of {0:.2f}ms per insert is slower than the recommended minimum performance of {1:.2f}ms per insert",
-    "421": "System has {0} cores which is less than the recommended minimum of {1} cores for this configuration.",
-    "422": "System has {0:.1f} GB memory which is less than the recommended minimum of {1:.1f} GB memory",
-    "423": "Original and new database URLs do not match. Original URL: {0}; Reconstructed URL: {1}",
-    "498": "Bad SENZING_SUBCOMMAND: {0}.",
-    "499": "No processing done.",
+    "292": "Configuration change detected.  Old: {0} New: {1}",
+    "293": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
+    "294": "Version: {0}  Updated: {1}",
+    "295": "Sleeping infinitely.",
+    "296": "Sleeping {0} seconds.",
+    "297": "Enter {0}",
+    "298": "Exit {0}",
+    "299": "{0}",
+    "300": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}W",
+    "499": "{0}",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
-    "501": "Error: {0} for {1}",
-    "502": "Running low on workers.  May need to restart",
-    "503": "Could not initialize G2Engine with '{0}'. Error: {1}",
-    "504": "Could not initialize G2Product with '{0}'. Error: {1}",
-    "505": "Could not initialize G2Config with '{0}'. Error: {1}",
-    "506": "The G2 generic configuration must be updated before loading.",
-    "507": "Could not prepare G2 database. Error: {0}",
-    "508": "Kafka commit failed for {0}",
-    "509": "Kafka commit failed on {0} with {1}",
-    "510": "g2_engine_addRecord() failed with {0} on {1}",
-    "511": "g2_engine_addRecord() failed on {0}",
-    "512": "TranslateG2ModuleException {0}",
-    "513": "Could not do performance test. G2 Translation error. Error: {0}",
-    "514": "Could not do performance test. G2 module initialization error. Error: {0}",
-    "515": "Could not do performance test. G2 generic exception. Error: {0}",
-    "516": "Could not initialize G2ConfigMgr with '{0}'. Error: {1}",
-    "517": "Could not initialize G2Diagnostic with '{0}'. Error: {1}",
-    "518": "Unknown database scheme '{0}' in database url '{1}'",
-    "519": "Could not initialize G2ConfigMgr with path '{0}'. Error: {1}",
-    "519": "There are not enough safe characters to do the translation. Unsafe Characters: {0}; Safe Characters: {1}",
-    "599": "Program terminated with error.",
+    "551": "Missing G2 database URL.",
+    "552": "SENZING_DATA_SOURCE not set.",
+    "553": "SENZING_ENTITY_TYPE not set.",
+    "554": "Running with less than the recommended total memory of {0} GiB.",
+    "555": "Running with less than the recommended available memory of {0} GiB.",
+    "556": "SENZING_KAFKA_BOOTSTRAP_SERVER not set. See ./stream-loader.py kafka --help.",
+    "557": "Invalid JSON received: {0}",
+    "558": "LD_LIBRARY_PATH environment variable not set.",
+    "559": "PYTHONPATH environment variable not set.",
+    "560": "SENZING_PROCESSES for 'url' subcommand must be 1. Currently set to {0}.",
+    "561": "Unknown RabbitMQ error when connecting: {0}.",
+    "562": "Could not connect to RabbitMQ host at {1}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details. Error: {0}",
+    "563": "Could not perform database performance test.",
+    "564": "Database performance of {0:.2f}ms per insert is slower than the recommended minimum performance of {1:.2f}ms per insert",
+    "565": "System has {0} cores which is less than the recommended minimum of {1} cores for this configuration.",
+    "566": "System has {0:.1f} GB memory which is less than the recommended minimum of {1:.1f} GB memory",
+    "695": "Unknown database scheme '{0}' in database url '{1}'",
+    "696": "Bad SENZING_SUBCOMMAND: {0}.",
+    "697": "No processing done.",
+    "698": "Program terminated with error.",
+    "699": "{0}",
+    "700": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
+    "721": "Running low on workers.  May need to restart",
+    "722": "Kafka commit failed for {0}",
+    "726": "Could not do performance test. G2 Translation error. Error: {0}",
+    "727": "Could not do performance test. G2 module initialization error. Error: {0}",
+    "728": "Could not do performance test. G2 generic exception. Error: {0}",
+    "730": "There are not enough safe characters to do the translation. Unsafe Characters: {0}; Safe Characters: {1}",
+    "886": "G2Engine.addRecord() bad return code: {0}; JSON: {1}",
+    "887": "G2Engine.addRecord() TranslateG2ModuleException: {0}; JSON: {1}",
+    "888": "G2Engine.addRecord() G2ModuleNotInitialized: {0}; JSON: {1}",
+    "889": "G2Engine.addRecord() G2ModuleGenericException: {0}; JSON: {1}",
+    "890": "G2Engine.addRecord() Exception: {0}; JSON: {1}",
+    "891": "Original and new database URLs do not match. Original URL: {0}; Reconstructed URL: {1}",
+    "892": "Could not initialize G2Product with '{0}'. Error: {1}",
+    "893": "Could not initialize G2Hasher with '{0}'. Error: {1}",
+    "894": "Could not initialize G2Diagnostic with '{0}'. Error: {1}",
+    "895": "Could not initialize G2Audit with '{0}'. Error: {1}",
+    "896": "Could not initialize G2ConfigMgr with '{0}'. Error: {1}",
+    "897": "Could not initialize G2Config with '{0}'. Error: {1}",
+    "898": "Could not initialize G2Engine with '{0}'. Error: {1}",
+    "899": "{0}",
     "900": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}D",
     "901": "Queued: {0}",
     "902": "Processed: {0}",
@@ -411,11 +394,11 @@ def message_info(index, *args):
 
 
 def message_warning(index, *args):
-    return message_generic(200, index, *args)
+    return message_generic(300, index, *args)
 
 
 def message_error(index, *args):
-    return message_generic(500, index, *args)
+    return message_generic(700, index, *args)
 
 
 def message_debug(index, *args):
@@ -483,7 +466,7 @@ def parse_database_url(original_senzing_database_url):
     # Detect an error condition where there are not enough safe characters.
 
     if len(unsafe_characters) > len(safe_characters):
-        logging.error(message_error(519, unsafe_characters, safe_characters))
+        logging.error(message_error(730, unsafe_characters, safe_characters))
         return result
 
     # Perform translation.
@@ -531,7 +514,7 @@ def parse_database_url(original_senzing_database_url):
     ]
     test_senzing_database_url = urlunparse(url_parts)
     if test_senzing_database_url != original_senzing_database_url:
-        logging.warning(message_warning(423, original_senzing_database_url, test_senzing_database_url))
+        logging.warning(message_warning(891, original_senzing_database_url, test_senzing_database_url))
 
     # Return result.
 
@@ -557,13 +540,13 @@ def get_g2_database_url_specific(generic_database_url):
     elif scheme in ['sqlite3']:
         result = "{scheme}://{netloc}{path}".format(**parsed_database_url)
     else:
-        logging.error(message_error(518, scheme, generic_database_url))
+        logging.error(message_error(695, scheme, generic_database_url))
 
     return result
 
 
 def get_configuration(args):
-    ''' Order of precedence: CLI, OS environment variables, INI file, default.'''
+    ''' Order of precedence: CLI, OS environment variables, INI file, default. '''
     result = {}
 
     # Copy default values into configuration dictionary.
@@ -613,7 +596,8 @@ def get_configuration(args):
 
     # Special case: Change integer strings to integers.
 
-    integers = ['expiration_warning_in_days',
+    integers = ['configuration_check_frequency_in_seconds',
+                'expiration_warning_in_days',
                 'log_license_period_in_seconds',
                 'monitoring_period_in_seconds',
                 'processes',
@@ -642,13 +626,13 @@ def get_configuration(args):
 
 
 def validate_configuration(config):
-    '''Check aggregate configuration from commandline options, environment variables, config files, and defaults.'''
+    ''' Check aggregate configuration from commandline options, environment variables, config files, and defaults. '''
 
     user_warning_messages = []
     user_error_messages = []
 
     if not config.get('g2_database_url_generic'):
-        user_error_messages.append(message_error(401))
+        user_error_messages.append(message_error(551))
 
     # Perform subcommand specific checking.
 
@@ -657,28 +641,28 @@ def validate_configuration(config):
     if subcommand in ['kafka', 'stdin', 'url']:
 
         if not config.get('ld_library_path'):
-            user_error_messages.append(message_error(414))
+            user_error_messages.append(message_error(558))
 
         if not config.get('python_path'):
-            user_error_messages.append(message_error(415))
+            user_error_messages.append(message_error(559))
 
     if subcommand in ['stdin', 'url']:
 
         if config.get('processes') > 1:
-            user_error_messages.append(message_error(416, config.get('processes')))
+            user_error_messages.append(message_error(560, config.get('processes')))
 
     if subcommand in ['stdin']:
 
         if not config.get('data_source'):
-            user_warning_messages.append(message_warning(404))
+            user_warning_messages.append(message_warning(552))
 
         if not config.get('entity_type'):
-            user_warning_messages.append(message_warning(405))
+            user_warning_messages.append(message_warning(553))
 
     if subcommand in ['kafka']:
 
         if not config.get('kafka_bootstrap_server'):
-            user_error_messages.append(message_error(411))
+            user_error_messages.append(message_error(556))
 
     # Log warning messages.
 
@@ -693,12 +677,20 @@ def validate_configuration(config):
     # Log where to go for help.
 
     if len(user_warning_messages) > 0 or len(user_error_messages) > 0:
-        logging.info(message_info(198))
+        logging.info(message_info(293))
 
     # If there are error messages, exit.
 
     if len(user_error_messages) > 0:
-        exit_error(499)
+        exit_error(697)
+
+
+def redact_configuration(config):
+    ''' Return a shallow copy of config with certain keys removed. '''
+    result = config.copy()
+    for key in keys_to_redact:
+        result.pop(key)
+    return result
 
 # -----------------------------------------------------------------------------
 # Class: KafkaProcess
@@ -707,7 +699,7 @@ def validate_configuration(config):
 
 class KafkaProcess(multiprocessing.Process):
 
-    def __init__(self, config, g2_engine):
+    def __init__(self, config, g2_engine, g2_configuration_manager):
         multiprocessing.Process.__init__(self)
 
         # Create kafka reader threads.
@@ -715,7 +707,7 @@ class KafkaProcess(multiprocessing.Process):
         self.threads = []
         threads_per_process = config.get('threads_per_process')
         for i in range(0, threads_per_process):
-            thread = ReadKafkaWriteG2Thread(config, g2_engine)
+            thread = ReadKafkaWriteG2Thread(config, g2_engine, g2_configuration_manager)
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
 
@@ -789,7 +781,7 @@ class KafkaTestProcess(multiprocessing.Process):
 
 class RabbitMQProcess(multiprocessing.Process):
 
-    def __init__(self, config, g2_engine):
+    def __init__(self, config, g2_engine, g2_configuration_manager):
         multiprocessing.Process.__init__(self)
 
         # Create RabbitMQ reader threads.
@@ -797,7 +789,7 @@ class RabbitMQProcess(multiprocessing.Process):
         self.threads = []
         threads_per_process = config.get('threads_per_process')
         for i in range(0, threads_per_process):
-            thread = ReadRabbitMQWriteG2Thread(config, g2_engine)
+            thread = ReadRabbitMQWriteG2Thread(config, g2_engine, g2_configuration_manager)
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
 
@@ -865,36 +857,114 @@ class RabbitMQTestProcess(multiprocessing.Process):
             thread.join()
 
 # -----------------------------------------------------------------------------
-# Class: ReadKafkaWriteG2Thread
+# Class: WriteG2Thread
 # -----------------------------------------------------------------------------
 
 
-class ReadKafkaWriteG2Thread(threading.Thread):
+class WriteG2Thread(threading.Thread):
 
-    def __init__(self, config, g2_engine):
+    def __init__(self, config, g2_engine, g2_configuration_manager):
         threading.Thread.__init__(self)
         self.config = config
         self.g2_engine = g2_engine
+        self.g2_configuration_manager = g2_configuration_manager
+
+    def add_record_to_failure_queue(self, jsonline):
+        # FIXME: add functionality.
+        logging.info(message_info(121, jsonline))
+
+    def is_time_to_check_g2_configuration(self):
+        now = time.time()
+        next_check_time = self.config.get('last_configuration_check', time.time()) + self.config.get('configuration_check_frequency_in_seconds')
+        return now > next_check_time
+
+    def is_g2_default_configuration_changed(self):
+
+        # Update early to avoid "thundering heard problem".
+
+        self.config['last_configuration_check'] = time.time()
+
+        # Get active Configuration ID being used by g2_engine.
+
+        active_config_id = bytearray()
+        self.g2_engine.getActiveConfigID(active_config_id)
+
+        # Get most current Configuration ID from G2 database.
+
+        default_config_id = bytearray()
+        self.g2_configuration_manager.getDefaultConfigID(default_config_id)
+
+        # Determine if configuration has changed.
+
+        result = active_config_id != default_config_id
+        if result:
+            logging.info(message_info(292, active_config_id.decode(), default_config_id.decode()))
+
+        return result
+
+    def update_active_g2_configuration(self):
+
+        # Get most current Configuration ID from G2 database.
+
+        default_config_id = bytearray()
+        self.g2_configuration_manager.getDefaultConfigID(default_config_id)
+
+        # Apply new configuration to g2_engine.
+
+        self.g2_engine.reinitV2(default_config_id)
+
+    def add_record(self, jsonline):
+        json_dictionary = json.loads(jsonline)
+        data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
+        record_id = str(json_dictionary.get('RECORD_ID'))
+        try:
+            return_code = self.g2_engine.addRecord(data_source, record_id, jsonline)
+        except Exception as err:
+            if self.is_g2_default_configuration_changed():
+                self.update_active_g2_configuration()
+                return_code = self.g2_engine.addRecord(data_source, record_id, jsonline)
+            else:
+                raise err
+        return return_code
 
     def send_jsonline_to_g2_engine(self, jsonline):
         '''Send the JSONline to G2 engine.'''
 
-        json_dictionary = json.loads(jsonline)
-        data_source = str(json_dictionary['DATA_SOURCE'])
-        record_id = str(json_dictionary['RECORD_ID'])
+        # Periodically, check for configuration update.
+
+        if self.is_time_to_check_g2_configuration():
+            if self.is_g2_default_configuration_changed():
+                self.update_active_g2_configuration()
+
+        # Add Record to Senzing G2.
+
         try:
-            self.g2_engine.addRecord(data_source, record_id, jsonline)
+            return_code = self.add_record(jsonline)
         except G2Exception.TranslateG2ModuleException as err:
-            logging.error(message_error(512, err, jsonline))
-        except G2Exception.G2ModuleException as err:
-            logging.error(message_error(501, err, jsonline))
+            logging.error(message_error(887, err, jsonline))
+            self.add_record_to_failure_queue(jsonline)
+        except G2Exception.G2ModuleNotInitialized as err:
+            exit_error(888, err, jsonline)
         except G2Exception.G2ModuleGenericException as err:
-            logging.error(message_error(501, err, jsonline))
+            logging.error(message_error(889, err, jsonline))
+            self.add_record_to_failure_queue(jsonline)
         except Exception as err:
-            logging.error(message_error(510, err, jsonline))
-        except:
-            logging.error(message_error(511, jsonline))
+            logging.error(message_error(890, err, jsonline))
+            self.add_record_to_failure_queue(jsonline)
+        if return_code != 0:
+            exit_error(886, return_code, method, parameters)
+
         logging.debug(message_debug(904, threading.current_thread().name, jsonline))
+
+# -----------------------------------------------------------------------------
+# Class: ReadKafkaWriteG2Thread
+# -----------------------------------------------------------------------------
+
+
+class ReadKafkaWriteG2Thread(WriteG2Thread):
+
+    def __init__(self, config, g2_engine, g2_configuration_manager):
+        super().__init__(config, g2_engine, g2_configuration_manager)
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -934,7 +1004,7 @@ class ReadKafkaWriteG2Thread(threading.Thread):
                 if kafka_message.error().code() == confluent_kafka.KafkaError._PARTITION_EOF:
                     continue
                 else:
-                    logging.error(message_error(508, kafka_message.error()))
+                    logging.error(message_error(722, kafka_message.error()))
                     continue
 
             # Construct and verify Kafka message.
@@ -950,9 +1020,9 @@ class ReadKafkaWriteG2Thread(threading.Thread):
             try:
                 kafka_message_dictionary = json.loads(kafka_message_string)
             except:
-                logging.info(message_debug(412, kafka_message_string))
+                logging.info(message_debug(557, kafka_message_string))
                 if not consumer.commit():
-                    logging.error(message_error(508, kafka_message_string))
+                    logging.error(message_error(722, kafka_message_string))
                 continue
 
             # If needed, modify JSON message.
@@ -982,31 +1052,10 @@ class ReadKafkaWriteG2Thread(threading.Thread):
 # -----------------------------------------------------------------------------
 
 
-class ReadRabbitMQWriteG2Thread(threading.Thread):
+class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
-    def __init__(self, config, g2_engine):
-        threading.Thread.__init__(self)
-        self.config = config
-        self.g2_engine = g2_engine
-
-    def send_jsonline_to_g2_engine(self, jsonline):
-        '''Send the JSONline to G2 engine.'''
-
-        json_dictionary = json.loads(jsonline)
-        record_id = str(json_dictionary['RECORD_ID'])
-        try:
-            self.g2_engine.addRecord(self.data_source, record_id, jsonline)
-        except G2Exception.TranslateG2ModuleException as err:
-            logging.error(message_error(512, err, jsonline))
-        except G2Exception.G2ModuleException as err:
-            logging.error(message_error(501, err, jsonline))
-        except G2Exception.G2ModuleGenericException as err:
-            logging.error(message_error(501, err, jsonline))
-        except Exception as err:
-            logging.error(message_error(510, err, jsonline))
-        except:
-            logging.error(message_error(511, jsonline))
-        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
+    def __init__(self, config, g2_engine, g2_configuration_manager):
+        super().__init__(config, g2_engine, g2_configuration_manager)
 
     def callback(self, ch, method, properties, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -1017,7 +1066,7 @@ class ReadRabbitMQWriteG2Thread(threading.Thread):
         try:
             rabbitmq_message_dictionary = json.loads(body)
         except:
-            logging.info(message_debug(412, body))
+            logging.info(message_debug(557, body))
             ch.basic_ack(delivery_tag=method.delivery_tag)
             return
 
@@ -1065,9 +1114,9 @@ class ReadRabbitMQWriteG2Thread(threading.Thread):
             channel.basic_qos(prefetch_count=10)
             channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
         except pika.exceptions.AMQPConnectionError as err:
-            exit_error(418, err, rabbitmq_host)
+            exit_error(562, err, rabbitmq_host)
         except BaseException as err:
-            exit_error(417, err)
+            exit_error(561, err)
 
         # Start consuming.
 
@@ -1122,7 +1171,7 @@ class ReadKafkaTestThread(threading.Thread):
                 if kafka_message.error().code() == confluent_kafka.KafkaError._PARTITION_EOF:
                     continue
                 else:
-                    logging.error(message_error(508, kafka_message.error()))
+                    logging.error(message_error(722, kafka_message.error()))
                     continue
 
             # Construct and verify Kafka message.
@@ -1198,9 +1247,9 @@ class ReadRabbitMqTestThread(threading.Thread):
             channel.basic_qos(prefetch_count=10)
             channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
         except (pika.exceptions.AMQPConnectionError) as err:
-            exit_error(418, err, rabbitmq_host)
+            exit_error(562, err, rabbitmq_host)
         except BaseException as err:
-            exit_error(417, err)
+            exit_error(561, err)
 
         # Start consuming.
 
@@ -1239,7 +1288,7 @@ class UrlProcess(multiprocessing.Process):
 
         threads_per_process = config.get('threads_per_process')
         for i in range(0, threads_per_process):
-            thread = ReadQueueWriteG2Thread(config, self.g2_engine, work_queue)
+            thread = ReadQueueWriteG2Thread(config, self.g2_engine, self.g2_configuration_manager, work_queue)
             thread.name = "{0}-writer-{1}".format(self.name, i)
             self.threads.append(thread)
 
@@ -1390,34 +1439,12 @@ class ReadUrlWriteQueueThread(threading.Thread):
 # -----------------------------------------------------------------------------
 
 
-class ReadQueueWriteG2Thread(threading.Thread):
+class ReadQueueWriteG2Thread(WriteG2Thread):
     '''Thread for writing ...'''
 
-    def __init__(self, config, g2_engine, queue):
-        threading.Thread.__init__(self)
-        self.config = config
-        self.g2_engine = g2_engine
+    def __init__(self, config, g2_engine, g2_configuration_manager, queue):
+        super().__init__(config, g2_engine, g2_configuration_manager)
         self.queue = queue
-
-    def send_jsonline_to_g2_engine(self, jsonline):
-        '''Send the JSONline to G2 engine.'''
-
-        json_dictionary = json.loads(jsonline)
-        data_source = str(json_dictionary['DATA_SOURCE'])
-        record_id = str(json_dictionary['RECORD_ID'])
-        try:
-            self.g2_engine.addRecord(data_source, record_id, jsonline)
-        except G2Exception.TranslateG2ModuleException as err:
-            logging.error(message_error(512, err, jsonline))
-        except G2Exception.G2ModuleException as err:
-            logging.error(message_error(501, err, jsonline))
-        except G2Exception.G2ModuleGenericException as err:
-            logging.error(message_error(501, err, jsonline))
-        except Exception as err:
-            logging.error(message_error(510, err, jsonline))
-        except:
-            logging.error(message_error(511, jsonline))
-        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
     def run(self):
         while True:
@@ -1476,7 +1503,7 @@ class MonitorThread(threading.Thread):
             # Determine if we're running out of workers.
 
             if (active_workers / float(len(self.workers))) < 0.5:
-                logging.warning(message_warning(502))
+                logging.warning(message_warning(721))
 
             # Calculate times.
 
@@ -1578,7 +1605,7 @@ class MonitorTestThread(threading.Thread):
             # Determine if we're running out of workers.
 
             if (active_workers / float(len(self.workers))) < 0.5:
-                logging.warning(message_warning(502))
+                logging.warning(message_warning(721))
 
             # Calculate rates.
 
@@ -1644,50 +1671,19 @@ class MonitorTestThread(threading.Thread):
 # -----------------------------------------------------------------------------
 
 
-def add_data_sources(config):
-    '''Update Senzing configuration.'''
-
-    # Pull values from configuration.
-
-    data_source = config.get('data_source')
-
-    # Add DATA_SOURCE.
-
-    if data_source:
-        try:
-            g2_config = get_g2_config(config)
-            config_handle = g2_config.create()
-            return_code = g2_config.addDataSource(config_handle, data_source)
-            logging.info(message_info(153, data_source, return_code))
-
-#         try:
-#         g2_configuration_manager = get_g2_configuration_manager(config)
-#         config_handle = g2_configuration_manager.create()
-#         return_code = g2_configuration_manager.addDataSource(config_handle, data_source)
-#         logging.info(message_info(153, data_source, return_code))
-#
-#         response_bytearray = bytearray()
-#         return_code = g2_configuration_manager.save(config_handle, response_bytearray)
-#         response_dictionary = json.loads(response_bytearray)
-#         logging.info(message_info(999, json.dumps(response_dictionary)))
-#
-#         response_bytearray = bytearray()
-#         return_code = g2_configuration_manager.listDataSources(config_handle, response_bytearray)
-#         response_dictionary = json.loads(response_bytearray)
-#         logging.info(message_info(999, "Data Source list: {0}".format(json.dumps(response_dictionary))))
-
-        except:
-            exception = get_exception()
-            logging.warning(message_warning(202, exception.get('line_number'), exception.get('line'), exception.get('exception')))
+def cleanup_after_past_invocations():
+    '''Remove residual artifacts from prior invocations of loader.'''
+    for filename in glob('pyG2*'):
+        os.remove(filename)
 
 
 def create_signal_handler_function(args):
-    '''Tricky code.  Uses currying technique. Create a function for signal handling.
-       that knows about "args".
+    ''' Tricky code.  Uses currying technique. Create a function for signal handling.
+        that knows about "args".
     '''
 
     def result_function(signal_number, frame):
-        logging.info(message_info(102, args))
+        logging.info(message_info(298, args))
         sys.exit(0)
 
     return result_function
@@ -1698,36 +1694,40 @@ def bootstrap_signal_handler(signal, frame):
 
 
 def entry_template(config):
-    '''Format of entry message.'''
+    ''' Format of entry message. '''
+    debug = config.get("debug", False)
     config['start_time'] = time.time()
-
-    # FIXME: Redact sensitive info:  Example: database password.
-
-    config_json = json.dumps(config, sort_keys=True)
-    return message_info(101, config_json)
+    if debug:
+        final_config = config
+    else:
+        final_config = redact_configuration(config)
+    config_json = json.dumps(final_config, sort_keys=True)
+    return message_info(297, config_json)
 
 
 def exit_template(config):
-    '''Format of exit message.'''
+    ''' Format of exit message. '''
+    debug = config.get("debug", False)
     stop_time = time.time()
     config['stop_time'] = stop_time
     config['elapsed_time'] = stop_time - config.get('start_time', stop_time)
-
-    # FIXME: Redact sensitive info:  Example: database password.
-
-    config_json = json.dumps(config, sort_keys=True)
-    return message_info(102, config_json)
+    if debug:
+        final_config = config
+    else:
+        final_config = redact_configuration(config)
+    config_json = json.dumps(final_config, sort_keys=True)
+    return message_info(298, config_json)
 
 
 def exit_error(index, *args):
-    '''Log error message and exit program.'''
+    ''' Log error message and exit program. '''
     logging.error(message_error(index, *args))
-    logging.error(message_error(599))
+    logging.error(message_error(698))
     sys.exit(1)
 
 
 def exit_silently():
-    '''Exit program.'''
+    ''' Exit program. '''
     sys.exit(1)
 
 # -----------------------------------------------------------------------------
@@ -1742,7 +1742,6 @@ def get_g2_configuration_dictionary(config):
         },
         "SQL": {
             "CONNECTION": config.get("g2_database_url_specific"),
-            "G2CONFIGFILE": config.get("g2_configuration_file")
         }
     }
     return result
@@ -1763,7 +1762,7 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
         result = G2Config()
         result.initV2(g2_config_name, g2_configuration_json, config.get('debug', False))
     except G2Exception.G2ModuleException as err:
-        exit_error(505, g2_configuration_json, err)
+        exit_error(897, g2_configuration_json, err)
     return result
 
 
@@ -1774,7 +1773,7 @@ def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G
         result = G2ConfigMgr()
         result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug', False))
     except G2Exception.G2ModuleException as err:
-        exit_error(516, g2_configuration_json, err)
+        exit_error(896, g2_configuration_json, err)
     return result
 
 
@@ -1785,7 +1784,7 @@ def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
         result = G2Diagnostic()
         result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug', False))
     except G2Exception.G2ModuleException as err:
-        exit_error(517, g2_configuration_json, err)
+        exit_error(894, g2_configuration_json, err)
     return result
 
 
@@ -1795,8 +1794,9 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Engine()
         result.initV2(g2_engine_name, g2_configuration_json, config.get('debug', False))
+        config['last_configuration_check'] = time.time()
     except G2Exception.G2ModuleException as err:
-        exit_error(503, g2_configuration_json, err)
+        exit_error(898, g2_configuration_json, err)
     return result
 
 
@@ -1807,39 +1807,8 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
         result = G2Product()
         result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
-        exit_error(504, config.get('g2project_ini'), err)
+        exit_error(892, config.get('g2project_ini'), err)
     return result
-
-# -----------------------------------------------------------------------------
-# Utility functions.
-# -----------------------------------------------------------------------------
-
-
-def cleanup_after_past_invocations():
-    '''Remove residual artifacts from prior invocations of loader.'''
-    for filename in glob('pyG2*'):
-        os.remove(filename)
-
-
-def send_jsonline_to_g2_engine(jsonline, g2_engine):
-    '''Send the JSONline to G2 engine.'''
-
-    logging.debug(message_debug(902, jsonline))
-    json_dictionary = json.loads(jsonline)
-    data_source = str(json_dictionary['DATA_SOURCE'])
-    record_id = str(json_dictionary['RECORD_ID'])
-    try:
-        g2_engine.addRecord(data_source, record_id, jsonline)
-    except G2Exception.TranslateG2ModuleException as err:
-        logging.error(message_error(512, err, jsonline))
-    except G2Exception.G2ModuleException as err:
-        logging.error(message_error(501, err, jsonline))
-    except G2Exception.G2ModuleGenericException as err:
-        logging.error(message_error(501, err, jsonline))
-    except Exception as err:
-        logging.error(message_error(510, err, jsonline))
-    except:
-        logging.error(message_error(511, jsonline))
 
 # -----------------------------------------------------------------------------
 # Log information.
@@ -1853,22 +1822,22 @@ def log_license(config):
     license = json.loads(g2_product.license())
     version = json.loads(g2_product.version())
 
-    logging.info(message_info(103, '-' * 20))
+    logging.info(message_info(160, '-' * 20))
     if 'VERSION' in version:
-        logging.info(message_info(104, version['VERSION'], version['BUILD_DATE']))
+        logging.info(message_info(161, version['VERSION'], version['BUILD_DATE']))
     if 'customer' in license:
-        logging.info(message_info(105, license['customer']))
+        logging.info(message_info(162, license['customer']))
     if 'licenseType' in license:
-        logging.info(message_info(106, license['licenseType']))
+        logging.info(message_info(163, license['licenseType']))
     if 'expireDate' in license:
-        logging.info(message_info(107, license['expireDate']))
+        logging.info(message_info(164, license['expireDate']))
 
         # Calculate days remaining.
 
         expire_date = datetime.datetime.strptime(license['expireDate'], '%Y-%m-%d')
         today = datetime.datetime.today()
         remaining_time = expire_date - today
-        logging.info(message_info(108, remaining_time.days))
+        logging.info(message_info(165, remaining_time.days))
 
         # Issue warning if license is about to expire.
 
@@ -1877,10 +1846,10 @@ def log_license(config):
             logging.warning(message_warning(203, remaining_time.days))
 
     if 'recordLimit' in license:
-        logging.info(message_info(109, license['recordLimit']))
+        logging.info(message_info(166, license['recordLimit']))
     if 'contract' in license:
-        logging.info(message_info(110, license['contract']))
-    logging.info(message_info(199, '-' * 49))
+        logging.info(message_info(167, license['contract']))
+    logging.info(message_info(299, '-' * 49))
 
     # Garbage collect g2_product.
 
@@ -1940,27 +1909,27 @@ def log_performance(config):
             time_per_insert = time_to_insert / float(number_of_records_inserted)
             logging.info(message_info(150, number_of_records_inserted, time_to_insert, time_per_insert))
         else:
-            logging.warning(message_warning(419))
+            logging.warning(message_warning(563))
 
         # Analysis.
 
         maximum_time_allowed_per_insert_in_ms = 4
         if time_per_insert and (time_per_insert > maximum_time_allowed_per_insert_in_ms):
-            logging.warning(message_warning(420, time_per_insert, maximum_time_allowed_per_insert_in_ms))
+            logging.warning(message_warning(564, time_per_insert, maximum_time_allowed_per_insert_in_ms))
             logging.info(message_info(151))
 
         if g2_diagnostic.getPhysicalCores() < minimum_recommended_cores:
-            logging.warning(message_warning(421, g2_diagnostic.getPhysicalCores(), minimum_recommended_cores))
+            logging.warning(message_warning(565, g2_diagnostic.getPhysicalCores(), minimum_recommended_cores))
 
         if total_available_memory < minimum_recommended_memory:
-            logging.warning(message_warning(422, total_available_memory, minimum_recommended_memory))
+            logging.warning(message_warning(566, total_available_memory, minimum_recommended_memory))
 
     except G2Exception.TranslateG2ModuleException as err:
-        logging.warning(message_warning(513, err))
+        logging.warning(message_warning(726, err))
     except G2Exception.G2ModuleNotInitialized as err:
-        logging.warning(message_warning(514, err))
+        logging.warning(message_warning(727, err))
     except G2Exception.G2ModuleGenericException as err:
-        logging.warning(message_warning(515, err))
+        logging.warning(message_warning(728, err))
 
 
 def log_memory():
@@ -1980,13 +1949,13 @@ def log_memory():
 
         minimum_total_memory = MINIMUM_TOTAL_MEMORY_IN_GIGABYTES * GIGABYTES
         if total_memory < minimum_total_memory:
-            logging.warning(message_warning(408, MINIMUM_TOTAL_MEMORY_IN_GIGABYTES))
+            logging.warning(message_warning(554, MINIMUM_TOTAL_MEMORY_IN_GIGABYTES))
 
         # Check available memory.
 
         minimum_available_memory = MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES * GIGABYTES
         if available_memory < minimum_available_memory:
-            logging.warning(message_warning(409, MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES))
+            logging.warning(message_warning(555, MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES))
 
     except:
         logging.warning(message_warning(201))
@@ -1994,27 +1963,6 @@ def log_memory():
 # -----------------------------------------------------------------------------
 # Worker functions
 # -----------------------------------------------------------------------------
-
-
-def worker_send_jsonlines_to_g2_engine(config, g2_engine):
-    '''A worker that reads a JSON line from a queue and sends it to the g2_engine.'''
-    try:
-        while True:
-            jsonline = jsonlines_queue.get()
-            send_jsonline_to_g2_engine(jsonline, g2_engine)
-            config['counter_processed_records'] += 1
-    except queue.Empty:
-        logging.info(message_info(122))
-
-
-def worker_send_jsonlines_to_log(config):
-    '''A worker that simply echoes to the log.'''
-    try:
-        while True:
-            jsonline = jsonlines_queue.get(timeout=1)
-            logging.info(message_info(199, jsonline))
-    except queue.Empty:
-        logging.info(message_info(122))
 
 
 def common_prolog(config):
@@ -2028,10 +1976,6 @@ def common_prolog(config):
     # Cleanup after previous invocations.
 
     cleanup_after_past_invocations()
-
-    # FIXME: This is a hack for development
-
-    add_data_sources(config)
 
     # Write license information to log.
 
@@ -2052,7 +1996,7 @@ def common_prolog(config):
 
 
 def do_docker_acceptance_test(args):
-    '''Sleep.'''
+    ''' For use with Docker acceptance testing. '''
 
     # Get context from CLI, environment variables, and ini files.
 
@@ -2068,7 +2012,7 @@ def do_docker_acceptance_test(args):
 
 
 def do_kafka(args):
-    '''Read from Kafka.'''
+    ''' Read from Kafka. '''
 
     # Get context from CLI, environment variables, and ini files.
 
@@ -2083,15 +2027,16 @@ def do_kafka(args):
     number_of_processes = config.get('processes')
     threads_per_process = config.get('threads_per_process')
 
-    # Get the G2Engine resource.
+    # Get the Senzing G2 resources.
 
     g2_engine = get_g2_engine(config)
+    g2_configuration_manager = get_g2_configuration_manager(config)
 
     # Create kafka reader threads for master process.
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadKafkaWriteG2Thread(config, g2_engine)
+        thread = ReadKafkaWriteG2Thread(config, g2_engine, g2_configuration_manager)
         thread.name = "KafkaProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
@@ -2179,7 +2124,7 @@ def do_kafka_test(args):
 
 
 def do_rabbitmq(args):
-    '''Read from rabbitmq.'''
+    ''' Read from rabbitmq. '''
 
     # Get context from CLI, environment variables, and ini files.
 
@@ -2194,15 +2139,16 @@ def do_rabbitmq(args):
     number_of_processes = config.get('processes')
     threads_per_process = config.get('threads_per_process')
 
-    # Get the G2Engine resource.
+    # Get the Senzing G2 resources.
 
     g2_engine = get_g2_engine(config)
+    g2_configuration_manager = get_g2_configuration_manager(config)
 
     # Create RabbitMQ reader threads for master process.
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadRabbitMQWriteG2Thread(config, g2_engine)
+        thread = ReadRabbitMQWriteG2Thread(config, g2_engine, g2_configuration_manager)
         thread.name = "RabbitMQProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
@@ -2258,7 +2204,7 @@ def do_rabbitmq(args):
 
 
 def do_rabbitmq_test(args):
-    '''Read from rabbitmq.'''
+    ''' Read from rabbitmq. '''
 
     # Get context from CLI, environment variables, and ini files.
 
@@ -2290,7 +2236,7 @@ def do_rabbitmq_test(args):
 
 
 def do_sleep(args):
-    '''Sleep.  Used for debugging.'''
+    ''' Sleep.  Used for debugging. '''
 
     # Get context from CLI, environment variables, and ini files.
 
@@ -2307,116 +2253,18 @@ def do_sleep(args):
     # Sleep
 
     if sleep_time_in_seconds > 0:
-        logging.info(message_info(128, sleep_time_in_seconds))
+        logging.info(message_info(296, sleep_time_in_seconds))
         time.sleep(sleep_time_in_seconds)
 
     else:
         sleep_time_in_seconds = 3600
         while True:
-            logging.info(message_info(131))
+            logging.info(message_info(295))
             time.sleep(sleep_time_in_seconds)
 
     # Epilog.
 
     logging.info(exit_template(config))
-
-# def do_stdin(args):
-#     '''Read from STDIN.'''
-#
-#     # Get context from CLI, environment variables, and ini files.
-#
-#     config = get_configuration(args)
-#
-#     # Perform common initialization tasks.
-#
-#     common_prolog(config)
-#
-#     # Pull values from configuration.
-#
-#     number_of_input_workers = config.get('number_of_input_workers')
-#     number_of_output_workers = config.get('number_of_output_workers')
-#     queue_maxsize = config.get('queue_maxsize')
-#
-#     # Adjust maximum size of queued tasks.
-#
-#     jsonlines_queue.maxsize = queue_maxsize
-#
-#     # Get Senzing engine.
-#
-#     g2_engine = get_g2_engine(config)
-#
-#     # Launch all workers that read from queue.
-#
-#     send_to_g2_engine_workers = []
-#     for i in xrange(0, number_of_output_workers):
-#         send_to_g2_engine_workers.append(gevent.spawn(worker_send_jsonlines_to_g2_engine, config, g2_engine))
-#
-#     # Launch all workers that read from STDIN into the internal queue.
-#
-#     output_line_function = create_output_line_function_factory(config)
-#     read_from_workers = []
-#     for i in xrange(0, number_of_input_workers):
-#         read_from_workers.append(gevent.spawn(input_lines_from_stdin, config, output_line_function))
-#
-#     # Launch the worker that monitors progress.
-#
-#     monitor_worker = gevent.spawn(worker_monitor, config, g2_engine, send_to_g2_engine_workers)
-#
-#     # Wait for all processing to complete.
-#
-#     gevent.joinall(send_to_g2_engine_workers)
-#
-#     # Kill workers.
-#
-#     monitor_worker.kill()
-#     for read_from_worker in read_from_workers:
-#         read_from_worker.kill()
-#
-#     # Epilog.
-#
-#     g2_engine.destroy()
-#     logging.info(exit_template(config))
-
-# def do_test(args):
-#     '''Test the input from STDIN by echoing to log records.'''
-#
-#     # Get context from CLI, environment variables, and ini files.
-#
-#     config = get_configuration(args)
-#
-#     # Perform common initialization tasks.
-#
-#     common_prolog(config)
-#
-#     # Pull values from configuration.
-#
-#     number_of_output_workers = config.get('number_of_output_workers')
-#     queue_maxsize = config.get('queue_maxsize')
-#     input_url = config.get('input_url')
-#
-#     # Adjust maximum size of queued tasks.
-#
-#     jsonlines_queue.maxsize = queue_maxsize
-#
-#     # Launch all workers that read from internal queue.
-#
-#     jsonlines_workers = []
-#     for i in xrange(1, number_of_output_workers):
-#         jsonlines_workers.append(gevent.spawn(worker_send_jsonlines_to_log, config))
-#
-#     # Feed input into internal queue.
-#
-#     input_lines_function = create_input_lines_function_factory(config)
-#     output_line_function = create_output_line_function_factory(config)
-#     input_lines_function(config, output_line_function)
-#
-#     # Wait for all processing to complete.
-#
-#     gevent.joinall(jsonlines_workers)
-#
-#     # Epilog.
-#
-#     logging.info(exit_template(config))
 
 
 def do_url(args):
@@ -2457,9 +2305,9 @@ def do_url(args):
 
 
 def do_version(args):
-    '''Log version information.'''
+    ''' Log version information. '''
 
-    logging.info(message_info(197, __version__, __updated__))
+    logging.info(message_info(294, __version__, __updated__))
 
 # -----------------------------------------------------------------------------
 # Main
@@ -2519,7 +2367,7 @@ if __name__ == "__main__":
     # Test to see if function exists in the code.
 
     if subcommand_function_name not in globals():
-        logging.warning(message_warning(498, subcommand))
+        logging.warning(message_warning(696, subcommand))
         parser.print_help()
         exit_silently()
 

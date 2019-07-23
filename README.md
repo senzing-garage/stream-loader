@@ -95,7 +95,7 @@ This repository assumes a working knowledge of:
   No default.
 * **SENZING_DATABASE_URL** -
   Database URI in the form: `${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}`
-  Default:  [internal SQLite database]  
+  Default:  [internal SQLite database]
 * **SENZING_DEBUG** -
   Enable debug information. Values: 0=no debug; 1=debug.
   Default: 0.
@@ -109,13 +109,6 @@ This repository assumes a working knowledge of:
 * **SENZING_ENTITY_TYPE** -
   Default "ENTITY_TYPE" value for incoming records.
   No default.
-* **SENZING_ENTRYPOINT_SLEEP** -
-  Sleep, in seconds, before executing.
-  0 for sleeping infinitely.
-  [not-set] if no sleep.
-  Useful for debugging docker containers.
-  To stop sleeping, run "`unset SENZING_ENTRYPOINT_SLEEP`".
-  Default: [not-set].  
 * **SENZING_INPUT_URL** -
   URL of source file.
   No default.
@@ -156,11 +149,11 @@ This repository assumes a working knowledge of:
   Amount of time to sleep, in seconds for `stream-loader.py sleep` subcommand.
   Default: 600.
 * **SENZING_SUBCOMMAND** -
-  Identify the subcommand to be run. See `stream-loader.py --help` for complete list.  
+  Identify the subcommand to be run. See `stream-loader.py --help` for complete list.
 * **SENZING_THREADS_PER_PROCESS** -
   Number of threads per process to allocate for processing.
   Default: 4
-  
+
 1. To determine which configuration parameters are use for each `<subcommand>`, run:
 
     ```console

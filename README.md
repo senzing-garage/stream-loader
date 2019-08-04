@@ -45,8 +45,10 @@ To see the options for a subcommand, run commands like:
 1. [Demonstrate using Command Line](#demonstrate-using-command-line)
     1. [Install](#install)
 1. [Demonstrate using Docker](#demonstrate-using-docker)
-    1. [Create SENZING_DIR](#create-senzing_dir)
+    1. [Get docker image](#get-docker-image)
+    1. [Initialize Senzing](#initialize-senzing)
     1. [Configuration](#configuration)
+    1. [Volumes](#volumes)
     1. [Run docker container](#run-docker-container)
 1. [Develop](#develop)
     1. [Prerequisite software](#prerequisite-software)
@@ -54,6 +56,7 @@ To see the options for a subcommand, run commands like:
     1. [Build docker image for development](#build-docker-image-for-development)
 1. [Examples](#examples)
 1. [Errors](#errors)
+1. [References](#references)
 
 ## Expectations
 
@@ -83,76 +86,54 @@ This repository assumes a working knowledge of:
 
 ## Demonstrate using Docker
 
-### Create SENZING_DIR
+### Get docker image
 
-1. If `/opt/senzing` directory is not on local system, visit
-   [HOWTO - Create SENZING_DIR](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/create-senzing-dir.md).
+1. Option #1. The `senzing/template` docker image is on [DockerHub](https://hub.docker.com/r/senzing/template) and can be downloaded.
+   Example:
+
+    ```console
+    sudo docker pull senzing/template
+    ```
+
+1. Option #2. The `senzing/template` image can be built locally.
+   Example:
+
+    ```console
+    sudo docker build --tag senzing/template https://github.com/senzing/docker-template.git
+    ```
+
+### Initialize Senzing
+
+1. If Senzing has not been initialized, visit
+   [HOWTO - Initialize Senzing](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/initialize-senzing.md).
 
 ### Configuration
 
-* **SENZING_DATA_SOURCE** -
-  Default "DATA_SOURCE" value for incoming records.
-  No default.
-* **SENZING_DATABASE_URL** -
-  Database URI in the form: `${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}`
-  Default:  [internal SQLite database]
-* **SENZING_DEBUG** -
-  Enable debug information. Values: 0=no debug; 1=debug.
-  Default: 0.
-* **SENZING_DIR** -
-  Path on the local system where
-  [Senzing_API.tgz](https://s3.amazonaws.com/public-read-access/SenzingComDownloads/Senzing_API.tgz)
-  has been extracted.
-  See [Create SENZING_DIR](#create-senzing_dir).
-  No default.
-  Usually set to "/opt/senzing".
-* **SENZING_ENTITY_TYPE** -
-  Default "ENTITY_TYPE" value for incoming records.
-  No default.
-* **SENZING_INPUT_URL** -
-  URL of source file.
-  No default.
-* **SENZING_KAFKA_BOOTSTRAP_SERVER** -
-  Hostname and port of Kafka server.
-  Default: "localhost:9092"
-* **SENZING_KAFKA_GROUP** -
-  Kafka group.
-  Default: "senzing-kafka-group"
-* **SENZING_KAFKA_TOPIC** -
-  Kafka topic.
-  Default: "senzing-kafka-topic"
-* **SENZING_LOG_LEVEL** -
-  Level of logging. {notset, debug, info, warning, error, critical}.
-  Default: info
-* **SENZING_MONITORING_PERIOD** -
-  Time, in seconds, between monitoring log records.
-  Default: 300
-* **SENZING_PROCESSES** -
-  Number of processes to allocated for processing.
-  Default: 1
-* **SENZING_QUEUE_MAX** -
-  Maximum items for internal queue.
-  Default: 10
-* **SENZING_RABBITMQ_HOST** -
-  Host name of the RabbitMQ exchange.
-  Default: "localhost:5672"
-* **SENZING_RABBITMQ_PASSWORD** -
-  The password for the RabbitMQ queue.
-  Default: "bitnami"
-* **SENZING_RABBITMQ_QUEUE** -
-  Name of the RabbitMQ queue used for communication.
-  Default: "senzing-rabbitmq-queue"
-* **SENZING_RABBITMQ_USERNAME** -
-  The username for the RabbitMQ queue.
-  Default: "user"
-* **SENZING_SLEEP_TIME** -
-  Amount of time to sleep, in seconds for `stream-loader.py sleep` subcommand.
-  Default: 600.
-* **SENZING_SUBCOMMAND** -
-  Identify the subcommand to be run. See `stream-loader.py --help` for complete list.
-* **SENZING_THREADS_PER_PROCESS** -
-  Number of threads per process to allocate for processing.
-  Default: 4
+Configuration values specified by environment variable or command line parameter.
+
+- **[SENZING_DATA_SOURCE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_data_source)**
+- **[SENZING_DATA_VERSION_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_data_version_dir)**
+- **[SENZING_DATABASE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_database_url)**
+- **[SENZING_DEBUG](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_debug)**
+- **[SENZING_ENTITY_TYPE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_entity_type)**
+- **[SENZING_ETC_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_etc_dir)**
+- **[SENZING_G2_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_g2_dir)**
+- **[SENZING_INPUT_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_input_url)**
+- **[SENZING_KAFKA_BOOTSTRAP_SERVER](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_kafka_bootstrap_server)**
+- **[SENZING_KAFKA_GROUP](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_kafka_group)**
+- **[SENZING_KAFKA_TOPIC](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_kafka_topic)**
+- **[SENZING_LOG_LEVEL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_log_level)**
+- **[SENZING_MONITORING_PERIOD](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_monitoring_period)**
+- **[SENZING_PROCESSES](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_processes)**
+- **[SENZING_QUEUE_MAX](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_queue_max)**
+- **[SENZING_RABBITMQ_HOST](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_host)**
+- **[SENZING_RABBITMQ_PASSWORD](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_password)**
+- **[SENZING_RABBITMQ_QUEUE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_queue)**
+- **[SENZING_RABBITMQ_USERNAME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_username)**
+- **[SENZING_SLEEP_TIME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sleep_time)**
+- **[SENZING_SUBCOMMAND](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_subcommand)**
+- **[SENZING_THREADS_PER_PROCESS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_threads_per_process)**
+- **[SENZING_VAR_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_var_dir)**
 
 1. To determine which configuration parameters are use for each `<subcommand>`, run:
 
@@ -160,11 +141,42 @@ This repository assumes a working knowledge of:
     ./stream-loader.py <subcommand> --help
     ```
 
+### Volumes
+
+The output of `yum install senzingapi` placed files in different directories.
+Create a folder for each output directory.
+
+1. :pencil2: Option #1.
+   To mimic an actual RPM installation,
+   identify directories for RPM output in this manner:
+
+    ```console
+    export SENZING_DATA_VERSION_DIR=/opt/senzing/data/1.0.0
+    export SENZING_G2_DIR=/opt/senzing/g2
+    export SENZING_ETC_DIR=/etc/opt/senzing
+    export SENZING_VAR_DIR=/var/opt/senzing
+    ```
+
+1. :pencil2: Option #2.
+   If Senzing directories were put in alternative directories,
+   set environment variables to reflect where the directories were placed.
+   Example:
+
+    ```console
+    export SENZING_VOLUME=/opt/my-senzing
+
+    export SENZING_DATA_VERSION_DIR=${SENZING_VOLUME}/data/1.0.0
+    export SENZING_G2_DIR=${SENZING_VOLUME}/g2
+    export SENZING_ETC_DIR=${SENZING_VOLUME}/etc
+    export SENZING_VAR_DIR=${SENZING_VOLUME}/var
+    ```
+
 ### Run docker container
 
 #### Demonstrate Kafka to Senzing
 
-1. :pencil2: Determine docker network.  Example:
+1. :pencil2: Determine docker network.
+   Example:
 
     ```console
     sudo docker network ls
@@ -173,7 +185,8 @@ This repository assumes a working knowledge of:
     export SENZING_NETWORK=nameofthe_network
     ```
 
-1. :pencil2: Set environment variables.  Example:
+1. :pencil2: Set environment variables.
+   Example:
 
     ```console
     export DATABASE_PROTOCOL=mysql
@@ -191,7 +204,8 @@ This repository assumes a working knowledge of:
     export SENZING_MONITORING_PERIOD=60
     ```
 
-1. Run the docker container.  Example:
+1. Run the docker container.
+   Example:
 
     ```console
     export SENZING_DATABASE_URL="${DATABASE_PROTOCOL}://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}"
@@ -223,6 +237,9 @@ The following software programs need to be installed:
 
 ### Clone repository
 
+For more information on environment variables,
+see [Environment Variables](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md).
+
 1. Set these environment variable values:
 
     ```console
@@ -241,25 +258,27 @@ The following software programs need to be installed:
 
 ### Build docker image for development
 
-1. Option #1 - Using docker command and GitHub.
+1. Option #1 - Using `docker` command and GitHub.
 
     ```console
     sudo docker build --tag senzing/stream-loader https://github.com/senzing/docker-template.git
     ```
 
-1. Option #2 - Using docker command and local repository.
+1. Option #2 - Using `docker` command and local repository.
 
     ```console
     cd ${GIT_REPOSITORY_DIR}
     sudo docker build --tag senzing/stream-loader .
     ```
 
-1. Option #3 - Using make command.
+1. Option #3 - Using `make` command.
 
     ```console
     cd ${GIT_REPOSITORY_DIR}
     sudo make docker-build
     ```
+
+    Note: `sudo make docker-build-development-cache` can be used to create cached docker layers.
 
 ## Examples
 
@@ -271,3 +290,5 @@ The following software programs need to be installed:
 ## Errors
 
 1. See [docs/errors.md](docs/errors.md).
+
+## References

@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-07-23'
+__updated__ = '2019-08-04'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -64,6 +64,11 @@ reserved_character_list = [ ';', ',', '/', '?', ':', '@', '=', '&']
 # 1) Command line options, 2) Environment variables, 3) Configuration files, 4) Default values
 
 configuration_locator = {
+    "config_path": {
+        "default": "/etc/opt/senzing",
+        "env": "SENZING_CONFIG_PATH",
+        "cli": "config-path"
+    },
     "configuration_check_frequency_in_seconds": {
         "default": 60,
         "env": "SENZING_CONFIGURATION_CHECK_FREQUENCY",
@@ -100,7 +105,7 @@ configuration_locator = {
         "cli": "g2-configuration-file"
     },
     "g2_database_url_generic": {
-        "default": "sqlite3://na:na@/opt/senzing/g2/sqldb/G2C.db",
+        "default": "sqlite3://na:na@/var/opt/senzing/sqlite/G2C.db",
         "env": "SENZING_DATABASE_URL",
         "cli": "database-url"
     },
@@ -169,6 +174,11 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_USERNAME",
         "cli": "rabbitmq-username",
     },
+    "resource_path": {
+        "default": "/opt/senzing/g2/resources",
+        "env": "SENZING_RESOURCE_PATH",
+        "cli": "resource-path"
+    },
     "senzing_dir": {
         "default": "/opt/senzing",
         "env": "SENZING_DIR",
@@ -184,7 +194,7 @@ configuration_locator = {
         "env": "SENZING_SUBCOMMAND",
     },
     "support_path": {
-        "default": "/opt/senzing/g2/data",
+        "default": "/opt/senzing/data",
         "env": "SENZING_SUPPORT_PATH",
         "cli": "support-path"
     },
@@ -1747,9 +1757,12 @@ def exit_silently():
 
 
 def get_g2_configuration_dictionary(config):
+    ''' Construct a dictionary in the form of the old ini files. '''
     result = {
         "PIPELINE": {
-            "SUPPORTPATH": config.get("support_path")
+            "CONFIGPATH": config.get("config_path"),
+            "RESOURCEPATH": config.get("resource_path"),
+            "SUPPORTPATH": config.get("support_path"),
         },
         "SQL": {
             "CONNECTION": config.get("g2_database_url_specific"),

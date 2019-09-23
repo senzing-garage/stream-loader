@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = 1.0
 __date__ = '2018-10-29'
-__updated__ = '2019-08-04'
+__updated__ = '2019-09-23'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -210,7 +210,7 @@ configuration_locator = {
 keys_to_redact = [
     "g2_database_url_generic",
     "g2_database_url_specific"
-    ]
+]
 
 # -----------------------------------------------------------------------------
 # Define argument parser
@@ -373,7 +373,6 @@ message_dictionary = {
     "728": "Could not do performance test. G2 generic exception. Error: {0}",
     "730": "There are not enough safe characters to do the translation. Unsafe Characters: {0}; Safe Characters: {1}",
     "886": "G2Engine.addRecord() bad return code: {0}; JSON: {1}",
-    "887": "G2Engine.addRecord() TranslateG2ModuleException: {0}; JSON: {1}",
     "888": "G2Engine.addRecord() G2ModuleNotInitialized: {0}; JSON: {1}",
     "889": "G2Engine.addRecord() G2ModuleGenericException: {0}; JSON: {1}",
     "890": "G2Engine.addRecord() Exception: {0}; JSON: {1}",
@@ -960,9 +959,6 @@ class WriteG2Thread(threading.Thread):
 
         try:
             return_code = self.add_record(jsonline)
-        except G2Exception.TranslateG2ModuleException as err:
-            logging.error(message_error(887, err, jsonline))
-            self.add_record_to_failure_queue(jsonline)
         except G2Exception.G2ModuleNotInitialized as err:
             exit_error(888, err, jsonline)
         except G2Exception.G2ModuleGenericException as err:
@@ -1948,8 +1944,6 @@ def log_performance(config):
         if total_available_memory < minimum_recommended_memory:
             logging.warning(message_warning(566, total_available_memory, minimum_recommended_memory))
 
-    except G2Exception.TranslateG2ModuleException as err:
-        logging.warning(message_warning(726, err))
     except G2Exception.G2ModuleNotInitialized as err:
         logging.warning(message_warning(727, err))
     except G2Exception.G2ModuleGenericException as err:

@@ -247,7 +247,6 @@ Use if a different userid is required.
     ```console
     export SENZING_SUBCOMMAND=kafka
     export SENZING_DATA_SOURCE=TEST
-    export SENZING_DIR=/opt/senzing
     export SENZING_KAFKA_BOOTSTRAP_SERVER=senzing-kafka:9092
     export SENZING_KAFKA_TOPIC=senzing-kafka-topic
     export SENZING_MONITORING_PERIOD=60
@@ -307,7 +306,7 @@ see [Environment Variables](https://github.com/Senzing/knowledge-base/blob/maste
 1. Option #1 - Using `docker` command and GitHub.
 
     ```console
-    sudo docker build --tag senzing/stream-loader https://github.com/senzing/docker-template.git
+    sudo docker build --tag senzing/stream-loader https://github.com/senzing/stream-loader.git
     ```
 
 1. Option #2 - Using `docker` command and local repository.

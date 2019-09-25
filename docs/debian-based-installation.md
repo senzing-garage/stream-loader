@@ -9,10 +9,10 @@ image.
 
 ## Overview
 
-1. [Install prerequisites](#prerequisites)
-1. [Set environment variables](#set-environment-variables)
+1. [Prerequisites](#prerequisites)
 1. [Clone repository](#clone-repository)
 1. [Install](#install)
+1. [Set environment variables](#set-environment-variables)
 
 ## Prerequisites
 
@@ -62,7 +62,7 @@ see [Environment Variables](https://github.com/Senzing/knowledge-base/blob/maste
 1. If Senzing has not been installed, visit
    [HOWTO - Initialize Senzing](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/initialize-senzing.md).
 
-### Set Environment variables
+## Set Environment variables
 
 1. :pencil2: Location of Senzing G2 directory.
    Example:

@@ -45,7 +45,6 @@ To see the options for a subcommand, run commands like:
 1. [Demonstrate using Command Line](#demonstrate-using-command-line)
     1. [Install](#install)
 1. [Demonstrate using Docker](#demonstrate-using-docker)
-    1. [Get docker image](#get-docker-image)
     1. [Initialize Senzing](#initialize-senzing)
     1. [Configuration](#configuration)
     1. [Volumes](#volumes)
@@ -86,6 +85,16 @@ This repository assumes a working knowledge of:
     1. [RPM-based installation](docs/rpm-based-installation.md) - For Red Hat, CentOS, openSuse and [others](https://en.wikipedia.org/wiki/List_of_Linux_distributions#RPM-based).
 1. Install mock-data-generator
     1. See [github.com/Senzing/mock-data-generator](https://github.com/Senzing/mock-data-generator#using-command-line)
+
+### Run from command line
+
+1. Run command.
+    Example:
+
+    ```console
+    cd ${GIT_REPOSITORY_DIR}
+    ./stream-loader.py version
+    ```
 
 ## Demonstrate using Docker
 

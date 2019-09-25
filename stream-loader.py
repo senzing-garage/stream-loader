@@ -957,6 +957,7 @@ class WriteG2Thread(threading.Thread):
 
         # Add Record to Senzing G2.
 
+        return_code = 0
         try:
             return_code = self.add_record(jsonline)
         except G2Exception.G2ModuleNotInitialized as err:

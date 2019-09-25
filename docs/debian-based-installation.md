@@ -9,10 +9,10 @@ image.
 
 ## Overview
 
-1. [Install prerequisites](#prerequisites)
-1. [Set environment variables](#set-environment-variables)
+1. [Prerequisites](#prerequisites)
 1. [Clone repository](#clone-repository)
 1. [Install](#install)
+1. [Set environment variables](#set-environment-variables)
 
 ## Prerequisites
 
@@ -23,37 +23,21 @@ image.
     sudo apt -y install git
     ```
 
-## Set Environment variables
+## Clone repository
 
-1. :warning: Set environment variables.
-   These variables may be modified, but do not need to be modified.
-   The variables are used throughout the installation procedure.
+For more information on environment variables,
+see [Environment Variables](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md).
+
+1. Set these environment variable values:
 
     ```console
     export GIT_ACCOUNT=senzing
     export GIT_REPOSITORY=stream-loader
-    export SENZING_DIR=/opt/senzing
-    ```
-
-1. Synthesize environment variables.
-
-    ```console
     export GIT_ACCOUNT_DIR=~/${GIT_ACCOUNT}.git
     export GIT_REPOSITORY_DIR="${GIT_ACCOUNT_DIR}/${GIT_REPOSITORY}"
-    export GIT_REPOSITORY_URL="https://github.com/${GIT_ACCOUNT}/${GIT_REPOSITORY}.git"
-    export LD_LIBRARY_PATH=${SENZING_DIR}/g2/lib:${SENZING_DIR}/g2/lib/debian:$LD_LIBRARY_PATH
-    export PYTHONPATH=${SENZING_DIR}/g2/python
     ```
 
-## Clone repository
-
-1. Get repository.
-
-    ```console
-    mkdir --parents ${GIT_ACCOUNT_DIR}
-    cd  ${GIT_ACCOUNT_DIR}
-    git clone ${GIT_REPOSITORY_URL}
-    ```
+1. Follow steps in [clone-repository](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/clone-repository.md) to install the Git repository.
 
 ## Install
 
@@ -73,7 +57,23 @@ image.
     sudo pip install -r ${GIT_REPOSITORY_DIR}/requirements.txt
     ```
 
-### Create SENZING_DIR
+### Senzing install
 
-If you do not already have an `/opt/senzing` directory on your local system, visit
-[HOWTO - Create SENZING_DIR](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/create-senzing-dir.md).
+1. If Senzing has not been installed, visit
+   [HOWTO - Initialize Senzing](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/initialize-senzing.md).
+
+## Set Environment variables
+
+1. :pencil2: Location of Senzing G2 directory.
+   Example:
+
+    ```console
+    export SENZING_G2_DIR=/opt/senzing/g2
+    ```
+
+1. Synthesize environment variables.
+
+    ```console
+    export LD_LIBRARY_PATH=${SENZING_G2_DIR}/lib:${SENZING_G2_DIR}/lib/debian:$LD_LIBRARY_PATH
+    export PYTHONPATH=${SENZING_G2_DIR}/python
+    ```

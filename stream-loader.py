@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = 1.2
 __date__ = '2018-10-29'
-__updated__ = '2019-09-25'
+__updated__ = '2019-09-26'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -330,6 +330,7 @@ message_dictionary = {
     "165": "  Expiration time: {0} days until expiration",
     "166": "          Records: {0}",
     "167": "         Contract: {0}",
+    "168": "  Expiration time: EXPIRED {0} days ago",
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
@@ -372,6 +373,7 @@ message_dictionary = {
     "727": "Could not do performance test. G2 module initialization error. Error: {0}",
     "728": "Could not do performance test. G2 generic exception. Error: {0}",
     "730": "There are not enough safe characters to do the translation. Unsafe Characters: {0}; Safe Characters: {1}",
+    "885": "License has expired.",
     "886": "G2Engine.addRecord() bad return code: {0}; JSON: {1}",
     "888": "G2Engine.addRecord() G2ModuleNotInitialized: {0}; JSON: {1}",
     "889": "G2Engine.addRecord() G2ModuleGenericException: {0}; JSON: {1}",
@@ -1858,13 +1860,15 @@ def log_license(config):
         expire_date = datetime.datetime.strptime(license['expireDate'], '%Y-%m-%d')
         today = datetime.datetime.today()
         remaining_time = expire_date - today
-        logging.info(message_info(165, remaining_time.days))
+        if remaining_time.days > 0:
+            logging.info(message_info(165, remaining_time.days))
+            expiration_warning_in_days = config.get('expiration_warning_in_days')
+            if remaining_time.days < expiration_warning_in_days:
+                logging.warning(message_warning(203, remaining_time.days))
+        else:
+            logging.info(message_info(168, abs(remaining_time.days)))
 
         # Issue warning if license is about to expire.
-
-        expiration_warning_in_days = config.get('expiration_warning_in_days')
-        if remaining_time.days < expiration_warning_in_days:
-            logging.warning(message_warning(203, remaining_time.days))
 
     if 'recordLimit' in license:
         logging.info(message_info(166, license['recordLimit']))
@@ -1875,6 +1879,11 @@ def log_license(config):
     # Garbage collect g2_product.
 
     g2_product.destroy()
+
+    # If license has expired, exit with error.
+
+    if remaining_time.days < 0:
+        exit_error(885)
 
 
 def log_performance(config):

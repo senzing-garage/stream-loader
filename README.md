@@ -36,6 +36,11 @@ To see the options for a subcommand, run commands like:
 ./stream-loader.py kafka --help
 ```
 
+### Related artifacts
+
+1. [DockerHub](https://hub.docker.com/r/senzing/stream-loader)
+1. [Helm Chart](https://github.com/Senzing/charts/tree/master/charts/senzing-stream-loader)
+
 ### Contents
 
 1. [Expectations](#expectations)

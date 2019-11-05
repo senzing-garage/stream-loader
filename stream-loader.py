@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = 1.2
 __date__ = '2018-10-29'
-__updated__ = '2019-09-26'
+__updated__ = '2019-11-05'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -471,6 +471,7 @@ def get_safe_characters(astring):
 
 
 def parse_database_url(original_senzing_database_url):
+    ''' Given a canonical database URL, decompose into URL components. '''
 
     result = {}
 
@@ -546,10 +547,13 @@ def parse_database_url(original_senzing_database_url):
 
 
 def get_g2_database_url_specific(generic_database_url):
-    result = ""
+    ''' Given a canonical database URL, transform to the specific URL. '''
 
+    result = ""
     parsed_database_url = parse_database_url(generic_database_url)
     scheme = parsed_database_url.get('scheme')
+
+    # Format database URL for a particular database.
 
     if scheme in ['mysql']:
         result = "{scheme}://{username}:{password}@{hostname}:{port}/?schema={schema}".format(**parsed_database_url)

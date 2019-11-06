@@ -555,7 +555,7 @@ def get_g2_database_url_specific(generic_database_url):
 
     # Format database URL for a particular database.
 
-    if scheme in ['mysql']:
+    if scheme in ['mysql', 'mssql']:
         result = "{scheme}://{username}:{password}@{hostname}:{port}/?schema={schema}".format(**parsed_database_url)
     elif scheme in ['postgresql']:
         result = "{scheme}://{username}:{password}@{hostname}:{port}:{schema}/".format(**parsed_database_url)

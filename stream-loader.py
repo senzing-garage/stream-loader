@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = 1.2
 __date__ = '2018-10-29'
-__updated__ = '2019-11-05'
+__updated__ = '2019-11-12'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -555,7 +555,7 @@ def get_g2_database_url_specific(generic_database_url):
 
     # Format database URL for a particular database.
 
-    if scheme in ['mysql', 'mssql']:
+    if scheme in ['mysql']:
         result = "{scheme}://{username}:{password}@{hostname}:{port}/?schema={schema}".format(**parsed_database_url)
     elif scheme in ['postgresql']:
         result = "{scheme}://{username}:{password}@{hostname}:{port}:{schema}/".format(**parsed_database_url)
@@ -563,6 +563,8 @@ def get_g2_database_url_specific(generic_database_url):
         result = "{scheme}://{username}:{password}@{schema}".format(**parsed_database_url)
     elif scheme in ['sqlite3']:
         result = "{scheme}://{netloc}{path}".format(**parsed_database_url)
+    elif scheme in ['mssql']:
+        result = "{scheme}://{username}:{password}@{schema}".format(**parsed_database_url)
     else:
         logging.error(message_error(695, scheme, generic_database_url))
 

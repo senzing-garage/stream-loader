@@ -49,6 +49,7 @@ To see the options for a subcommand, run commands like:
     1. [Background knowledge](#background-knowledge)
 1. [Demonstrate using Command Line](#demonstrate-using-command-line)
     1. [Install](#install)
+    1. [Run from command line](#run-from-command-line)
 1. [Demonstrate using Docker](#demonstrate-using-docker)
     1. [Initialize Senzing](#initialize-senzing)
     1. [Configuration](#configuration)
@@ -56,6 +57,7 @@ To see the options for a subcommand, run commands like:
     1. [Docker network](#docker-network)
     1. [External database](#external-database)
     1. [Docker user](#docker-user)
+    1. [MSSQL support](#mssql-support)
     1. [Run docker container](#run-docker-container)
 1. [Develop](#develop)
     1. [Prerequisite software](#prerequisite-software)
@@ -106,7 +108,7 @@ This repository assumes a working knowledge of:
 ### Initialize Senzing
 
 1. If Senzing has not been initialized, visit
-   [HOWTO - Initialize Senzing](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/initialize-senzing.md).
+   "[How to initialize Senzing with Docker](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/initialize-senzing-with-docker.md)".
 
 ### Configuration
 
@@ -140,12 +142,12 @@ Configuration values specified by environment variable or command line parameter
 
 ### Volumes
 
-:thinking: The output of
-[HOWTO - Initialize Senzing](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/initialize-senzing.md)
-placed files in different directories.
-Identify each output directory.
+:thinking:
+"[How to initialize Senzing with Docker](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/initialize-senzing-with-docker.md)"
+places files in different directories.
+The following examples show how to identify each output directory.
 
-1. :pencil2: **Option #1**
+1. **Example #1:**
    To mimic an actual RPM installation,
    identify directories for RPM output in this manner:
 
@@ -156,7 +158,7 @@ Identify each output directory.
     export SENZING_VAR_DIR=/var/opt/senzing
     ```
 
-1. :pencil2: **Option #2**
+1. :pencil2: **Example #2:**
    If Senzing directories were put in alternative directories,
    set environment variables to reflect where the directories were placed.
    Example:
@@ -236,7 +238,7 @@ Identify each output directory.
 ### Docker user
 
 :thinking: **Optional:**  The docker container runs as "USER 1001".
-Use if a different userid is required.
+Use if a different userid (UID) is required.
 
 1. :pencil2: Identify user.
    User "0" is root.
@@ -251,6 +253,26 @@ Use if a different userid is required.
 
     ```console
     export SENZING_RUNAS_USER_PARAMETER="--user ${SENZING_RUNAS_USER}"
+    ```
+
+### MSSQL support
+
+:thinking: **Optional:**  This is only needed if using a Microsoft MSSQL database.
+Use if a different userid is required.
+
+1. :pencil2: Identify user.
+   User "0" is root.
+   Example:
+
+    ```console
+    export SENZING_OPT_MICROSOFT_DIR=${SENZING_VOLUME}/opt-microsoft
+    ```
+
+1. Construct parameter for `docker run`.
+   Example:
+
+    ```console
+    export SENZING_OPT_MICROSOFT_DIR_PARAMETER="--volume ${SENZING_OPT_MICROSOFT_DIR}:/opt/microsoft"
     ```
 
 ### Run docker container
@@ -271,9 +293,6 @@ Use if a different userid is required.
 
     ```console
     sudo docker run \
-      ${SENZING_RUNAS_USER_PARAMETER} \
-      ${SENZING_DATABASE_URL_PARAMETER} \
-      ${SENZING_NETWORK_PARAMETER} \
       --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
       --env SENZING_DATA_SOURCE="${SENZING_DATA_SOURCE}" \
       --env SENZING_KAFKA_BOOTSTRAP_SERVER="${SENZING_KAFKA_BOOTSTRAP_SERVER}" \
@@ -286,6 +305,10 @@ Use if a different userid is required.
       --volume ${SENZING_ETC_DIR}:/etc/opt/senzing \
       --volume ${SENZING_G2_DIR}:/opt/senzing/g2 \
       --volume ${SENZING_VAR_DIR}:/var/opt/senzing \
+      ${SENZING_RUNAS_USER_PARAMETER} \
+      ${SENZING_DATABASE_URL_PARAMETER} \
+      ${SENZING_NETWORK_PARAMETER} \
+      ${SENZING_OPT_MICROSOFT_DIR_PARAMETER} \
       senzing/stream-loader
     ```
 
@@ -317,20 +340,20 @@ see [Environment Variables](https://github.com/Senzing/knowledge-base/blob/maste
 
 ### Build docker image for development
 
-1. Option #1 - Using `docker` command and GitHub.
+1. **Option #1:** Using `docker` command and GitHub.
 
     ```console
     sudo docker build --tag senzing/stream-loader https://github.com/senzing/stream-loader.git
     ```
 
-1. Option #2 - Using `docker` command and local repository.
+1. **Option #2:** Using `docker` command and local repository.
 
     ```console
     cd ${GIT_REPOSITORY_DIR}
     sudo docker build --tag senzing/stream-loader .
     ```
 
-1. Option #3 - Using `make` command.
+1. **Option #3:** Using `make` command.
 
     ```console
     cd ${GIT_REPOSITORY_DIR}

@@ -42,4 +42,4 @@ USER 1001
 ENV SENZING_DOCKER_LAUNCHED=true
 
 WORKDIR /app
-ENTRYPOINT ["/app/stream-loader.py" ]
+ENTRYPOINT ["/app/stream-loader.py"]

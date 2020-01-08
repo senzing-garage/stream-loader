@@ -38,7 +38,7 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.3.1"
+__version__ = "1.3.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
 __updated__ = '2020-01-08'
 
@@ -527,6 +527,11 @@ def get_parser():
 # 9xx Debugging (i.e. logging.debug())
 
 
+MESSAGE_INFO = 100
+MESSAGE_WARN = 300
+MESSAGE_ERROR = 700
+MESSAGE_DEBUG = 900
+
 message_dictionary = {
     "100": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}I",
     "120": "Sleeping for requested delay of {0} seconds.",
@@ -641,19 +646,19 @@ def message_generic(generic_index, index, *args):
 
 
 def message_info(index, *args):
-    return message_generic(100, index, *args)
+    return message_generic(MESSAGE_INFO, index, *args)
 
 
 def message_warning(index, *args):
-    return message_generic(300, index, *args)
+    return message_generic(MESSAGE_WARN, index, *args)
 
 
 def message_error(index, *args):
-    return message_generic(700, index, *args)
+    return message_generic(MESSAGE_ERROR, index, *args)
 
 
 def message_debug(index, *args):
-    return message_generic(900, index, *args)
+    return message_generic(MESSAGE_DEBUG, index, *args)
 
 
 def get_exception():
@@ -853,15 +858,17 @@ def get_configuration(args):
 
     # Special case: Change integer strings to integers.
 
-    integers = ['configuration_check_frequency_in_seconds',
-                'delay_in_seconds',
-                'expiration_warning_in_days',
-                'log_license_period_in_seconds',
-                'monitoring_period_in_seconds',
-                'processes',
-                'queue_maxsize',
-                'sleep_time_in_seconds',
-                'threads_per_process']
+    integers = [
+        'configuration_check_frequency_in_seconds',
+        'delay_in_seconds',
+        'expiration_warning_in_days',
+        'log_license_period_in_seconds',
+        'monitoring_period_in_seconds',
+        'processes',
+        'queue_maxsize',
+        'sleep_time_in_seconds',
+        'threads_per_process'
+    ]
     for integer in integers:
         integer_string = result.get(integer)
         result[integer] = int(integer_string)
@@ -947,7 +954,10 @@ def redact_configuration(config):
     ''' Return a shallow copy of config with certain keys removed. '''
     result = config.copy()
     for key in keys_to_redact:
-        result.pop(key)
+        try:
+            result.pop(key)
+        except:
+            pass
     return result
 
 # -----------------------------------------------------------------------------
@@ -1985,7 +1995,7 @@ def exit_error(index, *args):
 
 def exit_silently():
     ''' Exit program. '''
-    sys.exit(1)
+    sys.exit(0)
 
 # -----------------------------------------------------------------------------
 # Senzing configuration.

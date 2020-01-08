@@ -38,9 +38,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = 1.2
+__version__ = "1.3.1"
 __date__ = '2018-10-29'
-__updated__ = '2019-11-12'
+__updated__ = '2020-01-08'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -88,6 +88,11 @@ configuration_locator = {
         "default": 0,
         "env": "SENZING_DELAY_IN_SECONDS",
         "cli": "delay-in-seconds"
+    },
+    "engine_configuration_json": {
+        "default": None,
+        "env": "SENZING_ENGINE_CONFIGURATION_JSON",
+        "cli": "engine-configuration-json"
     },
     "entity_type": {
         "default": None,
@@ -218,70 +223,296 @@ keys_to_redact = [
 
 
 def get_parser():
-    '''Parse commandline arguments.'''
+    ''' Parse commandline arguments. '''
+
+    subcommands = {
+        'kafka': {
+            "help": 'Read JSON Lines from Apache Kafka topic.',
+            "arguments": {
+                "--data-source": {
+                    "dest": "data_source",
+                    "metavar": "SENZING_DATA_SOURCE",
+                    "help": "Data Source."
+                },
+                "--debug": {
+                    "dest": "debug",
+                    "action": "store_true",
+                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
+                },
+                "--delay-in-seconds": {
+                    "dest": "delay_in_seconds",
+                    "metavar": "SENZING_DELAY_IN_SECONDS",
+                    "help": "Delay before processing in seconds. DEFAULT: 0"
+                },
+                "--engine-configuration-json": {
+                    "dest": "engine_configuration_json",
+                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
+                    "help": "Advanced Senzing engine configuration. Default: none"
+                },
+                "--entity-type": {
+                    "dest": "entity_type",
+                    "metavar": "SENZING_ENTITY_TYPE",
+                    "help": "Entity type."
+                },
+                "--kafka-bootstrap-server": {
+                    "dest": "kafka_bootstrap_server",
+                    "metavar": "SENZING_KAFKA_BOOTSTRAP_SERVER",
+                    "help": "Kafka bootstrap server. Default: localhost:9092"
+                },
+                "--kafka-group": {
+                    "dest": "kafka_group",
+                    "metavar": "SENZING_KAFKA_GROUP",
+                    "help": "Kafka group. Default: senzing-kafka-group"
+                },
+                "--kafka-topic": {
+                    "dest": "kafka_topic",
+                    "metavar": "SENZING_KAFKA_TOPIC",
+                    "help": "Kafka topic. Default: senzing-kafka-topic"
+                },
+                "--monitoring-period-in-seconds": {
+                    "dest": "monitoring_period_in_seconds",
+                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
+                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                },
+                "--processes": {
+                    "dest": "processes",
+                    "metavar": "SENZING_PROCESSES",
+                    "help": "Number of processes. Default: 1"
+                },
+                "--senzing-dir": {
+                    "dest": "senzing_dir",
+                    "metavar": "SENZING_DIR",
+                    "help": "Location of Senzing. Default: /opt/senzing"
+                },
+                "--threads-per-process": {
+                    "dest": "threads_per_process",
+                    "metavar": "SENZING_THREADS_PER_PROCESS",
+                    "help": "Number of threads per process. Default: 4"
+                },
+            },
+        },
+        'kafka-test': {
+            "help": 'Read JSON Lines from Apache Kafka topic. Do not send to Senzing.',
+            "arguments": {
+                "--debug": {
+                    "dest": "debug",
+                    "action": "store_true",
+                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
+                },
+                "--kafka-bootstrap-server": {
+                    "dest": "kafka_bootstrap_server",
+                    "metavar": "SENZING_KAFKA_BOOTSTRAP_SERVER",
+                    "help": "Kafka bootstrap server. Default: localhost:9092"
+                },
+                "--kafka-group": {
+                    "dest": "kafka_group",
+                    "metavar": "SENZING_KAFKA_GROUP",
+                    "help": "Kafka group. Default: senzing-kafka-group"
+                },
+                "--kafka-topic": {
+                    "dest": "kafka_topic",
+                    "metavar": "SENZING_KAFKA_TOPIC",
+                    "help": "Kafka topic. Default: senzing-kafka-topic"
+                },
+                "--monitoring-period-in-seconds": {
+                    "dest": "monitoring_period_in_seconds",
+                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
+                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                },
+                "--threads-per-process": {
+                    "dest": "threads_per_process",
+                    "metavar": "SENZING_THREADS_PER_PROCESS",
+                    "help": "Number of threads per process. Default: 4"
+                },
+            },
+        },
+        'rabbitmq': {
+            "help": 'Read JSON Lines from RabbitMQ queue.',
+            "arguments": {
+                "--data-source": {
+                    "dest": "data_source",
+                    "metavar": "SENZING_DATA_SOURCE",
+                    "help": "Data Source."
+                },
+                "--debug": {
+                    "dest": "debug",
+                    "action": "store_true",
+                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
+                },
+                "--delay-in-seconds": {
+                    "dest": "delay_in_seconds",
+                    "metavar": "SENZING_DELAY_IN_SECONDS",
+                    "help": "Delay before processing in seconds. DEFAULT: 0"
+                },
+                "--engine-configuration-json": {
+                    "dest": "engine_configuration_json",
+                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
+                    "help": "Advanced Senzing engine configuration. Default: none"
+                },
+                "--entity-type": {
+                    "dest": "entity_type",
+                    "metavar": "SENZING_ENTITY_TYPE",
+                    "help": "Entity type."
+                },
+                "--monitoring-period-in-seconds": {
+                    "dest": "monitoring_period_in_seconds",
+                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
+                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                },
+                "--processes": {
+                    "dest": "processes",
+                    "metavar": "SENZING_PROCESSES",
+                    "help": "Number of processes. Default: 1"
+                },
+                "--rabbitmq-host": {
+                    "dest": "rabbitmq_host",
+                    "metavar": "SENZING_RABBITMQ_HOST",
+                    "help": "RabbitMQ host. Default: localhost:5672"
+                },
+                "--rabbitmq-password": {
+                    "dest": "rabbitmq_password",
+                    "metavar": "SENZING_RABBITMQ_PASSWORD",
+                    "help": "RabbitMQ password. Default: bitnami"
+                },
+                "--rabbitmq-queue": {
+                    "dest": "rabbitmq_queue",
+                    "metavar": "SENZING_RABBITMQ_QUEUE",
+                    "help": "RabbitMQ queue. Default: senzing-rabbitmq-queue"
+                },
+                "--rabbitmq-username": {
+                    "dest": "rabbitmq_username",
+                    "metavar": "SENZING_RABBITMQ_USERNAME",
+                    "help": "RabbitMQ username. Default: user"
+                },
+                "--senzing-dir": {
+                    "dest": "senzing_dir",
+                    "metavar": "SENZING_DIR",
+                    "help": "Location of Senzing. Default: /opt/senzing"
+                },
+                "--threads-per-process": {
+                    "dest": "threads_per_process",
+                    "metavar": "SENZING_THREADS_PER_PROCESS",
+                    "help": "Number of threads per process. Default: 4"
+                },
+            },
+        },
+        'rabbitmq-test': {
+            "help": 'Read JSON Lines from RabbitMQ queue. Do not send to Senzing.',
+            "arguments": {
+                "--debug": {
+                    "dest": "debug",
+                    "action": "store_true",
+                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
+                },
+                "--monitoring-period-in-seconds": {
+                    "dest": "monitoring_period_in_seconds",
+                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
+                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                },
+                "--rabbitmq-host": {
+                    "dest": "rabbitmq_host",
+                    "metavar": "SENZING_RABBITMQ_HOST",
+                    "help": "RabbitMQ host. Default: localhost:5672"
+                },
+                "--rabbitmq-password": {
+                    "dest": "rabbitmq_password",
+                    "metavar": "SENZING_RABBITMQ_PASSWORD",
+                    "help": "RabbitMQ password. Default: bitnami"
+                },
+                "--rabbitmq-queue": {
+                    "dest": "rabbitmq_queue",
+                    "metavar": "SENZING_RABBITMQ_QUEUE",
+                    "help": "RabbitMQ queue. Default: senzing-rabbitmq-queue"
+                },
+                "--rabbitmq-username": {
+                    "dest": "rabbitmq_username",
+                    "metavar": "SENZING_RABBITMQ_USERNAME",
+                    "help": "RabbitMQ username. Default: user"
+                },
+                "--threads-per-process": {
+                    "dest": "threads_per_process",
+                    "metavar": "SENZING_THREADS_PER_PROCESS",
+                    "help": "Number of threads per process. Default: 4"
+                },
+            },
+        },
+        'sleep': {
+            "help": 'Do nothing but sleep. For Docker testing.',
+            "arguments": {
+                "--sleep-time-in-seconds": {
+                    "dest": "sleep_time_in_seconds",
+                    "metavar": "SENZING_SLEEP_TIME_IN_SECONDS",
+                    "help": "Sleep time in seconds. DEFAULT: 0 (infinite)"
+                },
+            },
+        },
+        'url': {
+            "help": 'Read JSON Lines from URL-addressable file.',
+            "arguments": {
+                "--data-source": {
+                    "dest": "data_source",
+                    "metavar": "SENZING_DATA_SOURCE",
+                    "help": "Data Source."
+                },
+                "--debug": {
+                    "dest": "debug",
+                    "action": "store_true",
+                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
+                },
+                "--delay-in-seconds": {
+                    "dest": "delay_in_seconds",
+                    "metavar": "SENZING_DELAY_IN_SECONDS",
+                    "help": "Delay before processing in seconds. DEFAULT: 0"
+                },
+                "--engine-configuration-json": {
+                    "dest": "engine_configuration_json",
+                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
+                    "help": "Advanced Senzing engine configuration. Default: none"
+                },
+                "--entity-type": {
+                    "dest": "entity_type",
+                    "metavar": "SENZING_ENTITY_TYPE",
+                    "help": "Entity type."
+                },
+                "-input-url": {
+                    "dest": "input_url",
+                    "metavar": "SENZING_INPUT_URL",
+                    "help": "URL to file of JSON lines."
+                },
+                "--monitoring-period-in-seconds": {
+                    "dest": "monitoring_period_in_seconds",
+                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
+                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                },
+                "--senzing-dir": {
+                    "dest": "senzing_dir",
+                    "metavar": "SENZING_DIR",
+                    "help": "Location of Senzing. Default: /opt/senzing"
+                },
+                "--threads-per-process": {
+                    "dest": "threads_per_process",
+                    "metavar": "SENZING_THREADS_PER_PROCESS",
+                    "help": "Number of threads per process. Default: 4"
+                },
+            },
+        },
+        'version': {
+            "help": 'Print version of program.',
+        },
+        'docker-acceptance-test': {
+            "help": 'For Docker acceptance testing.',
+        },
+    }
+
     parser = argparse.ArgumentParser(prog="stream-loader.py", description="Load Senzing from a stream. For more information, see https://github.com/senzing/stream-loader")
     subparsers = parser.add_subparsers(dest='subcommand', help='Subcommands (SENZING_SUBCOMMAND):')
 
-    subparser_1 = subparsers.add_parser('kafka', help='Read JSON Lines from Apache Kafka topic.')
-    subparser_1.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Data Source.")
-    subparser_1.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-    subparser_1.add_argument("--delay-in-seconds", dest="delay_in_seconds", metavar="SENZING_DELAY_IN_SECONDS", help="Delay before processing in seconds. DEFAULT: 0")
-    subparser_1.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
-    subparser_1.add_argument("--kafka-bootstrap-server", dest="kafka_bootstrap_server", metavar="SENZING_KAFKA_BOOTSTRAP_SERVER", help="Kafka bootstrap server. Default: localhost:9092")
-    subparser_1.add_argument("--kafka-group", dest="kafka_group", metavar="SENZING_KAFKA_GROUP", help="Kafka group. Default: senzing-kafka-group")
-    subparser_1.add_argument("--kafka-topic", dest="kafka_topic", metavar="SENZING_KAFKA_TOPIC", help="Kafka topic. Default: senzing-kafka-topic")
-    subparser_1.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in seconds, between monitoring reports. Default: 300")
-    subparser_1.add_argument("--processes", dest="processes", metavar="SENZING_PROCESSES", help="Number of processes. Default: 1")
-    subparser_1.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing")
-    subparser_1.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
-
-    subparser_2 = subparsers.add_parser('sleep', help='Do nothing but sleep. For Docker testing.')
-    subparser_2.add_argument("--sleep-time-in-seconds", dest="sleep_time_in_seconds", metavar="SENZING_SLEEP_TIME_IN_SECONDS", help="Sleep time in seconds. DEFAULT: 0 (infinite)")
-
-    subparser_5 = subparsers.add_parser('url', help='Read JSON Lines from URL-addressable file.')
-    subparser_5.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Data Source.")
-    subparser_5.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-    subparser_5.add_argument("--delay-in-seconds", dest="delay_in_seconds", metavar="SENZING_DELAY_IN_SECONDS", help="Delay before processing in seconds. DEFAULT: 0")
-    subparser_5.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
-    subparser_5.add_argument("--input-url", dest="input_url", metavar="SENZING_INPUT_URL", help="URL to file of JSON lines.")
-    subparser_5.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in seconds, between monitoring reports. Default: 300")
-    subparser_5.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing")
-    subparser_5.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
-
-    subparser_6 = subparsers.add_parser('version', help='Print version of stream-loader.py.')
-
-    subparser_7 = subparsers.add_parser('kafka-test', help='Read JSON Lines from Apache Kafka topic. Do not send to Senzing.')
-    subparser_7.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-    subparser_7.add_argument("--kafka-bootstrap-server", dest="kafka_bootstrap_server", metavar="SENZING_KAFKA_BOOTSTRAP_SERVER", help="Kafka bootstrap server. Default: localhost:9092")
-    subparser_7.add_argument("--kafka-group", dest="kafka_group", metavar="SENZING_KAFKA_GROUP", help="Kafka group. Default: senzing-kafka-group")
-    subparser_7.add_argument("--kafka-topic", dest="kafka_topic", metavar="SENZING_KAFKA_TOPIC", help="Kafka topic. Default: senzing-kafka-topic")
-    subparser_7.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in seconds, between monitoring reports. Default: 300")
-    subparser_7.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
-
-    subparser_8 = subparsers.add_parser('rabbitmq', help='Read JSON Lines from RabbitMQ queue.')
-    subparser_8.add_argument("--data-source", dest="data_source", metavar="SENZING_DATA_SOURCE", help="Data Source.")
-    subparser_8.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-    subparser_8.add_argument("--delay-in-seconds", dest="delay_in_seconds", metavar="SENZING_DELAY_IN_SECONDS", help="Delay before processing in seconds. DEFAULT: 0")
-    subparser_8.add_argument("--entity-type", dest="entity_type", metavar="SENZING_ENTITY_TYPE", help="Entity type.")
-    subparser_8.add_argument("--rabbitmq-host", dest="rabbitmq_host", metavar="SENZING_rabbitmq_host", help="RabbitMQ host. Default: localhost:5672")
-    subparser_8.add_argument("--rabbitmq-queue", dest="rabbitmq_queue", metavar="SENZING_RABBITMQ_QUEUE", help="RabbitMQ queue. Default: senzing-rabbitmq-queue")
-    subparser_8.add_argument("--rabbitmq-username", dest="rabbitmq_username", metavar="SENZING_RABBITMQ_USERNAME", help="RabbitMQ username. Default: user")
-    subparser_8.add_argument("--rabbitmq-password", dest="rabbitmq_password", metavar="SENZING_RABBITMQ_PASSWORD", help="RabbitMQ password. Default: bitnami")
-    subparser_8.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in seconds, between monitoring reports. Default: 300")
-    subparser_8.add_argument("--processes", dest="processes", metavar="SENZING_PROCESSES", help="Number of processes. Default: 1")
-    subparser_8.add_argument("--senzing-dir", dest="senzing_dir", metavar="SENZING_DIR", help="Location of Senzing. Default: /opt/senzing")
-    subparser_8.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
-
-    subparser_9 = subparsers.add_parser('rabbitmq-test', help='Read JSON Lines from RabbitMQ. Do not send to Senzing.')
-    subparser_9.add_argument("--debug", dest="debug", action="store_true", help="Enable debugging. (SENZING_DEBUG) Default: False")
-    subparser_9.add_argument("--rabbitmq-host", dest="rabbitmq_host", metavar="SENZING_rabbitmq_host", help="RabbitMQ host. Default: localhost:5672")
-    subparser_9.add_argument("--rabbitmq-queue", dest="rabbitmq_queue", metavar="SENZING_RABBITMQ_QUEUE", help="RabbitMQ queue. Default: senzing-rabbitmq-queue")
-    subparser_9.add_argument("--rabbitmq-username", dest="rabbitmq_username", metavar="SENZING_RABBITMQ_USERNAME", help="RabbitMQ username. Default: user")
-    subparser_9.add_argument("--rabbitmq-password", dest="rabbitmq_password", metavar="SENZING_RABBITMQ_PASSWORD", help="RabbitMQ password. Default: bitnami")
-    subparser_9.add_argument("--monitoring-period-in-seconds", dest="monitoring_period_in_seconds", metavar="SENZING_MONITORING_PERIOD_IN_SECONDS", help="Period, in seconds, between monitoring reports. Default: 300")
-    subparser_9.add_argument("--threads-per-process", dest="threads_per_process", metavar="SENZING_THREADS_PER_PROCESS", help="Number of threads per process. Default: 4")
-
-    subparser_10 = subparsers.add_parser('docker-acceptance-test', help='For Docker acceptance testing.')
+    for subcommand_key, subcommand_values in subcommands.items():
+        subcommand_help = subcommand_values.get('help', "")
+        subcommand_arguments = subcommand_values.get('arguments', {})
+        subparser = subparsers.add_parser(subcommand_key, help=subcommand_help)
+        for argument_key, argument_values in subcommand_arguments.items():
+            subparser.add_argument(argument_key, **argument_values)
 
     return parser
 
@@ -1777,7 +2008,12 @@ def get_g2_configuration_dictionary(config):
 
 
 def get_g2_configuration_json(config):
-    return json.dumps(get_g2_configuration_dictionary(config))
+    result = ""
+    if config.get('engine_configuration_json'):
+        result = config.get('engine_configuration_json')
+    else:
+        result = json.dumps(get_g2_configuration_dictionary(config))
+    return result
 
 # -----------------------------------------------------------------------------
 # Senzing services.

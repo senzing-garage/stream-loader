@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.3.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-01-08'
+__updated__ = '2020-01-14'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -567,6 +567,7 @@ message_dictionary = {
     "166": "          Records: {0}",
     "167": "         Contract: {0}",
     "168": "  Expiration time: EXPIRED {0} days ago",
+    "180": "Sleeping {0} seconds for Governor.",
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
@@ -961,6 +962,20 @@ def redact_configuration(config):
     return result
 
 # -----------------------------------------------------------------------------
+# Class: Governor
+# -----------------------------------------------------------------------------
+
+class Governor:
+
+    def __init__(self, g2_engine=None):
+        self.g2_engine = g2_engine
+
+    def govern(self):
+        sleep_time = 50000
+        print("Governor sleeping {0}".format(sleep_time))
+        time.sleep(sleep_time)
+
+# -----------------------------------------------------------------------------
 # Class: KafkaProcess
 # -----------------------------------------------------------------------------
 
@@ -1098,7 +1113,7 @@ class RabbitMQTestProcess(multiprocessing.Process):
         self.threads = []
         threads_per_process = config.get('threads_per_process')
         for i in range(0, threads_per_process):
-            thread = ReadRabbitMqTestThread(config)
+            thread = ReadRabbitMQTestThread(config)
             thread.name = "{0}-thread-{1}".format(self.name, i)
             self.threads.append(thread)
 
@@ -1136,10 +1151,14 @@ class WriteG2Thread(threading.Thread):
         self.config = config
         self.g2_engine = g2_engine
         self.g2_configuration_manager = g2_configuration_manager
+        self.governor = Governor(g2_engine=g2_engine)
 
     def add_record_to_failure_queue(self, jsonline):
         # FIXME: add functionality.
         logging.info(message_info(121, jsonline))
+
+    def govern(self):
+        return self.governor.govern()
 
     def is_time_to_check_g2_configuration(self):
         now = time.time()
@@ -1257,6 +1276,10 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
         while True:
 
+            # Invoke Governor.
+
+            self.govern()
+
             # Get message from Kafka queue.
             # Timeout quickly to allow other co-routines to process.
 
@@ -1326,6 +1349,10 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
     def callback(self, ch, method, properties, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
         self.config['counter_queued_records'] += 1
+
+        # Invoke Governor.
+
+        self.govern()
 
         # Verify that message is valid JSON.
 
@@ -1422,6 +1449,10 @@ class ReadKafkaTestThread(threading.Thread):
 
         while True:
 
+            # Invoke Governor.
+
+            self.govern()
+
             # Get message from Kafka queue.
             # Timeout quickly to allow other co-routines to process.
 
@@ -1466,17 +1497,24 @@ class ReadKafkaTestThread(threading.Thread):
         consumer.close()
 
 # -----------------------------------------------------------------------------
-# Class: ReadRabbitMqTestThread
+# Class: ReadRabbitMQTestThread
 # -----------------------------------------------------------------------------
 
 
-class ReadRabbitMqTestThread(threading.Thread):
+class ReadRabbitMQTestThread(threading.Thread):
 
     def __init__(self, config):
         threading.Thread.__init__(self)
         self.config = config
 
     def callback(self, ch, method, properties, body):
+
+        # Invoke Governor.
+
+        self.govern()
+
+        # Perform read from queue.
+
         after_poll = time.time()
 
         before_ack = time.time()
@@ -1714,6 +1752,13 @@ class ReadQueueWriteG2Thread(WriteG2Thread):
 
     def run(self):
         while True:
+
+            # Invoke Governor.
+
+            self.govern()
+
+            # Process queued message.
+
             try:
                 jsonline = self.queue.get()
                 self.send_jsonline_to_g2_engine(jsonline)

@@ -567,7 +567,7 @@ message_dictionary = {
     "166": "          Records: {0}",
     "167": "         Contract: {0}",
     "168": "  Expiration time: EXPIRED {0} days ago",
-    "180": "Sleeping {0} seconds for Governor.",
+    "180": "User-supplied Governor loaded from {0}.",
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
@@ -965,15 +965,14 @@ def redact_configuration(config):
 # Class: Governor
 # -----------------------------------------------------------------------------
 
+
 class Governor:
 
     def __init__(self, g2_engine=None):
         self.g2_engine = g2_engine
 
     def govern(self):
-        sleep_time = 50000
-        print("Governor sleeping {0}".format(sleep_time))
-        time.sleep(sleep_time)
+        return
 
 # -----------------------------------------------------------------------------
 # Class: KafkaProcess
@@ -2661,6 +2660,15 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGTERM, bootstrap_signal_handler)
     signal.signal(signal.SIGINT, bootstrap_signal_handler)
+
+    # Import plugins
+
+    try:
+        import governor
+        from governor import Governor
+        logging.info(message_info(180, governor.__file__))
+    except ImportError:
+        pass
 
     # Parse the command line arguments.
 

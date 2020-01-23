@@ -207,6 +207,11 @@ configuration_locator = {
         "default": 4,
         "env": "SENZING_THREADS_PER_PROCESS",
         "cli": "threads-per-process",
+    },
+    "rabbitmq_prefetch_count": {
+        "default": 50,
+        "env": "SENZING_RABBITMQ_PREFETCH_COUNT",
+        "cli": "rabbitmq_prefetch_count",
     }
 }
 
@@ -394,6 +399,11 @@ def get_parser():
                     "metavar": "SENZING_THREADS_PER_PROCESS",
                     "help": "Number of threads per process. Default: 4"
                 },
+                "--rabbitmq-prefetch-count": {
+                    "dest": "rabbitmq_prefetch_count",
+                    "metavar": "SENZING_RABBITMQ_PREFETCH_COUNT",
+                    "help": "RabbitMQ prefetch-count. Default: 50"
+                }
             },
         },
         'rabbitmq-test': {
@@ -434,6 +444,11 @@ def get_parser():
                     "metavar": "SENZING_THREADS_PER_PROCESS",
                     "help": "Number of threads per process. Default: 4"
                 },
+                "--rabbitmq-prefetch-count": {
+                    "dest": "rabbitmq_prefetch_count",
+                    "metavar": "SENZING_RABBITMQ_PREFETCH_COUNT",
+                    "help": "RabbitMQ prefetch-count. Default: 50"
+                }
             },
         },
         'sleep': {
@@ -868,7 +883,8 @@ def get_configuration(args):
         'processes',
         'queue_maxsize',
         'sleep_time_in_seconds',
-        'threads_per_process'
+        'threads_per_process',
+        'rabbitmq_prefetch_count',
     ]
     for integer in integers:
         integer_string = result.get(integer)
@@ -1393,6 +1409,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_username = self.config.get("rabbitmq_username")
         rabbitmq_password = self.config.get("rabbitmq_password")
         rabbitmq_host = self.config.get("rabbitmq_host")
+        rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
         self.data_source = self.config.get("data_source")
         self.entitiy_type = self.config.get("entity_type")
 
@@ -1403,7 +1420,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, credentials=credentials))
             channel = connection.channel()
             channel.queue_declare(queue=rabbitmq_queue)
-            channel.basic_qos(prefetch_count=10)
+            channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
             channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
         except pika.exceptions.AMQPConnectionError as err:
             exit_error(562, err, rabbitmq_host)
@@ -1542,12 +1559,13 @@ class ReadRabbitMQTestThread(threading.Thread):
         rabbitmq_username = self.config.get("rabbitmq_username")
         rabbitmq_password = self.config.get("rabbitmq_password")
         rabbitmq_host = self.config.get("rabbitmq_host")
+        rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
         try:
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, credentials=credentials))
             channel = connection.channel()
             channel.queue_declare(queue=rabbitmq_queue)
-            channel.basic_qos(prefetch_count=10)
+            channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
             channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
         except (pika.exceptions.AMQPConnectionError) as err:
             exit_error(562, err, rabbitmq_host)

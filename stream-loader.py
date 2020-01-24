@@ -1525,6 +1525,10 @@ class ReadRabbitMQTestThread(threading.Thread):
 
     def callback(self, ch, method, properties, body):
 
+        # Invoke Governor.
+
+        self.govern()
+
         # Perform read from queue.
 
         after_poll = time.time()

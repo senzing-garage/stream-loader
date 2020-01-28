@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2020-01-28
+
+### Fixed in 1.3.3
+
+- Governor:  Improve filename to avoid import conflict.
+
 ## [1.3.2] - 2020-01-27
 
 ### Added in 1.3.2

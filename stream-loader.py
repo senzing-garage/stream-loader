@@ -1612,6 +1612,10 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager):
         super().__init__(config, g2_engine, g2_configuration_manager)
+        self.data_source = self.config.get("data_source")
+        self.entitiy_type = self.config.get("entity_type")
+        self.rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
+        self.info_channel = None
 
     def add_to_failure_queue(self, jsonline):
         '''Overwrite superclass method.'''
@@ -1620,7 +1624,19 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
-        # FIXME: implement.
+
+        try:
+            self.info_channel.basic_publish(
+                exchange='',
+                routing_key=self.rabbitmq_info_queue,
+                body=jsonline,
+                properties=pika.BasicProperties(
+                    delivery_mode=2
+                )
+            )  # make message persistent
+        except BaseException as err:
+            logging.warn(message_warn(411, err, line))
+
         logging.info(message_info(191, jsonline))
 
     def filter_info_message(self, jsonline):
@@ -1674,15 +1690,31 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         # Get config parameters.
 
+        rabbitmq_host = self.config.get("rabbitmq_host")
+        rabbitmq_password = self.config.get("rabbitmq_password")
         rabbitmq_queue = self.config.get("rabbitmq_queue")
         rabbitmq_username = self.config.get("rabbitmq_username")
-        rabbitmq_password = self.config.get("rabbitmq_password")
-        rabbitmq_host = self.config.get("rabbitmq_host")
-        rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
-        self.data_source = self.config.get("data_source")
-        self.entitiy_type = self.config.get("entity_type")
 
-        # Connect to RabbitMQ queue.
+        rabbitmq_info_host = self.config.get("rabbitmq_info_host")
+        rabbitmq_info_password = self.config.get("rabbitmq_info_password")
+        rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
+        rabbitmq_info_username = self.config.get("rabbitmq_info_username")
+
+        rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
+
+        # Create RabbitMQ channel to publish "info".
+
+        try:
+            credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_info_host, credentials=credentials))
+            self.info_channel = connection.channel()
+            self.info_channel.queue_declare(queue=rabbitmq_info_queue)
+        except (pika.exceptions.AMQPConnectionError) as err:
+            exit_error(412, err, rabbitmq_info_host)
+        except BaseException as err:
+            exit_error(410, err)
+
+        # Create RabbitMQ channel to subscribe to records.
 
         try:
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)

@@ -708,6 +708,8 @@ message_dictionary = {
     "298": "Exit {0}",
     "299": "{0}",
     "300": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}W",
+    "410": "Unknown RabbitMQ error when connecting: {0}.",
+    "412": "Could not connect to RabbitMQ host at {1}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
     "499": "{0}",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "551": "Missing G2 database URL.",
@@ -1705,9 +1707,9 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         # Create RabbitMQ channel to publish "info".
 
         try:
-            credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_info_host, credentials=credentials))
-            self.info_channel = connection.channel()
+            info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
+            info_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_info_host, credentials=info_credentials))
+            self.info_channel = info_connection.channel()
             self.info_channel.queue_declare(queue=rabbitmq_info_queue)
         except (pika.exceptions.AMQPConnectionError) as err:
             exit_error(412, err, rabbitmq_info_host)
@@ -2903,14 +2905,14 @@ def do_rabbitmq_with_info(args):
     threads = []
     for i in range(0, threads_per_process):
         thread = ReadRabbitMQWriteG2WithInfoThread(config, g2_engine, g2_configuration_manager)
-        thread.name = "RabbitMQProcess-0-thread-{0}".format(i)
+        thread.name = "RabbitMQProcessX-0-thread-{0}".format(i)
         threads.append(thread)
 
     # Create monitor thread for master process.
 
     adminThreads = []
     thread = MonitorThread(config, g2_engine, threads)
-    thread.name = "RabbitMQProcess-0-thread-monitor"
+    thread.name = "RabbitMQProcessX-0-thread-monitor"
     adminThreads.append(thread)
 
     # Start threads for master process.

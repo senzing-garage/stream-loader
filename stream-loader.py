@@ -1361,7 +1361,7 @@ class WriteG2Thread(threading.Thread):
         logging.info(message_info(128, jsonline))
 
     def filter_info_message(self, jsonline):
-        return self.info_filter(jsonline)
+        return self.info_filter.filter(jsonline)
 
     def govern(self):
         return self.governor.govern()

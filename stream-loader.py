@@ -145,7 +145,7 @@ configuration_locator = {
         "cli": "kafka-info-bootstrap-server",
     },
     "kafka_info_topic": {
-        "default": "senzing-info-kafka-topic",
+        "default": "senzing-kafka-info-topic",
         "env": "SENZING_KAFKA_INFO_TOPIC",
         "cli": "kafka--info-topic"
     },
@@ -1681,7 +1681,6 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
         consumer.close()
 
-
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaWriteG2WithInfoThread
 # -----------------------------------------------------------------------------
@@ -1724,7 +1723,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
         try:
             self.info_producer.produce(self.info_topic, jsonline, on_delivery=self.on_kafka_delivery)
-            logging.info(message_info(190, jsonline))
+            logging.info(message_info(191, jsonline))
         except BufferError as err:
             logging.warn(message_warn(404, err, jsonline))
         except KafkaException as err:
@@ -1755,14 +1754,14 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         kafka_info_producer_configuration = {
             'bootstrap.servers': self.config.get('kafka_info_bootstrap_server')
         }
-        self.info_producer = Producer(kafka_info_producer_configuration)
+        self.info_producer = confluent_kafka.Producer(kafka_info_producer_configuration)
 
         # Create Kafka Producer for "failure".
 
         kafka_failure_producer_configuration = {
             'bootstrap.servers': self.config.get('kafka_failure_bootstrap_server')
         }
-        self.failure_producer = Producer(kafka_failure_producer_configuration)
+        self.failure_producer = confluent_kafka.Producer(kafka_failure_producer_configuration)
 
         # Data to be inserted into messages.
 
@@ -3102,6 +3101,7 @@ def do_kafka_test(args):
 
     logging.info(exit_template(config))
 
+
 def do_kafka_with_info(args):
     ''' Read from Kafka. '''
 
@@ -3177,6 +3177,7 @@ def do_kafka_with_info(args):
     # Epilog.
 
     logging.info(exit_template(config))
+
 
 def do_rabbitmq(args):
     ''' Read from rabbitmq. '''

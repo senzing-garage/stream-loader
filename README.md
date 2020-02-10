@@ -9,31 +9,34 @@ To see all of the subcommands, run:
 
 ```console
 $ ./stream-loader.py --help
-usage: stream-loader.py [-h] {kafka,sleep,url,version,kafka-test} ...
+usage: stream-loader.py [-h]
+                        {kafka,kafka-test,kafka-with-info,rabbitmq,rabbitmq-test,rabbitmq-with-info,sleep,url,version,docker-acceptance-test}
+                        ...
 
 Load Senzing from a stream. For more information, see
 https://github.com/senzing/stream-loader
 
 positional arguments:
-  {kafka,sleep,url,version,kafka-test}
+  {kafka,kafka-test,kafka-with-info,rabbitmq,rabbitmq-test,rabbitmq-with-info,sleep,url,version,docker-acceptance-test}
                         Subcommands (SENZING_SUBCOMMAND):
     kafka               Read JSON Lines from Apache Kafka topic.
-    sleep               Do nothing but sleep. For Docker testing.
-    url                 Read JSON Lines from URL-addressable file.
-    version             Print version of stream-loader.py.
     kafka-test          Read JSON Lines from Apache Kafka topic. Do not send
                         to Senzing.
+    kafka-with-info     Read JSON Lines from Apache Kafka topic. Return info
+                        to a queue.
     rabbitmq            Read JSON Lines from RabbitMQ queue.
-    rabbitmq-test       Read JSON Lines from RabbitMQ. Do not send to Senzing.
+    rabbitmq-test       Read JSON Lines from RabbitMQ queue. Do not send to
+                        Senzing.
+    rabbitmq-with-info  Read JSON Lines from RabbitMQ queue. Return info to a
+                        queue.
+    sleep               Do nothing but sleep. For Docker testing.
+    url                 Read JSON Lines from URL-addressable file.
+    version             Print version of program.
+    docker-acceptance-test
+                        For Docker acceptance testing.
 
 optional arguments:
   -h, --help            show this help message and exit
-```
-
-To see the options for a subcommand, run commands like:
-
-```console
-./stream-loader.py kafka --help
 ```
 
 ### Related artifacts
@@ -126,24 +129,38 @@ Configuration values specified by environment variable or command line parameter
 - **[SENZING_DATA_VERSION_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_data_version_dir)**
 - **[SENZING_DATABASE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_database_url)**
 - **[SENZING_DEBUG](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_debug)**
+- **[SENZING_ENGINE_CONFIGURATION_JSON](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_engine-configuration_json)**
 - **[SENZING_ENTITY_TYPE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_entity_type)**
 - **[SENZING_ETC_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_etc_dir)**
 - **[SENZING_G2_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_g2_dir)**
 - **[SENZING_INPUT_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_input_url)**
 - **[SENZING_KAFKA_BOOTSTRAP_SERVER](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_kafka_bootstrap_server)**
+- **[SENZING_KAFKA_FAILURE_BOOTSTRAP_SERVER](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_kafka_failure_bootstrap_server)**
+- **[SENZING_KAFKA_FAILURE_TOPIC](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_kafka_failure_topic)**
 - **[SENZING_KAFKA_GROUP](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_kafka_group)**
+- **[SENZING_KAFKA_INFO_BOOTSTRAP_SERVER](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_kafka_info_bootstrap_server)**
+- **[SENZING_KAFKA_INFO_TOPIC](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_kafka_info_topic)**
 - **[SENZING_KAFKA_TOPIC](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_kafka_topic)**
 - **[SENZING_LOG_LEVEL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_log_level)**
 - **[SENZING_MONITORING_PERIOD](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_monitoring_period)**
 - **[SENZING_NETWORK](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_network)**
 - **[SENZING_PROCESSES](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_processes)**
 - **[SENZING_QUEUE_MAX](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_queue_max)**
+- **[SENZING_RABBITMQ_FAILURE_HOST](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_failure_host)**
+- **[SENZING_RABBITMQ_FAILURE_PASSWORD](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_failure_password)**
+- **[SENZING_RABBITMQ_FAILURE_QUEUE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_failure_queue)**
+- **[SENZING_RABBITMQ_FAILURE_USERNAME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_failure_username)**
 - **[SENZING_RABBITMQ_HOST](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_host)**
+- **[SENZING_RABBITMQ_INFO_HOST](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_info_host)**
+- **[SENZING_RABBITMQ_INFO_PASSWORD](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_info_password)**
+- **[SENZING_RABBITMQ_INFO_QUEUE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_info_queue)**
+- **[SENZING_RABBITMQ_INFO_USERNAME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_info_username)**
 - **[SENZING_RABBITMQ_PASSWORD](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_password)**
+- **[SENZING_RABBITMQ_PREFETCH_COUNT](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_prefetch_count)**
 - **[SENZING_RABBITMQ_QUEUE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_queue)**
 - **[SENZING_RABBITMQ_USERNAME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_username)**
 - **[SENZING_RUNAS_USER](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_runas_user)**
-- **[SENZING_SLEEP_TIME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sleep_time)**
+- **[SENZING_SLEEP_TIME_IN_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sleep_time_in_seconds)**
 - **[SENZING_SUBCOMMAND](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_subcommand)**
 - **[SENZING_THREADS_PER_PROCESS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_threads_per_process)**
 - **[SENZING_VAR_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_var_dir)**

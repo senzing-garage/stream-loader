@@ -402,7 +402,7 @@ def get_parser():
             },
         },
         'kafka-with-info': {
-            "help": 'Read JSON Lines from Apache Kafka topic.',
+            "help": 'Read JSON Lines from Apache Kafka topic. Return info to a queue.',
             "arguments": {
                 "--data-source": {
                     "dest": "data_source",

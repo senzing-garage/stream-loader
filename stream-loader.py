@@ -1261,7 +1261,7 @@ class InfoFilter:
     def __init__(self, g2_engine=None):
         self.g2_engine = g2_engine
 
-    def filter(self, line=line):
+    def filter(self, line=None):
         return line
 
 # -----------------------------------------------------------------------------
@@ -1451,7 +1451,7 @@ class WriteG2Thread(threading.Thread):
         '''Default behavior. This may be implemented in the subclass.'''
         logging.info(message_info(128, jsonline))
 
-    def filter_info_message(self, line=line):
+    def filter_info_message(self, line=None):
         return self.info_filter.filter(line=line)
 
     def govern(self):

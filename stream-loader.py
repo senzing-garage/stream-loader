@@ -38,9 +38,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.3.3"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.5.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-02-09'
+__updated__ = '2020-02-10'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -1261,8 +1261,8 @@ class InfoFilter:
     def __init__(self, g2_engine=None):
         self.g2_engine = g2_engine
 
-    def filter(self, jsonline):
-        return jsonline
+    def filter(self, line=line):
+        return line
 
 # -----------------------------------------------------------------------------
 # Class: KafkaProcess
@@ -1451,8 +1451,8 @@ class WriteG2Thread(threading.Thread):
         '''Default behavior. This may be implemented in the subclass.'''
         logging.info(message_info(128, jsonline))
 
-    def filter_info_message(self, jsonline):
-        return self.info_filter.filter(jsonline)
+    def filter_info_message(self, line=line):
+        return self.info_filter.filter(line=line)
 
     def govern(self):
         return self.governor.govern()
@@ -1498,33 +1498,35 @@ class WriteG2Thread(threading.Thread):
         self.g2_engine.reinitV2(default_config_id)
 
     def add_record(self, jsonline):
+        ''' Send a record to Senzing. '''
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
         record_id = str(json_dictionary.get('RECORD_ID'))
         try:
-            return_code = self.g2_engine.addRecord(data_source, record_id, jsonline)
+            self.g2_engine.addRecord(data_source, record_id, jsonline)
         except Exception as err:
             if self.is_g2_default_configuration_changed():
                 self.update_active_g2_configuration()
-                return_code = self.g2_engine.addRecord(data_source, record_id, jsonline)
+                self.g2_engine.addRecord(data_source, record_id, jsonline)
             else:
                 raise err
-        return return_code
+        return
 
     def add_record_with_info(self, jsonline):
+        ''' Send a record to Senzing and return the "info" returned by Senzing. '''
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
         record_id = str(json_dictionary.get('RECORD_ID'))
         response_bytearray = bytearray()
         try:
-            return_code = self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
+            self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
         except Exception as err:
             if self.is_g2_default_configuration_changed():
                 self.update_active_g2_configuration()
-                return_code = self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
+                self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
             else:
                 raise err
-        return return_code, response_bytearray.decode()
+        return response_bytearray.decode()
 
     def send_jsonline_to_g2_engine(self, jsonline):
         '''Send the JSONline to G2 engine.'''
@@ -1537,9 +1539,8 @@ class WriteG2Thread(threading.Thread):
 
         # Add Record to Senzing G2.
 
-        return_code = 0
         try:
-            return_code = self.add_record(jsonline)
+            self.add_record(jsonline)
         except G2Exception.G2ModuleNotInitialized as err:
             exit_error(888, err, jsonline)
         except G2Exception.G2ModuleGenericException as err:
@@ -1548,8 +1549,6 @@ class WriteG2Thread(threading.Thread):
         except Exception as err:
             logging.error(message_error(890, err, jsonline))
             self.add_to_failure_queue(jsonline)
-        if return_code != 0:
-            exit_error(886, return_code, method, parameters)
 
         logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
@@ -1564,27 +1563,30 @@ class WriteG2Thread(threading.Thread):
 
         # Add Record to Senzing G2.
 
-        return_code = 0
         info_json = None
         try:
-            return_code, info_json = self.add_record_with_info(jsonline)
+            info_json = self.add_record_with_info(jsonline)
         except G2Exception.G2ModuleNotInitialized as err:
             self.add_to_failure_queue(jsonline)
             exit_error(888, err, jsonline)
         except G2Exception.G2ModuleGenericException as err:
             self.add_to_failure_queue(jsonline)
             logging.error(message_error(889, err, jsonline))
+            return
         except Exception as err:
             self.add_to_failure_queue(jsonline)
             logging.error(message_error(890, err, jsonline))
-        if return_code != 0:
-            self.add_to_failure_queue(jsonline)
-            exit_error(886, return_code, method, parameters)
+            return
 
-        filtered_info_json = self.filter_info_message(info_json)
-        self.add_to_info_queue(filtered_info_json)
+        # Allow user to manipulate the message.
 
-        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
+        filtered_info_json = self.filter_info_message(line=info_json)
+
+#         # Put "info" on info queue.
+
+        if filtered_info_json:
+            self.add_to_info_queue(filtered_info_json)
+            logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaWriteG2Thread

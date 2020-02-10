@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.3.3"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-01-28'
+__updated__ = '2020-02-09'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -124,10 +124,30 @@ configuration_locator = {
         "env": "SENZING_KAFKA_BOOTSTRAP_SERVER",
         "cli": "kafka-bootstrap-server",
     },
+    "kafka_failure_bootstrap_server": {
+        "default": None,
+        "env": "SENZING_KAFKA_FAILURE_BOOTSTRAP_SERVER",
+        "cli": "kafka-failure-bootstrap-server",
+    },
+    "kafka_failure_topic": {
+        "default": "senzing-kafka-failure-topic",
+        "env": "SENZING_KAFKA_FAILURE_TOPIC",
+        "cli": "kafka-failure-topic"
+    },
     "kafka_group": {
         "default": "senzing-kafka-group",
         "env": "SENZING_KAFKA_GROUP",
         "cli": "kafka-group"
+    },
+    "kafka_info_bootstrap_server": {
+        "default": None,
+        "env": "SENZING_KAFKA_INFO_BOOTSTRAP_SERVER",
+        "cli": "kafka-info-bootstrap-server",
+    },
+    "kafka_info_topic": {
+        "default": "senzing-kafka-info-topic",
+        "env": "SENZING_KAFKA_INFO_TOPIC",
+        "cli": "kafka--info-topic"
     },
     "kafka_topic": {
         "default": "senzing-kafka-topic",
@@ -159,10 +179,50 @@ configuration_locator = {
         "default": 10,
         "env": "SENZING_QUEUE_MAX",
     },
+    "rabbitmq_failure_host": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_FAILURE_HOST",
+        "cli": "rabbitmq-failure-host",
+    },
+    "rabbitmq_failure_password": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_FAILURE_PASSWORD",
+        "cli": "rabbitmq-failure-password",
+    },
+    "rabbitmq_failure_queue": {
+        "default": "senzing-rabbitmq-failure-queue",
+        "env": "SENZING_RABBITMQ_FAILURE_QUEUE",
+        "cli": "rabbitmq-failure-queue",
+    },
+    "rabbitmq_failure_username": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_FAILURE_USERNAME",
+        "cli": "rabbitmq-failure-username",
+    },
     "rabbitmq_host": {
         "default": "localhost:5672",
         "env": "SENZING_RABBITMQ_HOST",
         "cli": "rabbitmq-host",
+    },
+    "rabbitmq_info_host": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_INFO_HOST",
+        "cli": "rabbitmq-info-host",
+    },
+    "rabbitmq_info_password": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_INFO_PASSWORD",
+        "cli": "rabbitmq-info-password",
+    },
+    "rabbitmq_info_queue": {
+        "default": "senzing-rabbitmq-info-queue",
+        "env": "SENZING_RABBITMQ_INFO_QUEUE",
+        "cli": "rabbitmq-info-queue",
+    },
+    "rabbitmq_info_username": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_INFO_USERNAME",
+        "cli": "rabbitmq-info-username",
     },
     "rabbitmq_password": {
         "default": "bitnami",
@@ -218,8 +278,18 @@ configuration_locator = {
 # Enumerate keys in 'configuration_locator' that should not be printed to the log.
 
 keys_to_redact = [
+    "counter_bad_records",
+    "counter_processed_records",
+    "counter_queued_records",
     "g2_database_url_generic",
-    "g2_database_url_specific"
+    "g2_database_url_specific",
+    "kafka_ack_elapsed",
+    "kafka_poll_elapsed",
+    "rabbitmq_ack_elapsed",
+    "rabbitmq_failure_password",
+    "rabbitmq_info_password",
+    "rabbitmq_password",
+    "rabbitmq_poll_elapsed",
 ]
 
 # -----------------------------------------------------------------------------
@@ -323,6 +393,71 @@ def get_parser():
                     "dest": "monitoring_period_in_seconds",
                     "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
                     "help": "Period, in seconds, between monitoring reports. Default: 300"
+                },
+                "--threads-per-process": {
+                    "dest": "threads_per_process",
+                    "metavar": "SENZING_THREADS_PER_PROCESS",
+                    "help": "Number of threads per process. Default: 4"
+                },
+            },
+        },
+        'kafka-with-info': {
+            "help": 'Read JSON Lines from Apache Kafka topic. Return info to a queue.',
+            "arguments": {
+                "--data-source": {
+                    "dest": "data_source",
+                    "metavar": "SENZING_DATA_SOURCE",
+                    "help": "Data Source."
+                },
+                "--debug": {
+                    "dest": "debug",
+                    "action": "store_true",
+                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
+                },
+                "--delay-in-seconds": {
+                    "dest": "delay_in_seconds",
+                    "metavar": "SENZING_DELAY_IN_SECONDS",
+                    "help": "Delay before processing in seconds. DEFAULT: 0"
+                },
+                "--engine-configuration-json": {
+                    "dest": "engine_configuration_json",
+                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
+                    "help": "Advanced Senzing engine configuration. Default: none"
+                },
+                "--entity-type": {
+                    "dest": "entity_type",
+                    "metavar": "SENZING_ENTITY_TYPE",
+                    "help": "Entity type."
+                },
+                "--kafka-bootstrap-server": {
+                    "dest": "kafka_bootstrap_server",
+                    "metavar": "SENZING_KAFKA_BOOTSTRAP_SERVER",
+                    "help": "Kafka bootstrap server. Default: localhost:9092"
+                },
+                "--kafka-group": {
+                    "dest": "kafka_group",
+                    "metavar": "SENZING_KAFKA_GROUP",
+                    "help": "Kafka group. Default: senzing-kafka-group"
+                },
+                "--kafka-topic": {
+                    "dest": "kafka_topic",
+                    "metavar": "SENZING_KAFKA_TOPIC",
+                    "help": "Kafka topic. Default: senzing-kafka-topic"
+                },
+                "--monitoring-period-in-seconds": {
+                    "dest": "monitoring_period_in_seconds",
+                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
+                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                },
+                "--processes": {
+                    "dest": "processes",
+                    "metavar": "SENZING_PROCESSES",
+                    "help": "Number of processes. Default: 1"
+                },
+                "--senzing-dir": {
+                    "dest": "senzing_dir",
+                    "metavar": "SENZING_DIR",
+                    "help": "Location of Senzing. Default: /opt/senzing"
                 },
                 "--threads-per-process": {
                     "dest": "threads_per_process",
@@ -451,6 +586,116 @@ def get_parser():
                 }
             },
         },
+        'rabbitmq-with-info': {
+            "help": 'Read JSON Lines from RabbitMQ queue. Return info to a queue.',
+            "arguments": {
+                "--data-source": {
+                    "dest": "data_source",
+                    "metavar": "SENZING_DATA_SOURCE",
+                    "help": "Data Source."
+                },
+                "--debug": {
+                    "dest": "debug",
+                    "action": "store_true",
+                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
+                },
+                "--delay-in-seconds": {
+                    "dest": "delay_in_seconds",
+                    "metavar": "SENZING_DELAY_IN_SECONDS",
+                    "help": "Delay before processing in seconds. DEFAULT: 0"
+                },
+                "--engine-configuration-json": {
+                    "dest": "engine_configuration_json",
+                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
+                    "help": "Advanced Senzing engine configuration. Default: none"
+                },
+                "--entity-type": {
+                    "dest": "entity_type",
+                    "metavar": "SENZING_ENTITY_TYPE",
+                    "help": "Entity type."
+                },
+                "--monitoring-period-in-seconds": {
+                    "dest": "monitoring_period_in_seconds",
+                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
+                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                },
+                "--rabbitmq-host": {
+                    "dest": "rabbitmq_host",
+                    "metavar": "SENZING_RABBITMQ_HOST",
+                    "help": "RabbitMQ host. Default: localhost:5672"
+                },
+                "--rabbitmq-password": {
+                    "dest": "rabbitmq_password",
+                    "metavar": "SENZING_RABBITMQ_PASSWORD",
+                    "help": "RabbitMQ password. Default: bitnami"
+                },
+                "--rabbitmq-queue": {
+                    "dest": "rabbitmq_queue",
+                    "metavar": "SENZING_RABBITMQ_QUEUE",
+                    "help": "RabbitMQ queue. Default: senzing-rabbitmq-queue"
+                },
+                "--rabbitmq-username": {
+                    "dest": "rabbitmq_username",
+                    "metavar": "SENZING_RABBITMQ_USERNAME",
+                    "help": "RabbitMQ username. Default: user"
+                },
+                "--rabbitmq-info-host": {
+                    "dest": "rabbitmq_info_host",
+                    "metavar": "SENZING_RABBITMQ_INFO_HOST",
+                    "help": "RabbitMQ host. Default: SENZING_RABBITMQ_HOST"
+                },
+                "--rabbitmq-info-password": {
+                    "dest": "rabbitmq_info_password",
+                    "metavar": "SENZING_RABBITMQ_INFO_PASSWORD",
+                    "help": "RabbitMQ password. Default: SENZING_RABBITMQ_PASSWORD"
+                },
+                "--rabbitmq-info-queue": {
+                    "dest": "rabbitmq_info_queue",
+                    "metavar": "SENZING_RABBITMQ_INFO_QUEUE",
+                    "help": "RabbitMQ queue. Default: senzing-rabbitmq-info-queue"
+                },
+                "--rabbitmq-info-username": {
+                    "dest": "rabbitmq_info_username",
+                    "metavar": "SENZING_RABBITMQ_INFO_USERNAME",
+                    "help": "RabbitMQ username. Default: SENZING_RABBITMQ_USERNAME"
+                },
+                "--rabbitmq-failure-host": {
+                    "dest": "rabbitmq_failure_host",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_HOST",
+                    "help": "RabbitMQ host. Default: SENZING_RABBITMQ_HOST"
+                },
+                "--rabbitmq-failure-password": {
+                    "dest": "rabbitmq_failure_password",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_PASSWORD",
+                    "help": "RabbitMQ password. Default: SENZING_RABBITMQ_PASSWORD"
+                },
+                "--rabbitmq-failure-queue": {
+                    "dest": "rabbitmq_failure_queue",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_QUEUE",
+                    "help": "RabbitMQ queue. Default: senzing-rabbitmq-failure-queue"
+                },
+                "--rabbitmq-failure-username": {
+                    "dest": "rabbitmq_failure_username",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_USERNAME",
+                    "help": "RabbitMQ username. Default: SENZING_RABBITMQ_USERNAME"
+                },
+                "--senzing-dir": {
+                    "dest": "senzing_dir",
+                    "metavar": "SENZING_DIR",
+                    "help": "Location of Senzing. Default: /opt/senzing"
+                },
+                "--threads-per-process": {
+                    "dest": "threads_per_process",
+                    "metavar": "SENZING_THREADS_PER_PROCESS",
+                    "help": "Number of threads per process. Default: 4"
+                },
+                "--rabbitmq-prefetch-count": {
+                    "dest": "rabbitmq_prefetch_count",
+                    "metavar": "SENZING_RABBITMQ_PREFETCH_COUNT",
+                    "help": "RabbitMQ prefetch-count. Default: 50"
+                }
+            },
+        },
         'sleep': {
             "help": 'Do nothing but sleep. For Docker testing.',
             "arguments": {
@@ -549,6 +794,7 @@ MESSAGE_DEBUG = 900
 
 message_dictionary = {
     "100": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}I",
+    "103": "Kafka topic: {0}; message: {1}; error: {2}; error: {3}",
     "120": "Sleeping for requested delay of {0} seconds.",
     "121": "Adding JSON to failure queue: {0}",
     "122": "Quitting time!",
@@ -557,6 +803,7 @@ message_dictionary = {
     "125": "G2 engine statistics: {0}",
     "126": "G2 project statistics: {0}",
     "127": "Monitor: {0}",
+    "128": "Adding JSON to info queue: {0}",
     "129": "{0} is running.",
     "130": "RabbitMQ channel closed by the broker. Shutting down thread {0}.",
     "140": "System Resources:",
@@ -583,6 +830,9 @@ message_dictionary = {
     "167": "         Contract: {0}",
     "168": "  Expiration time: EXPIRED {0} days ago",
     "180": "User-supplied Governor loaded from {0}.",
+    "181": "User-supplied InfoFilter loaded from {0}.",
+    "190": "Adding JSON to failure queue: {0}",
+    "191": "Adding JSON to info queue: {0}",
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
@@ -595,6 +845,17 @@ message_dictionary = {
     "298": "Exit {0}",
     "299": "{0}",
     "300": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}W",
+    "401": "Failure queue not open.  Could not add: {0}",
+    "402": "Info queue not open.  Could not add: {0}",
+    "403": "Bad file protocol in --input-file-name: {0}.",
+    "404": "Buffer error: {0} for {1}.",
+    "405": "Kafka error: {0} for {1}.",
+    "406": "Not implemented error: {0} for {1}.",
+    "407": "Unknown kafka error: {0} for {1}.",
+    "408": "Kafka topic: {0}; message: {1}; error: {2}; error: {3}",
+    "410": "Unknown RabbitMQ error when connecting: {0}.",
+    "411": "Unknown RabbitMQ error when adding record to queue: {0} for line {1}.",
+    "412": "Could not connect to RabbitMQ host at {1}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
     "499": "{0}",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "551": "Missing G2 database URL.",
@@ -899,7 +1160,7 @@ def get_configuration(args):
     result['counter_processed_records'] = 0
     result['counter_queued_records'] = 0
     result['counter_bad_records'] = 0
-    result['kafka_commit_elapsed'] = 0
+    result['kafka_ack_elapsed'] = 0
     result['kafka_poll_elapsed'] = 0
     result['rabbitmq_ack_elapsed'] = 0
     result['rabbitmq_poll_elapsed'] = 0
@@ -989,6 +1250,19 @@ class Governor:
 
     def govern(self):
         return
+
+# -----------------------------------------------------------------------------
+# Class: InfoFilter
+# -----------------------------------------------------------------------------
+
+
+class InfoFilter:
+
+    def __init__(self, g2_engine=None):
+        self.g2_engine = g2_engine
+
+    def filter(self, jsonline):
+        return jsonline
 
 # -----------------------------------------------------------------------------
 # Class: KafkaProcess
@@ -1167,10 +1441,18 @@ class WriteG2Thread(threading.Thread):
         self.g2_engine = g2_engine
         self.g2_configuration_manager = g2_configuration_manager
         self.governor = Governor(g2_engine=g2_engine)
+        self.info_filter = InfoFilter(g2_engine=g2_engine)
 
-    def add_record_to_failure_queue(self, jsonline):
-        # FIXME: add functionality.
+    def add_to_failure_queue(self, jsonline):
+        '''Default behavior. This may be implemented in the subclass.'''
         logging.info(message_info(121, jsonline))
+
+    def add_to_info_queue(self, jsonline):
+        '''Default behavior. This may be implemented in the subclass.'''
+        logging.info(message_info(128, jsonline))
+
+    def filter_info_message(self, jsonline):
+        return self.info_filter.filter(jsonline)
 
     def govern(self):
         return self.governor.govern()
@@ -1229,6 +1511,21 @@ class WriteG2Thread(threading.Thread):
                 raise err
         return return_code
 
+    def add_record_with_info(self, jsonline):
+        json_dictionary = json.loads(jsonline)
+        data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
+        record_id = str(json_dictionary.get('RECORD_ID'))
+        response_bytearray = bytearray()
+        try:
+            return_code = self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
+        except Exception as err:
+            if self.is_g2_default_configuration_changed():
+                self.update_active_g2_configuration()
+                return_code = self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
+            else:
+                raise err
+        return return_code, response_bytearray.decode()
+
     def send_jsonline_to_g2_engine(self, jsonline):
         '''Send the JSONline to G2 engine.'''
 
@@ -1247,12 +1544,45 @@ class WriteG2Thread(threading.Thread):
             exit_error(888, err, jsonline)
         except G2Exception.G2ModuleGenericException as err:
             logging.error(message_error(889, err, jsonline))
-            self.add_record_to_failure_queue(jsonline)
+            self.add_to_failure_queue(jsonline)
         except Exception as err:
             logging.error(message_error(890, err, jsonline))
-            self.add_record_to_failure_queue(jsonline)
+            self.add_to_failure_queue(jsonline)
         if return_code != 0:
             exit_error(886, return_code, method, parameters)
+
+        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
+
+    def send_jsonline_to_g2_engine_with_info(self, jsonline):
+        '''Send the JSONline to G2 engine.'''
+
+        # Periodically, check for configuration update.
+
+        if self.is_time_to_check_g2_configuration():
+            if self.is_g2_default_configuration_changed():
+                self.update_active_g2_configuration()
+
+        # Add Record to Senzing G2.
+
+        return_code = 0
+        info_json = None
+        try:
+            return_code, info_json = self.add_record_with_info(jsonline)
+        except G2Exception.G2ModuleNotInitialized as err:
+            self.add_to_failure_queue(jsonline)
+            exit_error(888, err, jsonline)
+        except G2Exception.G2ModuleGenericException as err:
+            self.add_to_failure_queue(jsonline)
+            logging.error(message_error(889, err, jsonline))
+        except Exception as err:
+            self.add_to_failure_queue(jsonline)
+            logging.error(message_error(890, err, jsonline))
+        if return_code != 0:
+            self.add_to_failure_queue(jsonline)
+            exit_error(886, return_code, method, parameters)
+
+        filtered_info_json = self.filter_info_message(info_json)
+        self.add_to_info_queue(filtered_info_json)
 
         logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
@@ -1352,6 +1682,157 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
         consumer.close()
 
 # -----------------------------------------------------------------------------
+# Class: ReadKafkaWriteG2WithInfoThread
+# -----------------------------------------------------------------------------
+
+
+class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
+
+    def __init__(self, config, g2_engine, g2_configuration_manager):
+        super().__init__(config, g2_engine, g2_configuration_manager)
+        self.info_producer = None
+        self.info_topic = config.get("kafka_info_topic")
+        self.failure_producer = None
+        self.failure_topic = config.get("kafka_failure_topic")
+
+    def on_kafka_delivery(error, message):
+        message_topic = message.topic()
+        message_value = message.value()
+        message_error = message.error()
+        logging.debug(message_debug(103, message_topic, message_value, message_error, error))
+        if error is not None:
+            logging.warn(message_warn(408, message_topic, message_value, message_error, error))
+
+    def add_to_failure_queue(self, jsonline):
+        '''Overwrite superclass method.'''
+
+        try:
+            self.failure_producer.produce(self.failure_topic, jsonline, on_delivery=self.on_kafka_delivery)
+            logging.info(message_info(190, jsonline))
+        except BufferError as err:
+            logging.warn(message_warn(404, err, jsonline))
+        except KafkaException as err:
+            logging.warn(message_warn(405, err, jsonline))
+        except NotImplemented as err:
+            logging.warn(message_warn(406, err, jsonline))
+        except:
+            logging.warn(message_warn(407, err, jsonline))
+
+    def add_to_info_queue(self, jsonline):
+        '''Overwrite superclass method.'''
+
+        try:
+            self.info_producer.produce(self.info_topic, jsonline, on_delivery=self.on_kafka_delivery)
+            logging.info(message_info(191, jsonline))
+        except BufferError as err:
+            logging.warn(message_warn(404, err, jsonline))
+        except KafkaException as err:
+            logging.warn(message_warn(405, err, jsonline))
+        except NotImplemented as err:
+            logging.warn(message_warn(406, err, jsonline))
+        except:
+            logging.warn(message_warn(407, err, jsonline))
+
+    def run(self):
+        '''Process for reading lines from Kafka and feeding them to a process_function() function'''
+
+        logging.info(message_info(129, threading.current_thread().name))
+
+        # Create Kafka client.
+
+        consumer_configuration = {
+            'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
+            'group.id': self.config.get("kafka_group"),
+            'enable.auto.commit': False,
+            'auto.offset.reset': 'earliest'
+            }
+        consumer = confluent_kafka.Consumer(consumer_configuration)
+        consumer.subscribe([self.config.get("kafka_topic")])
+
+        # Create Kafka Producer for "info".
+
+        kafka_info_producer_configuration = {
+            'bootstrap.servers': self.config.get('kafka_info_bootstrap_server')
+        }
+        self.info_producer = confluent_kafka.Producer(kafka_info_producer_configuration)
+
+        # Create Kafka Producer for "failure".
+
+        kafka_failure_producer_configuration = {
+            'bootstrap.servers': self.config.get('kafka_failure_bootstrap_server')
+        }
+        self.failure_producer = confluent_kafka.Producer(kafka_failure_producer_configuration)
+
+        # Data to be inserted into messages.
+
+        data_source = self.config.get('data_source')
+        entity_type = self.config.get('entity_type')
+
+        # In a loop, get messages from Kafka.
+
+        while True:
+
+            # Invoke Governor.
+
+            self.govern()
+
+            # Get message from Kafka queue.
+            # Timeout quickly to allow other co-routines to process.
+
+            kafka_message = consumer.poll(1.0)
+
+            # Handle non-standard Kafka output.
+
+            if kafka_message is None:
+                continue
+            if kafka_message.error():
+                if kafka_message.error().code() == confluent_kafka.KafkaError._PARTITION_EOF:
+                    continue
+                else:
+                    logging.error(message_error(722, kafka_message.error()))
+                    continue
+
+            # Construct and verify Kafka message.
+
+            kafka_message_string = kafka_message.value().strip()
+            if not kafka_message_string:
+                continue
+            logging.debug(message_debug(903, threading.current_thread().name, kafka_message_string))
+            self.config['counter_queued_records'] += 1
+
+            # Verify that message is valid JSON.
+
+            try:
+                kafka_message_dictionary = json.loads(kafka_message_string)
+            except:
+                logging.info(message_debug(557, kafka_message_string))
+                if not consumer.commit():
+                    logging.error(message_error(722, kafka_message_string))
+                continue
+
+            # If needed, modify JSON message.
+
+            if 'DATA_SOURCE' not in kafka_message_dictionary:
+                kafka_message_dictionary['DATA_SOURCE'] = data_source
+            if 'ENTITY_TYPE' not in kafka_message_dictionary:
+                kafka_message_dictionary['ENTITY_TYPE'] = entity_type
+            kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
+
+            # Send valid JSON to Senzing.
+
+            self.send_jsonline_to_g2_engine_with_info(kafka_message_string)
+
+            # Record successful transfer to Senzing.
+
+            self.config['counter_processed_records'] += 1
+
+            # After successful import into Senzing, tell Kafka we're done with message.
+
+            consumer.commit()
+
+        consumer.close()
+
+# -----------------------------------------------------------------------------
 # Class: ReadRabbitMQWriteG2Thread
 # -----------------------------------------------------------------------------
 
@@ -1361,7 +1842,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager):
         super().__init__(config, g2_engine, g2_configuration_manager)
 
-    def callback(self, ch, method, properties, body):
+    def callback(self, ch, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
         self.config['counter_queued_records'] += 1
 
@@ -1414,6 +1895,162 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         self.entitiy_type = self.config.get("entity_type")
 
         # Connect to RabbitMQ queue.
+
+        try:
+            credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, credentials=credentials))
+            channel = connection.channel()
+            channel.queue_declare(queue=rabbitmq_queue)
+            channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
+            channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
+        except pika.exceptions.AMQPConnectionError as err:
+            exit_error(562, err, rabbitmq_host)
+        except BaseException as err:
+            exit_error(561, err)
+
+        # Start consuming.
+
+        try:
+            channel.start_consuming()
+        except pika.exceptions.ChannelClosed:
+            logging.info(message_info(130, threading.current_thread().name))
+
+# -----------------------------------------------------------------------------
+# Class: ReadRabbitMQWriteG2WithInfoThread
+# -----------------------------------------------------------------------------
+
+
+class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
+
+    def __init__(self, config, g2_engine, g2_configuration_manager):
+        super().__init__(config, g2_engine, g2_configuration_manager)
+        self.data_source = self.config.get("data_source")
+        self.entitiy_type = self.config.get("entity_type")
+        self.rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
+        self.info_channel = None
+        self.failure_channel = None
+
+    def add_to_failure_queue(self, jsonline):
+        '''Overwrite superclass method.'''
+
+        try:
+            self.failure_channel.basic_publish(
+                exchange='',
+                routing_key=self.rabbitmq_failure_queue,
+                body=jsonline,
+                properties=pika.BasicProperties(
+                    delivery_mode=2
+                )
+            )  # make message persistent
+            logging.info(message_info(190, jsonline))
+
+        except BaseException as err:
+            logging.warn(message_warn(411, err, jsonline))
+
+    def add_to_info_queue(self, jsonline):
+        '''Overwrite superclass method.'''
+
+        try:
+            self.info_channel.basic_publish(
+                exchange='',
+                routing_key=self.rabbitmq_info_queue,
+                body=jsonline,
+                properties=pika.BasicProperties(
+                    delivery_mode=2
+                )
+            )  # make message persistent
+            logging.info(message_info(191, jsonline))
+
+        except BaseException as err:
+            logging.warn(message_warn(411, err, jsonline))
+
+    def callback(self, channel, method, header, body):
+        logging.debug(message_debug(903, threading.current_thread().name, body))
+        self.config['counter_queued_records'] += 1
+
+        # Invoke Governor.
+
+        self.govern()
+
+        # Verify that message is valid JSON.
+
+        try:
+            rabbitmq_message_dictionary = json.loads(body)
+        except:
+            self.add_to_failure_queue(body)
+            logging.info(message_debug(557, body))
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+            return
+
+        # If needed, modify JSON message.
+
+        if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
+            rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
+        if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
+            rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
+        rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
+
+        # Send valid JSON to Senzing.
+
+        self.send_jsonline_to_g2_engine_with_info(rabbitmq_message_string)
+
+        # Record successful transfer to Senzing.
+
+        self.config['counter_processed_records'] += 1
+
+        # After successful import into Senzing, tell RabbitMQ we're done with message.
+
+        channel.basic_ack(delivery_tag=method.delivery_tag)
+
+    def run(self):
+        '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''
+
+        logging.info(message_info(129, threading.current_thread().name))
+
+        # Get config parameters.
+
+        rabbitmq_host = self.config.get("rabbitmq_host")
+        rabbitmq_password = self.config.get("rabbitmq_password")
+        rabbitmq_queue = self.config.get("rabbitmq_queue")
+        rabbitmq_username = self.config.get("rabbitmq_username")
+
+        rabbitmq_info_host = self.config.get("rabbitmq_info_host")
+        rabbitmq_info_password = self.config.get("rabbitmq_info_password")
+        rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
+        rabbitmq_info_username = self.config.get("rabbitmq_info_username")
+
+        rabbitmq_failure_host = self.config.get("rabbitmq_failure_host")
+        rabbitmq_failure_password = self.config.get("rabbitmq_failure_password")
+        rabbitmq_failure_queue = self.config.get("rabbitmq_failure_queue")
+        rabbitmq_failure_username = self.config.get("rabbitmq_failure_username")
+
+        rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
+
+        # Create RabbitMQ channel to publish "info".
+
+        try:
+            info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
+            info_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_info_host, credentials=info_credentials))
+            self.info_channel = info_connection.channel()
+            self.info_channel.queue_declare(queue=rabbitmq_info_queue)
+        except (pika.exceptions.AMQPConnectionError) as err:
+            exit_error(412, err, rabbitmq_info_host)
+        except BaseException as err:
+            exit_error(410, err)
+
+        # Create RabbitMQ channel to publish "failure".
+
+        try:
+            failure_credentials = pika.PlainCredentials(rabbitmq_failure_username, rabbitmq_failure_password)
+            failure_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_failure_host, credentials=failure_credentials))
+            self.failure_channel = failure_connection.channel()
+            self.failure_channel.queue_declare(queue=rabbitmq_failure_queue)
+        except (pika.exceptions.AMQPConnectionError) as err:
+            exit_error(412, err, rabbitmq_failure_host)
+        except BaseException as err:
+            exit_error(410, err)
+
+        # Create RabbitMQ channel to subscribe to records.
 
         try:
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
@@ -1523,7 +2160,7 @@ class ReadRabbitMQTestThread(threading.Thread):
         threading.Thread.__init__(self)
         self.config = config
 
-    def callback(self, ch, method, properties, body):
+    def callback(self, ch, method, header, body):
 
         # Invoke Governor.
 
@@ -2465,6 +3102,83 @@ def do_kafka_test(args):
     logging.info(exit_template(config))
 
 
+def do_kafka_with_info(args):
+    ''' Read from Kafka. '''
+
+    # Get context from CLI, environment variables, and ini files.
+
+    config = get_configuration(args)
+
+    # If configuration values not specified, use defaults.
+
+    options_to_defaults_map = {
+        "kafka_failure_bootstrap_server": "kafka_bootstrap_server",
+        "kafka_info_bootstrap_server": "kafka_bootstrap_server",
+    }
+
+    for key, value in options_to_defaults_map.items():
+        if not config.get(key):
+            config[key] = config.get(value)
+
+    # Perform common initialization tasks.
+
+    common_prolog(config)
+
+    # Pull values from configuration.
+
+    threads_per_process = config.get('threads_per_process')
+
+    # Get the Senzing G2 resources.
+
+    g2_engine = get_g2_engine(config)
+    g2_configuration_manager = get_g2_configuration_manager(config)
+
+    # Create kafka reader threads for master process.
+
+    threads = []
+    for i in range(0, threads_per_process):
+        thread = ReadKafkaWriteG2WithInfoThread(config, g2_engine, g2_configuration_manager)
+        thread.name = "KafkaProcess-0-thread-{0}".format(i)
+        threads.append(thread)
+
+    # Create monitor thread for master process.
+
+    adminThreads = []
+    thread = MonitorThread(config, g2_engine, threads)
+    thread.name = "KafkaProcess-0-thread-monitor"
+    adminThreads.append(thread)
+
+    # Start threads for master process.
+
+    for thread in threads:
+        thread.start()
+
+    # Sleep, if requested.
+
+    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
+    if sleep_time_in_seconds > 0:
+        logging.info(message_info(152, sleep_time_in_seconds))
+        time.sleep(sleep_time_in_seconds)
+
+    # Start administrative threads for master process.
+
+    for thread in adminThreads:
+        thread.start()
+
+    # Collect inactive threads from master process.
+
+    for thread in threads:
+        thread.join()
+
+    # Cleanup.
+
+    g2_engine.destroy()
+
+    # Epilog.
+
+    logging.info(exit_template(config))
+
+
 def do_rabbitmq(args):
     ''' Read from rabbitmq. '''
 
@@ -2571,6 +3285,87 @@ def do_rabbitmq_test(args):
 
     for process in processes:
         process.join()
+
+    # Epilog.
+
+    logging.info(exit_template(config))
+
+
+def do_rabbitmq_with_info(args):
+    ''' Read from rabbitmq. '''
+
+    # Get context from CLI, environment variables, and ini files.
+
+    config = get_configuration(args)
+
+    # If configuration values not specified, use defaults.
+
+    options_to_defaults_map = {
+        "rabbitmq_failure_host": "rabbitmq_host",
+        "rabbitmq_failure_password": "rabbitmq_password",
+        "rabbitmq_failure_username": "rabbitmq_username",
+        "rabbitmq_info_host": "rabbitmq_host",
+        "rabbitmq_info_password": "rabbitmq_password",
+        "rabbitmq_info_username": "rabbitmq_username",
+    }
+
+    for key, value in options_to_defaults_map.items():
+        if not config.get(key):
+            config[key] = config.get(value)
+
+    # Perform common initialization tasks.
+
+    common_prolog(config)
+
+    # Pull values from configuration.
+
+    threads_per_process = config.get('threads_per_process')
+
+    # Get the Senzing G2 resources.
+
+    g2_engine = get_g2_engine(config)
+    g2_configuration_manager = get_g2_configuration_manager(config)
+
+    # Create RabbitMQ reader threads for master process.
+
+    threads = []
+    for i in range(0, threads_per_process):
+        thread = ReadRabbitMQWriteG2WithInfoThread(config, g2_engine, g2_configuration_manager)
+        thread.name = "RabbitMQProcess-0-thread-{0}".format(i)
+        threads.append(thread)
+
+    # Create monitor thread for master process.
+
+    adminThreads = []
+    thread = MonitorThread(config, g2_engine, threads)
+    thread.name = "RabbitMQProcess-0-thread-monitor"
+    adminThreads.append(thread)
+
+    # Start threads for master process.
+
+    for thread in threads:
+        thread.start()
+
+    # Sleep, if requested.
+
+    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
+    if sleep_time_in_seconds > 0:
+        logging.info(message_info(152, sleep_time_in_seconds))
+        time.sleep(sleep_time_in_seconds)
+
+    # Start administrative threads for master process.
+
+    for thread in adminThreads:
+        thread.start()
+
+    # Collect inactive threads from master process.
+
+    for thread in threads:
+        thread.join()
+
+    # Cleanup.
+
+    g2_engine.destroy()
 
     # Epilog.
 
@@ -2685,6 +3480,13 @@ if __name__ == "__main__":
         import senzing_governor
         from senzing_governor import Governor
         logging.info(message_info(180, senzing_governor.__file__))
+    except ImportError:
+        pass
+
+    try:
+        import senzing_info_filter
+        from senzing_info_filter import InfoFilter
+        logging.info(message_info(181, senzing_info_filter.__file__))
     except ImportError:
         pass
 

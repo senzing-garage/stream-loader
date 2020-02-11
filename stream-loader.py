@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-02-10'
+__updated__ = '2020-02-11'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -434,10 +434,30 @@ def get_parser():
                     "metavar": "SENZING_KAFKA_BOOTSTRAP_SERVER",
                     "help": "Kafka bootstrap server. Default: localhost:9092"
                 },
+                "--kafka-failure-bootstrap-server": {
+                    "dest": "kafka_failure_bootstrap_server",
+                    "metavar": "SENZING_KAFKA_FAILURE_BOOTSTRAP_SERVER",
+                    "help": "Kafka bootstrap server. Default: SENZING_KAFKA_BOOTSTRAP_SERVER"
+                },
+                "--kafka-failure-topic": {
+                    "dest": "kafka_failure_topic",
+                    "metavar": "SENZING_KAFKA_FAILURE_TOPIC",
+                    "help": "Kafka topic for failures. Default: senzing-kafka-failure-topic"
+                },
                 "--kafka-group": {
                     "dest": "kafka_group",
                     "metavar": "SENZING_KAFKA_GROUP",
                     "help": "Kafka group. Default: senzing-kafka-group"
+                },
+                "--kafka-info-bootstrap-server": {
+                    "dest": "kafka_info_bootstrap_server",
+                    "metavar": "SENZING_KAFKA_INFO_BOOTSTRAP_SERVER",
+                    "help": "Kafka bootstrap server. Default: SENZING_KAFKA_BOOTSTRAP_SERVER"
+                },
+                "--kafka-info-topic": {
+                    "dest": "kafka_info_topic",
+                    "metavar": "SENZING_KAFKA_INFO_TOPIC",
+                    "help": "Kafka topic for info. Default: senzing-kafka-info-topic"
                 },
                 "--kafka-topic": {
                     "dest": "kafka_topic",
@@ -652,7 +672,7 @@ def get_parser():
                 "--rabbitmq-info-queue": {
                     "dest": "rabbitmq_info_queue",
                     "metavar": "SENZING_RABBITMQ_INFO_QUEUE",
-                    "help": "RabbitMQ queue. Default: senzing-rabbitmq-info-queue"
+                    "help": "RabbitMQ queue for info. Default: senzing-rabbitmq-info-queue"
                 },
                 "--rabbitmq-info-username": {
                     "dest": "rabbitmq_info_username",
@@ -672,7 +692,7 @@ def get_parser():
                 "--rabbitmq-failure-queue": {
                     "dest": "rabbitmq_failure_queue",
                     "metavar": "SENZING_RABBITMQ_FAILURE_QUEUE",
-                    "help": "RabbitMQ queue. Default: senzing-rabbitmq-failure-queue"
+                    "help": "RabbitMQ queue for failures. Default: senzing-rabbitmq-failure-queue"
                 },
                 "--rabbitmq-failure-username": {
                     "dest": "rabbitmq_failure_username",

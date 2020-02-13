@@ -6,7 +6,7 @@ on:
       - issue-90.mahchiahui.1
 
 jobs:
-  buildInitContainer:
+  buildStreamLoader:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -40,3 +40,10 @@ jobs:
           JIRA_ISSUE_DESCRIPTION: |
             Please review git actions log and trouble shoot the build failure.
             The commit SHA is: _${{ github.sha }}_.
+      - name: Persisting log
+        id: persisting_log
+        if: failure()
+        uses: actions/upload-artifact@v1
+        with:
+          name: workflow_log
+          path: output.log

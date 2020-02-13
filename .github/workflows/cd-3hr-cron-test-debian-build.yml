@@ -1,0 +1,42 @@
+name: Cron Schedule 3 hr Test Stream Loader Build on Debian
+
+on:
+  pull_request:
+    branches:
+      - issue-90.mahchiahui.1
+
+jobs:
+  buildInitContainer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Print Environment Variables
+        run: printenv
+      - name: Download And Install Senzing Deb Package Onto Runner
+        id: download_senzing_deb
+        env:
+          SENZING_REPO_URL: https://senzing-staging-apt.s3.amazonaws.com/senzingstagingrepo_1.0.0-1_amd64.deb
+        run: |
+          wget ${SENZING_REPO_URL} >> output.log 2>&1
+          sudo apt-get -y install ./${SENZING_REPO_URL##*/} >> output.log 2>&1
+          rm -rf senzingrepo_1.0.0-1_amd64.deb >> output.log 2>&1
+          sudo apt-get update -y >> output.log 2>&1
+      - name: Build Stream Loader
+        id: build_stream_loader
+        run: |
+          docker build . >> build_failure.log 2>&1
+          cat build_failure.log >> output.log 2>&1
+      - name: Create Git Issue on Build Failure
+        uses: Senzing/git-action-jira-issue-creation@1.0.0
+        id: create_jira_issue
+        if: failure()
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_SECRET }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_ACCOUNT_URL: ${{ secrets.JIRA_ACCOUNT_URL }}
+          JIRA_PROJECT: 'PBF'
+          JIRA_ISSUE_TYPE: 'Task'
+          JIRA_ISSUE_SUMMARY: 'Stream Loader Debian build failed on GitHub Commit SHA ${{ github.sha }}'
+          JIRA_ISSUE_DESCRIPTION: |
+            Please review git actions log and trouble shoot the build failure.
+            The commit SHA is: _${{ github.sha }}_.

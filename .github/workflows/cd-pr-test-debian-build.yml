@@ -1,0 +1,47 @@
+name: Pull Request Test Stream Loader Build on Debian
+
+on:
+  pull_request:
+    branches:
+      - issue-90.mahchiahui.1
+
+jobs:
+  buildInitContainer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Print Environment Variables
+        run: printenv
+      - name: Download And Install Senzing Deb Package Onto Runner
+        id: download_senzing_deb
+        env:
+          SENZING_REPO_URL: https://senzing-staging-apt.s3.amazonaws.com/senzingstagingrepo_1.0.0-1_amd64.deb
+        run: |
+          wget ${SENZING_REPO_URL} >> output.log 2>&1
+          sudo apt-get -y install ./${SENZING_REPO_URL##*/} >> output.log 2>&1
+          rm -rf senzingrepo_1.0.0-1_amd64.deb >> output.log 2>&1
+          sudo apt-get update -y >> output.log 2>&1
+      - name: Build Stream Loader
+        id: build_stream_loader
+        run: |
+          docker build . >> build_failure.log 2>&1
+          cat build_failure.log >> output.log 2>&1
+      - name: Slack Notification
+        id: slack_notification
+        uses: Senzing/git-action-slack-notification@1.0.0
+        if: failure()
+        env:
+          SLACK_CHANNEL: ci-cd-dev
+          SLACK_COLOR: '#3278BD'
+          SLACK_TITLE: 'Failed to build Debian version on GitHub Commit SHA ${{ github.sha }}'
+          SLACK_MESSAGE: |
+            Failed to build on GitHub Commit SHA ${{ github.sha }}
+            Git Issue URL: ${{ steps.create_git_issue.outputs.git_issue_url }}
+          SLACK_USERNAME: stream-loader
+          SLACK_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_ACTION: ${{ github.action }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}

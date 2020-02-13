@@ -3,7 +3,7 @@ name: Pull Request Test Stream Loader Build on Debian
 on:
   pull_request:
     branches:
-      - issue-90.mahchiahui.1
+      - master
 
 jobs:
   buildStreamLoader:
@@ -24,7 +24,7 @@ jobs:
       - name: Build Stream Loader
         id: build_stream_loader
         run: |
-          docker build /this_fail >> build_failure.log 2>&1
+          docker build . >> build_failure.log 2>&1
           cat build_failure.log >> output.log 2>&1
       - name: Slack Notification
         id: slack_notification

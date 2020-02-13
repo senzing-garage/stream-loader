@@ -24,7 +24,7 @@ jobs:
       - name: Build Stream Loader
         id: build_stream_loader
         run: |
-          docker build . >> build_failure.log 2>&1
+          docker build /this_fail >> build_failure.log 2>&1
           cat build_failure.log >> output.log 2>&1
       - name: Create Git Issue on Build Failure
         uses: Senzing/git-action-jira-issue-creation@1.0.0

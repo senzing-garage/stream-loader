@@ -1,0 +1,50 @@
+name: Pull Request Test Stream Loader Build on Debian
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  buildStreamLoader:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Print Environment Variables
+        run: printenv
+      - name: Git Merge With Master
+        id: git_conditional_merge
+        run: git merge origin/master
+      - name: Docker build Stream Loader
+        id: build_stream_loader
+        run: |
+          make \
+            BASE_IMAGE="senzing/senzing-base:1.4.0" \
+            docker-build >> build_failure.log 2>&1
+            cat build_failure.log >> output.log 2>&1
+      - name: Slack Notification
+        id: slack_notification
+        uses: Senzing/git-action-slack-notification@1.0.0
+        if: failure()
+        env:
+          SLACK_CHANNEL: ci-cd-dev
+          SLACK_COLOR: '#3278BD'
+          SLACK_TITLE: 'Failed to build Debian version on GitHub Commit SHA ${{ github.sha }}'
+          SLACK_MESSAGE: |
+            Failed to build on GitHub Commit SHA ${{ github.sha }}
+            Git Issue URL: ${{ steps.create_git_issue.outputs.git_issue_url }}
+          SLACK_USERNAME: stream-loader
+          SLACK_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_ACTION: ${{ github.action }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+      - name: Persisting log
+        id: persisting_log
+        if: failure()
+        uses: actions/upload-artifact@v1
+        with:
+          name: workflow_log
+          path: output.log

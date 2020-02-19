@@ -1,0 +1,44 @@
+name: Cron Schedule 3 hr Test Stream Loader Build on Debian
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+
+jobs:
+  buildStreamLoader:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Print Environment Variables
+        run: printenv
+      - name: Git Merge With Master
+        id: git_conditional_merge
+        run: git merge origin/master
+      - name: Docker build Stream Loader
+        id: build_stream_loader
+        run: |
+          make \
+            BASE_IMAGE="senzing/senzing-base:1.4.0" \
+            docker-build >> build_failure.log 2>&1
+            cat build_failure.log >> output.log 2>&1
+      - name: Create Git Issue on Build Failure
+        uses: Senzing/git-action-jira-issue-creation@1.0.0
+        id: create_jira_issue
+        if: failure()
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_SECRET }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_ACCOUNT_URL: ${{ secrets.JIRA_ACCOUNT_URL }}
+          JIRA_PROJECT: 'PBF'
+          JIRA_ISSUE_TYPE: 'Task'
+          JIRA_ISSUE_SUMMARY: 'Stream Loader Debian build failed on GitHub Commit SHA ${{ github.sha }}'
+          JIRA_ISSUE_DESCRIPTION: |
+            Please review git actions log and trouble shoot the build failure.
+            The commit SHA is: _${{ github.sha }}_.
+      - name: Persisting log
+        id: persisting_log
+        if: failure()
+        uses: actions/upload-artifact@v1
+        with:
+          name: workflow_log
+          path: output.log

@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-02-11'
+__updated__ = '2020-03-04'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -347,7 +347,7 @@ def get_parser():
                 "--monitoring-period-in-seconds": {
                     "dest": "monitoring_period_in_seconds",
                     "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                    "help": "Period, in seconds, between monitoring reports. Default: 600"
                 },
                 "--processes": {
                     "dest": "processes",
@@ -392,7 +392,7 @@ def get_parser():
                 "--monitoring-period-in-seconds": {
                     "dest": "monitoring_period_in_seconds",
                     "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                    "help": "Period, in seconds, between monitoring reports. Default: 600"
                 },
                 "--threads-per-process": {
                     "dest": "threads_per_process",
@@ -401,7 +401,7 @@ def get_parser():
                 },
             },
         },
-        'kafka-with-info': {
+        'kafka-withinfo': {
             "help": 'Read JSON Lines from Apache Kafka topic. Return info to a queue.',
             "arguments": {
                 "--data-source": {
@@ -467,7 +467,7 @@ def get_parser():
                 "--monitoring-period-in-seconds": {
                     "dest": "monitoring_period_in_seconds",
                     "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                    "help": "Period, in seconds, between monitoring reports. Default: 600"
                 },
                 "--processes": {
                     "dest": "processes",
@@ -517,7 +517,7 @@ def get_parser():
                 "--monitoring-period-in-seconds": {
                     "dest": "monitoring_period_in_seconds",
                     "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                    "help": "Period, in seconds, between monitoring reports. Default: 600"
                 },
                 "--processes": {
                     "dest": "processes",
@@ -572,7 +572,7 @@ def get_parser():
                 "--monitoring-period-in-seconds": {
                     "dest": "monitoring_period_in_seconds",
                     "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                    "help": "Period, in seconds, between monitoring reports. Default: 600"
                 },
                 "--rabbitmq-host": {
                     "dest": "rabbitmq_host",
@@ -606,7 +606,7 @@ def get_parser():
                 }
             },
         },
-        'rabbitmq-with-info': {
+        'rabbitmq-withinfo': {
             "help": 'Read JSON Lines from RabbitMQ queue. Return info to a queue.',
             "arguments": {
                 "--data-source": {
@@ -637,7 +637,7 @@ def get_parser():
                 "--monitoring-period-in-seconds": {
                     "dest": "monitoring_period_in_seconds",
                     "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                    "help": "Period, in seconds, between monitoring reports. Default: 600"
                 },
                 "--rabbitmq-host": {
                     "dest": "rabbitmq_host",
@@ -762,7 +762,7 @@ def get_parser():
                 "--monitoring-period-in-seconds": {
                     "dest": "monitoring_period_in_seconds",
                     "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 300"
+                    "help": "Period, in seconds, between monitoring reports. Default: 600"
                 },
                 "--senzing-dir": {
                     "dest": "senzing_dir",
@@ -851,8 +851,7 @@ message_dictionary = {
     "168": "  Expiration time: EXPIRED {0} days ago",
     "180": "User-supplied Governor loaded from {0}.",
     "181": "User-supplied InfoFilter loaded from {0}.",
-    "190": "Adding JSON to failure queue: {0}",
-    "191": "Adding JSON to info queue: {0}",
+
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
@@ -927,6 +926,8 @@ message_dictionary = {
     "904": "{0} processed: {1}",
     "905": "{0} Kafka read: {1} Kafka commit: {2}",
     "906": "{0} RabbitMQ read: {1} RabbitMQ ack: {2}",
+    "910": "Adding JSON to info queue: {0}",
+    "911": "Adding JSON to failure queue: {0}",
     "999": "{0}",
 }
 
@@ -1265,10 +1266,10 @@ def redact_configuration(config):
 
 class Governor:
 
-    def __init__(self, g2_engine=None):
+    def __init__(self, g2_engine=None, hint=None, *args, **kwargs):
         self.g2_engine = g2_engine
 
-    def govern(self):
+    def govern(self, *args, **kwargs):
         return
 
 # -----------------------------------------------------------------------------
@@ -1278,10 +1279,10 @@ class Governor:
 
 class InfoFilter:
 
-    def __init__(self, g2_engine=None):
+    def __init__(self, g2_engine=None, *args, **kwargs):
         self.g2_engine = g2_engine
 
-    def filter(self, line=None):
+    def filter(self, line=None, *args, **kwargs):
         return line
 
 # -----------------------------------------------------------------------------
@@ -1532,7 +1533,7 @@ class WriteG2Thread(threading.Thread):
                 raise err
         return
 
-    def add_record_with_info(self, jsonline):
+    def add_record_withinfo(self, jsonline):
         ''' Send a record to Senzing and return the "info" returned by Senzing. '''
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
@@ -1572,7 +1573,7 @@ class WriteG2Thread(threading.Thread):
 
         logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
-    def send_jsonline_to_g2_engine_with_info(self, jsonline):
+    def send_jsonline_to_g2_engine_withinfo(self, jsonline):
         '''Send the JSONline to G2 engine.'''
 
         # Periodically, check for configuration update.
@@ -1585,7 +1586,7 @@ class WriteG2Thread(threading.Thread):
 
         info_json = None
         try:
-            info_json = self.add_record_with_info(jsonline)
+            info_json = self.add_record_withinfo(jsonline)
         except G2Exception.G2ModuleNotInitialized as err:
             self.add_to_failure_queue(jsonline)
             exit_error(888, err, jsonline)
@@ -1606,7 +1607,7 @@ class WriteG2Thread(threading.Thread):
 
         if filtered_info_json:
             self.add_to_info_queue(filtered_info_json)
-            logging.debug(message_debug(904, threading.current_thread().name, jsonline))
+            logging.debug(message_debug(904, threading.current_thread().name, filtered_info_json))
 
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaWriteG2Thread
@@ -1723,37 +1724,37 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         message_error = message.error()
         logging.debug(message_debug(103, message_topic, message_value, message_error, error))
         if error is not None:
-            logging.warn(message_warn(408, message_topic, message_value, message_error, error))
+            logging.warn(message_warning(408, message_topic, message_value, message_error, error))
 
     def add_to_failure_queue(self, jsonline):
         '''Overwrite superclass method.'''
 
         try:
             self.failure_producer.produce(self.failure_topic, jsonline, on_delivery=self.on_kafka_delivery)
-            logging.info(message_info(190, jsonline))
+            logging.info(message_info(911, jsonline))
         except BufferError as err:
-            logging.warn(message_warn(404, err, jsonline))
+            logging.warn(message_warning(404, err, jsonline))
         except KafkaException as err:
-            logging.warn(message_warn(405, err, jsonline))
+            logging.warn(message_warning(405, err, jsonline))
         except NotImplemented as err:
-            logging.warn(message_warn(406, err, jsonline))
+            logging.warn(message_warning(406, err, jsonline))
         except:
-            logging.warn(message_warn(407, err, jsonline))
+            logging.warn(message_warning(407, err, jsonline))
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
 
         try:
             self.info_producer.produce(self.info_topic, jsonline, on_delivery=self.on_kafka_delivery)
-            logging.info(message_info(191, jsonline))
+            logging.debug(message_debug(910, jsonline))
         except BufferError as err:
-            logging.warn(message_warn(404, err, jsonline))
+            logging.warn(message_warning(404, err, jsonline))
         except KafkaException as err:
-            logging.warn(message_warn(405, err, jsonline))
+            logging.warn(message_warning(405, err, jsonline))
         except NotImplemented as err:
-            logging.warn(message_warn(406, err, jsonline))
+            logging.warn(message_warning(406, err, jsonline))
         except:
-            logging.warn(message_warn(407, err, jsonline))
+            logging.warn(message_warning(407, err, jsonline))
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -1842,7 +1843,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
             # Send valid JSON to Senzing.
 
-            self.send_jsonline_to_g2_engine_with_info(kafka_message_string)
+            self.send_jsonline_to_g2_engine_withinfo(kafka_message_string)
 
             # Record successful transfer to Senzing.
 
@@ -1964,10 +1965,10 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                     delivery_mode=2
                 )
             )  # make message persistent
-            logging.info(message_info(190, jsonline))
+            logging.info(message_info(911, jsonline))
 
         except BaseException as err:
-            logging.warn(message_warn(411, err, jsonline))
+            logging.warn(message_warning(411, err, jsonline))
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
@@ -1981,10 +1982,9 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                     delivery_mode=2
                 )
             )  # make message persistent
-            logging.info(message_info(191, jsonline))
-
+            logging.debug(message_debug(message_info(910, jsonline)))
         except BaseException as err:
-            logging.warn(message_warn(411, err, jsonline))
+            logging.warn(message_warning(411, err, jsonline))
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -2014,7 +2014,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         # Send valid JSON to Senzing.
 
-        self.send_jsonline_to_g2_engine_with_info(rabbitmq_message_string)
+        self.send_jsonline_to_g2_engine_withinfo(rabbitmq_message_string)
 
         # Record successful transfer to Senzing.
 
@@ -3124,7 +3124,7 @@ def do_kafka_test(args):
     logging.info(exit_template(config))
 
 
-def do_kafka_with_info(args):
+def do_kafka_withinfo(args):
     ''' Read from Kafka. '''
 
     # Get context from CLI, environment variables, and ini files.
@@ -3313,7 +3313,7 @@ def do_rabbitmq_test(args):
     logging.info(exit_template(config))
 
 
-def do_rabbitmq_with_info(args):
+def do_rabbitmq_withinfo(args):
     ''' Read from rabbitmq. '''
 
     # Get context from CLI, environment variables, and ini files.

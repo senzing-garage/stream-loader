@@ -10,24 +10,24 @@ To see all of the subcommands, run:
 ```console
 $ ./stream-loader.py --help
 usage: stream-loader.py [-h]
-                        {kafka,kafka-test,kafka-with-info,rabbitmq,rabbitmq-test,rabbitmq-with-info,sleep,url,version,docker-acceptance-test}
+                        {kafka,kafka-test,kafka-withinfo,rabbitmq,rabbitmq-test,rabbitmq-withinfo,sleep,url,version,docker-acceptance-test}
                         ...
 
 Load Senzing from a stream. For more information, see
 https://github.com/senzing/stream-loader
 
 positional arguments:
-  {kafka,kafka-test,kafka-with-info,rabbitmq,rabbitmq-test,rabbitmq-with-info,sleep,url,version,docker-acceptance-test}
+  {kafka,kafka-test,kafka-withinfo,rabbitmq,rabbitmq-test,rabbitmq-withinfo,sleep,url,version,docker-acceptance-test}
                         Subcommands (SENZING_SUBCOMMAND):
     kafka               Read JSON Lines from Apache Kafka topic.
     kafka-test          Read JSON Lines from Apache Kafka topic. Do not send
                         to Senzing.
-    kafka-with-info     Read JSON Lines from Apache Kafka topic. Return info
+    kafka-withinfo      Read JSON Lines from Apache Kafka topic. Return info
                         to a queue.
     rabbitmq            Read JSON Lines from RabbitMQ queue.
     rabbitmq-test       Read JSON Lines from RabbitMQ queue. Do not send to
                         Senzing.
-    rabbitmq-with-info  Read JSON Lines from RabbitMQ queue. Return info to a
+    rabbitmq-withinfo   Read JSON Lines from RabbitMQ queue. Return info to a
                         queue.
     sleep               Do nothing but sleep. For Docker testing.
     url                 Read JSON Lines from URL-addressable file.
@@ -168,39 +168,40 @@ Configuration values specified by environment variable or command line parameter
 ### Volumes
 
 :thinking:
-1. :pencil2: Specify the directory containing the Senzing installation.
-   Use the same `SENZING_VOLUME` value used when performing
-   "[How to initialize Senzing with Docker](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/initialize-senzing-with-docker.md)".
+"[How to initialize Senzing with Docker](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/initialize-senzing-with-docker.md)"
+places files in different directories.
+The following examples show how to identify each output directory.
+
+1. **Example #1:**
+   To mimic an actual RPM installation,
+   identify directories for RPM output in this manner:
+
+    ```console
+    export SENZING_DATA_VERSION_DIR=/opt/senzing/data/1.0.0
+    export SENZING_ETC_DIR=/etc/opt/senzing
+    export SENZING_G2_DIR=/opt/senzing/g2
+    export SENZING_VAR_DIR=/var/opt/senzing
+    ```
+
+1. :pencil2: **Example #2:**
+   If Senzing directories were put in alternative directories,
+   set environment variables to reflect where the directories were placed.
    Example:
 
     ```console
     export SENZING_VOLUME=/opt/my-senzing
-    ```
 
-    1. Here's a simple test to see if `SENZING_VOLUME` is correct.
-       The following commands should return file contents.
-       Example:
-
-        ```console
-        cat ${SENZING_VOLUME}/g2/g2BuildVersion.json
-        cat ${SENZING_VOLUME}/data/1.0.0/libpostal/data_version
-        ```
-
-    1. :warning:
-       **macOS** - [File sharing](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/share-directories-with-docker.md#macos)
-       must be enabled for `SENZING_VOLUME`.
-    1. :warning:
-       **Windows** - [File sharing](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/share-directories-with-docker.md#windows)
-       must be enabled for `SENZING_VOLUME`.
-
-1. Identify the `data_version`, `etc`, `g2`, and `var` directories.
-   Example:
-
-    ```console
     export SENZING_DATA_VERSION_DIR=${SENZING_VOLUME}/data/1.0.0
     export SENZING_ETC_DIR=${SENZING_VOLUME}/etc
     export SENZING_G2_DIR=${SENZING_VOLUME}/g2
     export SENZING_VAR_DIR=${SENZING_VOLUME}/var
+    ```
+
+1. :thinking: If internal database is used, permissions may need to be changed in `/var/opt/senzing`.
+   Example:
+
+    ```console
+    sudo chown $(id -u):$(id -g) -R ${SENZING_VAR_DIR}
     ```
 
 ### Docker network

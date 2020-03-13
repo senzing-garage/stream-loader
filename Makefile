@@ -24,7 +24,7 @@ default: help
 docker-build: docker-rmi-for-build
 	docker build \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
-	    --tag $(DOCKER_IMAGE_NAME) \
+		--tag $(DOCKER_IMAGE_NAME) \
 		--tag $(DOCKER_IMAGE_NAME):$(GIT_VERSION) \
 		.
 

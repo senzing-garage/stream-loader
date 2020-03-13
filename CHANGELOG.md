@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2020-02-13
+
+### Changed in 1.5.2
+
+- "future-proofed" Governor and InfoFilter
+- Refactored: Renamed "with_info" to "withinfo
+- Fixed messages
+
 ## [1.5.1] - 2020-02-10
 
 ### Changed in 1.5.1

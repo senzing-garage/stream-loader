@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-03-04'
+__updated__ = '2020-03-14'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -867,14 +867,14 @@ message_dictionary = {
     "401": "Failure queue not open.  Could not add: {0}",
     "402": "Info queue not open.  Could not add: {0}",
     "403": "Bad file protocol in --input-file-name: {0}.",
-    "404": "Buffer error: {0} for {1}.",
-    "405": "Kafka error: {0} for {1}.",
-    "406": "Not implemented error: {0} for {1}.",
-    "407": "Unknown kafka error: {0} for {1}.",
+    "404": "Kafka topic: {0} BufferError: {1} Message: {2}",
+    "405": "Kafka topic: {0} KafkaException: {1} Message: {2}",
+    "406": "Kafka topic: {0} NotImplemented: {1} Message: {2}",
+    "407": "Kafka topic: {0} Unknown error: {1} Message: {2}",
     "408": "Kafka topic: {0}; message: {1}; error: {2}; error: {3}",
-    "410": "Unknown RabbitMQ error when connecting: {0}.",
-    "411": "Unknown RabbitMQ error when adding record to queue: {0} for line {1}.",
-    "412": "Could not connect to RabbitMQ host at {1}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
+    "410": "RabbitMQ queue: {0} Unknown RabbitMQ error when connecting: {1}.",
+    "411": "RabbitMQ queue: {0} Unknown RabbitMQ error: {1} Message: {2}",
+    "412": "RabbitMQ queue: {0} AMQPConnectionError: {1} Could not connect to RabbitMQ host at {2}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
     "499": "{0}",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "551": "Missing G2 database URL.",
@@ -1733,13 +1733,13 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             self.failure_producer.produce(self.failure_topic, jsonline, on_delivery=self.on_kafka_delivery)
             logging.info(message_info(911, jsonline))
         except BufferError as err:
-            logging.warn(message_warning(404, err, jsonline))
+            logging.warn(message_warning(404, self.failure_topic, err, jsonline))
         except KafkaException as err:
-            logging.warn(message_warning(405, err, jsonline))
+            logging.warn(message_warning(405, self.failure_topic, err, jsonline))
         except NotImplemented as err:
-            logging.warn(message_warning(406, err, jsonline))
+            logging.warn(message_warning(406, self.failure_topic, err, jsonline))
         except:
-            logging.warn(message_warning(407, err, jsonline))
+            logging.warn(message_warning(407, self.failure_topic, err, jsonline))
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
@@ -1748,13 +1748,13 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             self.info_producer.produce(self.info_topic, jsonline, on_delivery=self.on_kafka_delivery)
             logging.debug(message_debug(910, jsonline))
         except BufferError as err:
-            logging.warn(message_warning(404, err, jsonline))
+            logging.warn(message_warning(404, self.info_topic, err, jsonline))
         except KafkaException as err:
-            logging.warn(message_warning(405, err, jsonline))
+            logging.warn(message_warning(405, self.info_topic, err, jsonline))
         except NotImplemented as err:
-            logging.warn(message_warning(406, err, jsonline))
+            logging.warn(message_warning(406, self.info_topic, err, jsonline))
         except:
-            logging.warn(message_warning(407, err, jsonline))
+            logging.warn(message_warning(407, self.info_topic, err, jsonline))
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -1968,7 +1968,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             logging.info(message_info(911, jsonline))
 
         except BaseException as err:
-            logging.warn(message_warning(411, err, jsonline))
+            logging.warn(message_warning(411, "failure", err, jsonline))
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
@@ -1984,7 +1984,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             )  # make message persistent
             logging.debug(message_debug(message_info(910, jsonline)))
         except BaseException as err:
-            logging.warn(message_warning(411, err, jsonline))
+            logging.warn(message_warning(411, "info", err, jsonline))
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -2056,9 +2056,9 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             self.info_channel = info_connection.channel()
             self.info_channel.queue_declare(queue=rabbitmq_info_queue)
         except (pika.exceptions.AMQPConnectionError) as err:
-            exit_error(412, err, rabbitmq_info_host)
+            exit_error(412, "info", err, rabbitmq_info_host)
         except BaseException as err:
-            exit_error(410, err)
+            exit_error(410, "info", err)
 
         # Create RabbitMQ channel to publish "failure".
 
@@ -2068,9 +2068,9 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             self.failure_channel = failure_connection.channel()
             self.failure_channel.queue_declare(queue=rabbitmq_failure_queue)
         except (pika.exceptions.AMQPConnectionError) as err:
-            exit_error(412, err, rabbitmq_failure_host)
+            exit_error(412, "failure", err, rabbitmq_failure_host)
         except BaseException as err:
-            exit_error(410, err)
+            exit_error(410, "info", err)
 
         # Create RabbitMQ channel to subscribe to records.
 

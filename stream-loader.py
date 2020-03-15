@@ -851,7 +851,6 @@ message_dictionary = {
     "168": "  Expiration time: EXPIRED {0} days ago",
     "180": "User-supplied Governor loaded from {0}.",
     "181": "User-supplied InfoFilter loaded from {0}.",
-
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
@@ -1282,8 +1281,8 @@ class InfoFilter:
     def __init__(self, g2_engine=None, *args, **kwargs):
         self.g2_engine = g2_engine
 
-    def filter(self, line=None, *args, **kwargs):
-        return line
+    def filter(self, message=None, *args, **kwargs):
+        return message
 
 # -----------------------------------------------------------------------------
 # Class: KafkaProcess
@@ -1466,14 +1465,17 @@ class WriteG2Thread(threading.Thread):
 
     def add_to_failure_queue(self, jsonline):
         '''Default behavior. This may be implemented in the subclass.'''
+        assert type(jsonline) == str
         logging.info(message_info(121, jsonline))
 
     def add_to_info_queue(self, jsonline):
         '''Default behavior. This may be implemented in the subclass.'''
+        assert type(jsonline) == str
         logging.info(message_info(128, jsonline))
 
-    def filter_info_message(self, line=None):
-        return self.info_filter.filter(line=line)
+    def filter_info_message(self, message=None):
+        assert type(message) == str
+        return self.info_filter.filter(message=message)
 
     def govern(self):
         return self.governor.govern()
@@ -1520,6 +1522,7 @@ class WriteG2Thread(threading.Thread):
 
     def add_record(self, jsonline):
         ''' Send a record to Senzing. '''
+        assert type(jsonline) == str
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
         record_id = str(json_dictionary.get('RECORD_ID'))
@@ -1535,6 +1538,7 @@ class WriteG2Thread(threading.Thread):
 
     def add_record_withinfo(self, jsonline):
         ''' Send a record to Senzing and return the "info" returned by Senzing. '''
+        assert type(jsonline) == str
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
         record_id = str(json_dictionary.get('RECORD_ID'))
@@ -1551,6 +1555,7 @@ class WriteG2Thread(threading.Thread):
 
     def send_jsonline_to_g2_engine(self, jsonline):
         '''Send the JSONline to G2 engine.'''
+        assert type(jsonline) == str
 
         # Periodically, check for configuration update.
 
@@ -1575,6 +1580,7 @@ class WriteG2Thread(threading.Thread):
 
     def send_jsonline_to_g2_engine_withinfo(self, jsonline):
         '''Send the JSONline to G2 engine.'''
+        assert type(jsonline) == str
 
         # Periodically, check for configuration update.
 
@@ -1601,7 +1607,7 @@ class WriteG2Thread(threading.Thread):
 
         # Allow user to manipulate the message.
 
-        filtered_info_json = self.filter_info_message(line=info_json)
+        filtered_info_json = self.filter_info_message(message=info_json)
 
 #         # Put "info" on info queue.
 
@@ -1728,6 +1734,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
     def add_to_failure_queue(self, jsonline):
         '''Overwrite superclass method.'''
+        assert type(jsonline) == str
 
         try:
             self.failure_producer.produce(self.failure_topic, jsonline, on_delivery=self.on_kafka_delivery)
@@ -1743,6 +1750,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
+        assert type(jsonline) == str
 
         try:
             self.info_producer.produce(self.info_topic, jsonline, on_delivery=self.on_kafka_delivery)
@@ -1955,12 +1963,14 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
     def add_to_failure_queue(self, jsonline):
         '''Overwrite superclass method.'''
+        assert type(jsonline) == str
 
+        jsonline_bytes = jsonline.encode()
         try:
             self.failure_channel.basic_publish(
                 exchange='',
                 routing_key=self.rabbitmq_failure_queue,
-                body=jsonline,
+                body=jsonline_bytes,
                 properties=pika.BasicProperties(
                     delivery_mode=2
                 )
@@ -1968,23 +1978,25 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             logging.info(message_info(911, jsonline))
 
         except BaseException as err:
-            logging.warn(message_warning(411, "failure", err, jsonline))
+            logging.warn(message_warning(411, self.rabbitmq_failure_queue, err, jsonline))
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
+        assert type(jsonline) == str
 
+        jsonline_bytes = jsonline.encode()
         try:
             self.info_channel.basic_publish(
                 exchange='',
                 routing_key=self.rabbitmq_info_queue,
-                body=jsonline,
+                body=jsonline_bytes,
                 properties=pika.BasicProperties(
                     delivery_mode=2
                 )
             )  # make message persistent
             logging.debug(message_debug(message_info(910, jsonline)))
         except BaseException as err:
-            logging.warn(message_warning(411, "info", err, jsonline))
+            logging.warn(message_warning(411, self.rabbitmq_info_queue, err, jsonline))
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -2056,9 +2068,9 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             self.info_channel = info_connection.channel()
             self.info_channel.queue_declare(queue=rabbitmq_info_queue)
         except (pika.exceptions.AMQPConnectionError) as err:
-            exit_error(412, "info", err, rabbitmq_info_host)
+            exit_error(412, rabbitmq_info_queue, err, rabbitmq_info_host)
         except BaseException as err:
-            exit_error(410, "info", err)
+            exit_error(410, rabbitmq_info_queue, err)
 
         # Create RabbitMQ channel to publish "failure".
 
@@ -2068,9 +2080,9 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             self.failure_channel = failure_connection.channel()
             self.failure_channel.queue_declare(queue=rabbitmq_failure_queue)
         except (pika.exceptions.AMQPConnectionError) as err:
-            exit_error(412, "failure", err, rabbitmq_failure_host)
+            exit_error(412, rabbitmq_failure_queue, err, rabbitmq_failure_host)
         except BaseException as err:
-            exit_error(410, "info", err)
+            exit_error(410, rabbitmq_failure_queue, err)
 
         # Create RabbitMQ channel to subscribe to records.
 

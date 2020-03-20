@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-03-14'
+__updated__ = '2020-03-19'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -1964,7 +1964,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
     def add_to_failure_queue(self, jsonline):
         '''Overwrite superclass method.'''
         assert type(jsonline) == str
-
         jsonline_bytes = jsonline.encode()
         try:
             self.failure_channel.basic_publish(
@@ -1975,7 +1974,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                     delivery_mode=2
                 )
             )  # make message persistent
-            logging.info(message_info(911, jsonline))
+            logging.debug(message_debug(911, jsonline))
 
         except BaseException as err:
             logging.warn(message_warning(411, self.rabbitmq_failure_queue, err, jsonline))
@@ -1983,7 +1982,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
         assert type(jsonline) == str
-
         jsonline_bytes = jsonline.encode()
         try:
             self.info_channel.basic_publish(
@@ -1994,7 +1992,8 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                     delivery_mode=2
                 )
             )  # make message persistent
-            logging.debug(message_debug(message_info(910, jsonline)))
+            logging.debug(message_debug(910, jsonline))
+
         except BaseException as err:
             logging.warn(message_warning(411, self.rabbitmq_info_queue, err, jsonline))
 

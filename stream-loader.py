@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-03-19'
+__updated__ = '2020-03-25'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -147,7 +147,7 @@ configuration_locator = {
     "kafka_info_topic": {
         "default": "senzing-kafka-info-topic",
         "env": "SENZING_KAFKA_INFO_TOPIC",
-        "cli": "kafka--info-topic"
+        "cli": "kafka-info-topic"
     },
     "kafka_topic": {
         "default": "senzing-kafka-topic",
@@ -229,6 +229,11 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_PASSWORD",
         "cli": "rabbitmq-password",
     },
+    "rabbitmq_prefetch_count": {
+        "default": 50,
+        "env": "SENZING_RABBITMQ_PREFETCH_COUNT",
+        "cli": "rabbitmq-prefetch-count",
+    },
     "rabbitmq_queue": {
         "default": "senzing-rabbitmq-queue",
         "env": "SENZING_RABBITMQ_QUEUE",
@@ -267,11 +272,6 @@ configuration_locator = {
         "default": 4,
         "env": "SENZING_THREADS_PER_PROCESS",
         "cli": "threads-per-process",
-    },
-    "rabbitmq_prefetch_count": {
-        "default": 50,
-        "env": "SENZING_RABBITMQ_PREFETCH_COUNT",
-        "cli": "rabbitmq_prefetch_count",
     }
 }
 

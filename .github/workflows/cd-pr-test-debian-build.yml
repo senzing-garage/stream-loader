@@ -49,7 +49,7 @@ jobs:
             Branch Name: ${{ steps.job_info.outputs.branch_name }}
             The commit SHA is: ${{ github.sha }}
             Git Actions Log URL: ${{ steps.job_info.outputs.html_url }}
-          SLACK_USERNAME: docker-yum
+          SLACK_USERNAME: stream-loader
           SLACK_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION }}
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_REPOSITORY: ${{ github.repository }}

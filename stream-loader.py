@@ -40,7 +40,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-03-25'
+__updated__ = '2020-06-19'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -249,15 +249,15 @@ configuration_locator = {
         "env": "SENZING_RESOURCE_PATH",
         "cli": "resource-path"
     },
-    "senzing_dir": {
-        "default": "/opt/senzing",
-        "env": "SENZING_DIR",
-        "cli": "senzing-dir"
-    },
     "sleep_time_in_seconds": {
         "default": 0,
         "env": "SENZING_SLEEP_TIME_IN_SECONDS",
         "cli": "sleep-time-in-seconds"
+    },
+    "sqs_queue_url": {
+        "default": None,
+        "env": "SENZING_SQS_QUEUE_URL",
+        "cli": "sqs-queue-url"
     },
     "subcommand": {
         "default": None,
@@ -353,11 +353,6 @@ def get_parser():
                     "dest": "processes",
                     "metavar": "SENZING_PROCESSES",
                     "help": "Number of processes. Default: 1"
-                },
-                "--senzing-dir": {
-                    "dest": "senzing_dir",
-                    "metavar": "SENZING_DIR",
-                    "help": "Location of Senzing. Default: /opt/senzing"
                 },
                 "--threads-per-process": {
                     "dest": "threads_per_process",
@@ -474,11 +469,6 @@ def get_parser():
                     "metavar": "SENZING_PROCESSES",
                     "help": "Number of processes. Default: 1"
                 },
-                "--senzing-dir": {
-                    "dest": "senzing_dir",
-                    "metavar": "SENZING_DIR",
-                    "help": "Location of Senzing. Default: /opt/senzing"
-                },
                 "--threads-per-process": {
                     "dest": "threads_per_process",
                     "metavar": "SENZING_THREADS_PER_PROCESS",
@@ -543,11 +533,6 @@ def get_parser():
                     "dest": "rabbitmq_username",
                     "metavar": "SENZING_RABBITMQ_USERNAME",
                     "help": "RabbitMQ username. Default: user"
-                },
-                "--senzing-dir": {
-                    "dest": "senzing_dir",
-                    "metavar": "SENZING_DIR",
-                    "help": "Location of Senzing. Default: /opt/senzing"
                 },
                 "--threads-per-process": {
                     "dest": "threads_per_process",
@@ -699,11 +684,6 @@ def get_parser():
                     "metavar": "SENZING_RABBITMQ_FAILURE_USERNAME",
                     "help": "RabbitMQ username. Default: SENZING_RABBITMQ_USERNAME"
                 },
-                "--senzing-dir": {
-                    "dest": "senzing_dir",
-                    "metavar": "SENZING_DIR",
-                    "help": "Location of Senzing. Default: /opt/senzing"
-                },
                 "--threads-per-process": {
                     "dest": "threads_per_process",
                     "metavar": "SENZING_THREADS_PER_PROCESS",
@@ -724,6 +704,56 @@ def get_parser():
                     "metavar": "SENZING_SLEEP_TIME_IN_SECONDS",
                     "help": "Sleep time in seconds. DEFAULT: 0 (infinite)"
                 },
+            },
+        },
+        'sqs': {
+            "help": 'Read JSON Lines from AWS SQS queue.',
+            "arguments": {
+                "--data-source": {
+                    "dest": "data_source",
+                    "metavar": "SENZING_DATA_SOURCE",
+                    "help": "Data Source."
+                },
+                "--debug": {
+                    "dest": "debug",
+                    "action": "store_true",
+                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
+                },
+                "--delay-in-seconds": {
+                    "dest": "delay_in_seconds",
+                    "metavar": "SENZING_DELAY_IN_SECONDS",
+                    "help": "Delay before processing in seconds. DEFAULT: 0"
+                },
+                "--engine-configuration-json": {
+                    "dest": "engine_configuration_json",
+                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
+                    "help": "Advanced Senzing engine configuration. Default: none"
+                },
+                "--entity-type": {
+                    "dest": "entity_type",
+                    "metavar": "SENZING_ENTITY_TYPE",
+                    "help": "Entity type."
+                },
+                "--monitoring-period-in-seconds": {
+                    "dest": "monitoring_period_in_seconds",
+                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
+                    "help": "Period, in seconds, between monitoring reports. Default: 600"
+                },
+                "--processes": {
+                    "dest": "processes",
+                    "metavar": "SENZING_PROCESSES",
+                    "help": "Number of processes. Default: 1"
+                },
+                "--sqs-queue-url": {
+                    "dest": "sqs_queue_url",
+                    "metavar": "SENZING_SQS_QUEUE_URL",
+                    "help": "AWS SQS URL. Default: none"
+                },
+                "--threads-per-process": {
+                    "dest": "threads_per_process",
+                    "metavar": "SENZING_THREADS_PER_PROCESS",
+                    "help": "Number of threads per process. Default: 4"
+                }
             },
         },
         'url': {
@@ -763,11 +793,6 @@ def get_parser():
                     "dest": "monitoring_period_in_seconds",
                     "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
                     "help": "Period, in seconds, between monitoring reports. Default: 600"
-                },
-                "--senzing-dir": {
-                    "dest": "senzing_dir",
-                    "metavar": "SENZING_DIR",
-                    "help": "Location of Senzing. Default: /opt/senzing"
                 },
                 "--threads-per-process": {
                     "dest": "threads_per_process",
@@ -1430,6 +1455,47 @@ class RabbitMQTestProcess(multiprocessing.Process):
 
         self.adminThreads = []
         thread = MonitorTestThread(config, self.threads)
+        thread.name = "{0}-thread-monitor".format(self.name)
+        self.adminThreads.append(thread)
+
+    def run(self):
+
+        # Start threads.
+
+        for thread in self.threads:
+            thread.start()
+
+        for thread in self.adminThreads:
+            thread.start()
+
+        # Collect inactive threads.
+
+        for thread in self.threads:
+            thread.join()
+
+# -----------------------------------------------------------------------------
+# Class: RabbitMQProcess
+# -----------------------------------------------------------------------------
+
+
+class SqsProcess(multiprocessing.Process):
+
+    def __init__(self, config, g2_engine, g2_configuration_manager):
+        multiprocessing.Process.__init__(self)
+
+        # Create RabbitMQ reader threads.
+
+        self.threads = []
+        threads_per_process = config.get('threads_per_process')
+        for i in range(0, threads_per_process):
+            thread = ReadSqsWriteG2Thread(config, g2_engine, g2_configuration_manager)
+            thread.name = "{0}-thread-{1}".format(self.name, i)
+            self.threads.append(thread)
+
+        # Create administrative threads for this process.
+
+        self.adminThreads = []
+        thread = MonitorThread(config, g2_engine, self.threads)
         thread.name = "{0}-thread-monitor".format(self.name)
         self.adminThreads.append(thread)
 
@@ -2249,6 +2315,106 @@ class ReadRabbitMQTestThread(threading.Thread):
             channel.start_consuming()
         except pika.exceptions.ChannelClosed:
             logging.info(message_info(130, threading.current_thread().name))
+
+
+
+# -----------------------------------------------------------------------------
+# Class: ReadSqsWriteG2Thread
+# -----------------------------------------------------------------------------
+
+class ReadSqsWriteG2Thread(WriteG2Thread):
+
+    def __init__(self, config, g2_engine, g2_configuration_manager):
+        super().__init__(config, g2_engine, g2_configuration_manager)
+        self.queue_url = config.get("sqs_queue_url")
+        self.sqs = boto3.client("sqs")
+
+    def run(self):
+        '''Process for reading lines from Kafka and feeding them to a process_function() function'''
+
+        logging.info(message_info(129, threading.current_thread().name))
+
+        # Data to be inserted into messages.
+
+        data_source = self.config.get('data_source')
+        entity_type = self.config.get('entity_type')
+
+        # In a loop, get messages from Kafka.
+
+        while True:
+
+            # Invoke Governor.
+
+            self.govern()
+
+            # Get message from Kafka queue.
+            # Timeout quickly to allow other co-routines to process.
+
+            sqs_response = self.sqs.receive_message(
+                QueueUrl=self.queue_url,
+                AttributeNames=[],
+                MaxNumberOfMessages=1,
+                MessageAttributeNames=[],
+                VisibilityTimeout=0,
+                WaitTimeSeconds=0
+            )
+
+            # Handle non-standard Kafka output.
+
+            if sqs_response is None:
+                continue
+
+            # FIXME: Remove after debugging
+            print(sqs_response)
+
+            # Construct and verify Kafka message.
+
+            sqs_message_strings = sqs_response.get("messages", [])
+            if not sqs_message_strings:
+                continue
+            sqs_message_string = sqs_message_strings[0]
+            logging.debug(message_debug(903, threading.current_thread().name, sqs_message_string))
+            self.config['counter_queued_records'] += 1
+
+            sqs_receipt_handle = sqs_response.get("ReceiptHandle")
+
+            # Verify that message is valid JSON.
+
+            try:
+                sqs_message_dictionary = json.loads(sqs_message_string)
+            except:
+                logging.info(message_debug(557, sqs_message_string))
+                if not consumer.commit():
+                    logging.error(message_error(722, sqs_message_string))
+                continue
+
+            # If needed, modify JSON message.
+
+            if 'DATA_SOURCE' not in sqs_message_dictionary:
+                sqs_message_dictionary['DATA_SOURCE'] = data_source
+            if 'ENTITY_TYPE' not in sqs_message_dictionary:
+                sqs_message_dictionary['ENTITY_TYPE'] = entity_type
+            sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
+
+            # Send valid JSON to Senzing.
+            logging.info(message_debug(999,sqs_message_string))
+
+
+            # FIXME: Restore following line after disconnected development.
+#             self.send_jsonline_to_g2_engine(sqs_message_string)
+
+            # Record successful transfer to Senzing.
+
+            self.config['counter_processed_records'] += 1
+
+            # After successful import into Senzing, tell Kafka we're done with message.
+
+            self.sqs.delete_message(
+                QueueUrl=self.queue_url,
+                ReceiptHandle=receipt_handle
+            )
+
+        consumer.close()
 
 # -----------------------------------------------------------------------------
 # Class: UrlProcess
@@ -3431,6 +3597,86 @@ def do_sleep(args):
         while True:
             logging.info(message_info(295))
             time.sleep(sleep_time_in_seconds)
+
+    # Epilog.
+
+    logging.info(exit_template(config))
+
+
+def do_sqs(args):
+    ''' Read from Kafka. '''
+
+    # Get context from CLI, environment variables, and ini files.
+
+    config = get_configuration(args)
+
+    # Perform common initialization tasks.
+
+    common_prolog(config)
+
+    # Pull values from configuration.
+
+    number_of_processes = config.get('processes')
+    threads_per_process = config.get('threads_per_process')
+
+    # Get the Senzing G2 resources.
+
+    g2_engine = get_g2_engine(config)
+    g2_configuration_manager = get_g2_configuration_manager(config)
+
+    # Create kafka reader threads for master process.
+
+    threads = []
+    for i in range(0, threads_per_process):
+        thread = ReadKafkaWriteG2Thread(config, g2_engine, g2_configuration_manager)
+        thread.name = "KafkaProcess-0-thread-{0}".format(i)
+        threads.append(thread)
+
+    # Create monitor thread for master process.
+
+    adminThreads = []
+    thread = MonitorThread(config, g2_engine, threads)
+    thread.name = "KafkaProcess-0-thread-monitor"
+    adminThreads.append(thread)
+
+    # Start threads for master process.
+
+    for thread in threads:
+        thread.start()
+
+    # Sleep, if requested.
+
+    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
+    if sleep_time_in_seconds > 0:
+        logging.info(message_info(152, sleep_time_in_seconds))
+        time.sleep(sleep_time_in_seconds)
+
+    # Start administrative threads for master process.
+
+    for thread in adminThreads:
+        thread.start()
+
+    # Start additional processes. (if 2 or more processes are requested.)
+
+    processes = []
+    for i in range(1, number_of_processes):  # Tricky: 1, not 0 because master process is first process.
+        process = KafkaProcess(config, g2_engine)
+        process.start()
+        processes.append(process)
+
+    # Collect inactive processes.
+
+    for process in processes:
+        process.join()
+
+    # Collect inactive threads from master process.
+
+    for thread in threads:
+        thread.join()
+
+    # Cleanup.
+
+    g2_engine.destroy()
 
     # Epilog.
 

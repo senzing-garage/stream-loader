@@ -8,6 +8,7 @@ from glob import glob
 from urllib.parse import urlparse, urlunparse
 from urllib.request import urlopen
 import argparse
+import boto3
 import configparser
 import confluent_kafka
 import datetime
@@ -876,6 +877,7 @@ message_dictionary = {
     "168": "  Expiration time: EXPIRED {0} days ago",
     "180": "User-supplied Governor loaded from {0}.",
     "181": "User-supplied InfoFilter loaded from {0}.",
+    "190": "AWS SQS Long-polling: No messages from {0}",
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
@@ -2316,11 +2318,10 @@ class ReadRabbitMQTestThread(threading.Thread):
         except pika.exceptions.ChannelClosed:
             logging.info(message_info(130, threading.current_thread().name))
 
-
-
 # -----------------------------------------------------------------------------
 # Class: ReadSqsWriteG2Thread
 # -----------------------------------------------------------------------------
+
 
 class ReadSqsWriteG2Thread(WriteG2Thread):
 
@@ -2330,7 +2331,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
         self.sqs = boto3.client("sqs")
 
     def run(self):
-        '''Process for reading lines from Kafka and feeding them to a process_function() function'''
+        '''Process for reading lines from AWS SQS and feeding them to a process_function() function'''
 
         logging.info(message_info(129, threading.current_thread().name))
 
@@ -2339,7 +2340,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
         data_source = self.config.get('data_source')
         entity_type = self.config.get('entity_type')
 
-        # In a loop, get messages from Kafka.
+        # In a loop, get messages from AWS SQS.
 
         while True:
 
@@ -2347,8 +2348,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
             self.govern()
 
-            # Get message from Kafka queue.
-            # Timeout quickly to allow other co-routines to process.
+            # Get message from AWS SQS queue.
 
             sqs_response = self.sqs.receive_message(
                 QueueUrl=self.queue_url,
@@ -2356,36 +2356,32 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                 MaxNumberOfMessages=1,
                 MessageAttributeNames=[],
                 VisibilityTimeout=0,
-                WaitTimeSeconds=0
+                WaitTimeSeconds=20
             )
 
-            # Handle non-standard Kafka output.
+            # If non-standard SQS output or empty messages, just loop.
 
             if sqs_response is None:
                 continue
-
-            # FIXME: Remove after debugging
-            print(sqs_response)
-
-            # Construct and verify Kafka message.
-
-            sqs_message_strings = sqs_response.get("messages", [])
-            if not sqs_message_strings:
+            sqs_messages = sqs_response.get("Messages", [])
+            if not sqs_messages:
+                logging.info(message_info(190, self.queue_url))
                 continue
-            sqs_message_string = sqs_message_strings[0]
-            logging.debug(message_debug(903, threading.current_thread().name, sqs_message_string))
-            self.config['counter_queued_records'] += 1
 
-            sqs_receipt_handle = sqs_response.get("ReceiptHandle")
+            # Construct and verify SQS message.
+
+            sqs_message = sqs_messages[0]
+            sqs_message_body = sqs_message.get("Body")
+            sqs_message_receipt_handle = sqs_message.get("ReceiptHandle")
+            logging.debug(message_debug(903, threading.current_thread().name, sqs_message_body))
+            self.config['counter_queued_records'] += 1
 
             # Verify that message is valid JSON.
 
             try:
-                sqs_message_dictionary = json.loads(sqs_message_string)
+                sqs_message_dictionary = json.loads(sqs_message_body)
             except:
-                logging.info(message_debug(557, sqs_message_string))
-                if not consumer.commit():
-                    logging.error(message_error(722, sqs_message_string))
+                logging.info(message_debug(557, sqs_message_body))
                 continue
 
             # If needed, modify JSON message.
@@ -2397,24 +2393,19 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
             sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
 
             # Send valid JSON to Senzing.
-            logging.info(message_debug(999,sqs_message_string))
 
-
-            # FIXME: Restore following line after disconnected development.
-#             self.send_jsonline_to_g2_engine(sqs_message_string)
+            self.send_jsonline_to_g2_engine(sqs_message_string)
 
             # Record successful transfer to Senzing.
 
             self.config['counter_processed_records'] += 1
 
-            # After successful import into Senzing, tell Kafka we're done with message.
+            # After successful import into Senzing, tell AWS SQS we're done with message.
 
             self.sqs.delete_message(
                 QueueUrl=self.queue_url,
-                ReceiptHandle=receipt_handle
+                ReceiptHandle=sqs_message_receipt_handle
             )
-
-        consumer.close()
 
 # -----------------------------------------------------------------------------
 # Class: UrlProcess
@@ -3604,7 +3595,7 @@ def do_sleep(args):
 
 
 def do_sqs(args):
-    ''' Read from Kafka. '''
+    ''' Read from SQS. '''
 
     # Get context from CLI, environment variables, and ini files.
 
@@ -3624,19 +3615,19 @@ def do_sqs(args):
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
 
-    # Create kafka reader threads for master process.
+    # Create AWS SQS reader threads for master process.
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadKafkaWriteG2Thread(config, g2_engine, g2_configuration_manager)
-        thread.name = "KafkaProcess-0-thread-{0}".format(i)
+        thread = ReadSqsWriteG2Thread(config, g2_engine, g2_configuration_manager)
+        thread.name = "SqsProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
     # Create monitor thread for master process.
 
     adminThreads = []
     thread = MonitorThread(config, g2_engine, threads)
-    thread.name = "KafkaProcess-0-thread-monitor"
+    thread.name = "SqsProcess-0-thread-monitor"
     adminThreads.append(thread)
 
     # Start threads for master process.
@@ -3660,7 +3651,7 @@ def do_sqs(args):
 
     processes = []
     for i in range(1, number_of_processes):  # Tricky: 1, not 0 because master process is first process.
-        process = KafkaProcess(config, g2_engine)
+        process = SqsProcess(config, g2_engine)
         process.start()
         processes.append(process)
 

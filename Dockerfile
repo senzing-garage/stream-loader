@@ -23,10 +23,11 @@ RUN apt-get update \
 # Install packages via PIP.
 
 RUN pip3 install \
-    configparser \
-    confluent-kafka \
-    psutil \
-    pika
+      boto3 \
+      configparser \
+      confluent-kafka \
+      psutil \
+      pika
 
 # Copy files from repository.
 

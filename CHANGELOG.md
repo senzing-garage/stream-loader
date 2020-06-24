@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.4] - 2020-02-24
+
+### Changed in 1.5.4
+
+- Updated Dockerfile base to senzing/senzing-base:1.5.0
+- Added support for AWS SQS
+- Improve logging
+- Fixed parameter to RabbitMQ
+- Added assertions
+
 ## [1.5.3] - 2020-02-19
 
 ### Changed in 1.5.3

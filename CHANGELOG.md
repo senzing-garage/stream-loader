@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed in 1.5.4
 
+- Updated Dockerfile base to senzing/senzing-base:1.5.0
+- Added support for AWS SQS
 - Improve logging
-- Fix parameter to RabbitMQ
-- Add assertions
+- Fixed parameter to RabbitMQ
+- Added assertions
 
 ## [1.5.3] - 2020-02-19
 

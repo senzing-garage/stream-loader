@@ -2,7 +2,7 @@
 
 ## Overview
 
-The [stream-loader.py](stream-loader.py) python script consumes data from various sources (Kafka, URLs) and publishes it to Senzing.
+The [stream-loader.py](stream-loader.py) python script consumes data from various sources (Kafka, RabbitMQ, AWS SQS) and publishes it to Senzing.
 The `senzing/stream-loader` docker image is a wrapper for use in docker formations (e.g. docker-compose, kubernetes).
 
 To see all of the subcommands, run:
@@ -10,26 +10,25 @@ To see all of the subcommands, run:
 ```console
 $ ./stream-loader.py --help
 usage: stream-loader.py [-h]
-                        {kafka,kafka-test,kafka-withinfo,rabbitmq,rabbitmq-test,rabbitmq-withinfo,sleep,url,version,docker-acceptance-test}
+                        {kafka,kafka-withinfo,rabbitmq,rabbitmq-withinfo,sleep,sqs,sqs-withinfo,url,version,docker-acceptance-test}
                         ...
 
 Load Senzing from a stream. For more information, see
 https://github.com/senzing/stream-loader
 
 positional arguments:
-  {kafka,kafka-test,kafka-withinfo,rabbitmq,rabbitmq-test,rabbitmq-withinfo,sleep,url,version,docker-acceptance-test}
+  {kafka,kafka-withinfo,rabbitmq,rabbitmq-withinfo,sleep,sqs,sqs-withinfo,url,version,docker-acceptance-test}
                         Subcommands (SENZING_SUBCOMMAND):
     kafka               Read JSON Lines from Apache Kafka topic.
-    kafka-test          Read JSON Lines from Apache Kafka topic. Do not send
-                        to Senzing.
     kafka-withinfo      Read JSON Lines from Apache Kafka topic. Return info
                         to a queue.
     rabbitmq            Read JSON Lines from RabbitMQ queue.
-    rabbitmq-test       Read JSON Lines from RabbitMQ queue. Do not send to
-                        Senzing.
     rabbitmq-withinfo   Read JSON Lines from RabbitMQ queue. Return info to a
                         queue.
     sleep               Do nothing but sleep. For Docker testing.
+    sqs                 Read JSON Lines from AWS SQS queue.
+    sqs-withinfo        Read JSON Lines from AWS SQS queue. Return info to a
+                        queue.
     url                 Read JSON Lines from URL-addressable file.
     version             Print version of program.
     docker-acceptance-test
@@ -37,6 +36,7 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
+
 ```
 
 ### Related artifacts
@@ -125,6 +125,9 @@ This repository assumes a working knowledge of:
 
 Configuration values specified by environment variable or command line parameter.
 
+- **[AWS_ACCESS_KEY_ID](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#aws_access_key_id)**
+- **[AWS_SECRET_ACCESS_KEY](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#aws_secret_access_key)**
+- **[AWS_DEFAULT_REGION](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#aws_default_region)**
 - **[SENZING_DATA_SOURCE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_data_source)**
 - **[SENZING_DATA_VERSION_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_data_version_dir)**
 - **[SENZING_DATABASE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_database_url)**
@@ -161,6 +164,9 @@ Configuration values specified by environment variable or command line parameter
 - **[SENZING_RABBITMQ_USERNAME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_username)**
 - **[SENZING_RUNAS_USER](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_runas_user)**
 - **[SENZING_SLEEP_TIME_IN_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sleep_time_in_seconds)**
+- **[SENZING_SQS_FAILURE_QUEUE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_failure_queue_url)**
+- **[SENZING_SQS_INFO_QUEUE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_info_queue_url)**
+- **[SENZING_SQS_QUEUE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_queue_url)**
 - **[SENZING_SUBCOMMAND](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_subcommand)**
 - **[SENZING_THREADS_PER_PROCESS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_threads_per_process)**
 - **[SENZING_VAR_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_var_dir)**

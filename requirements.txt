@@ -1,4 +1,5 @@
+boto3
 configparser
 confluent-kafka
-psutil
 pika
+psutil

@@ -19,7 +19,7 @@ jobs:
         id: build_stream_loader
         run: |
           make \
-            BASE_IMAGE="senzing/senzing-base:1.4.0" \
+            BASE_IMAGE="senzing/senzing-base:1.5.2" \
             docker-build
   logPrStreamLoader:
     needs: buildStreamLoader

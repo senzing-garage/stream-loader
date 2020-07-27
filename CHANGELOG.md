@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.5] - 2020-07-23
 
-### Changed in 1.5.4
+### Changed in 1.5.5
 
 - Upgrade to senzing/senzing-base:1.5.2
 

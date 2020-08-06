@@ -39,9 +39,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.5.4"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.5.6"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-06-24'
+__updated__ = '2020-08-06'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -250,6 +250,11 @@ configuration_locator = {
         "env": "SENZING_RESOURCE_PATH",
         "cli": "resource-path"
     },
+    "skip_database_performance_test": {
+        "default": False,
+        "env": "SENZING_SKIP_DATABASE_PERFORMANCE_TEST",
+        "cli": "skip-database-performance-test"
+    },
     "sleep_time_in_seconds": {
         "default": 0,
         "env": "SENZING_SLEEP_TIME_IN_SECONDS",
@@ -314,92 +319,12 @@ def get_parser():
     subcommands = {
         'kafka': {
             "help": 'Read JSON Lines from Apache Kafka topic.',
-            "arguments": {
-                "--data-source": {
-                    "dest": "data_source",
-                    "metavar": "SENZING_DATA_SOURCE",
-                    "help": "Data Source."
-                },
-                "--debug": {
-                    "dest": "debug",
-                    "action": "store_true",
-                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
-                },
-                "--delay-in-seconds": {
-                    "dest": "delay_in_seconds",
-                    "metavar": "SENZING_DELAY_IN_SECONDS",
-                    "help": "Delay before processing in seconds. DEFAULT: 0"
-                },
-                "--engine-configuration-json": {
-                    "dest": "engine_configuration_json",
-                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
-                    "help": "Advanced Senzing engine configuration. Default: none"
-                },
-                "--entity-type": {
-                    "dest": "entity_type",
-                    "metavar": "SENZING_ENTITY_TYPE",
-                    "help": "Entity type."
-                },
-                "--kafka-bootstrap-server": {
-                    "dest": "kafka_bootstrap_server",
-                    "metavar": "SENZING_KAFKA_BOOTSTRAP_SERVER",
-                    "help": "Kafka bootstrap server. Default: localhost:9092"
-                },
-                "--kafka-group": {
-                    "dest": "kafka_group",
-                    "metavar": "SENZING_KAFKA_GROUP",
-                    "help": "Kafka group. Default: senzing-kafka-group"
-                },
-                "--kafka-topic": {
-                    "dest": "kafka_topic",
-                    "metavar": "SENZING_KAFKA_TOPIC",
-                    "help": "Kafka topic. Default: senzing-kafka-topic"
-                },
-                "--monitoring-period-in-seconds": {
-                    "dest": "monitoring_period_in_seconds",
-                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 600"
-                },
-                "--threads-per-process": {
-                    "dest": "threads_per_process",
-                    "metavar": "SENZING_THREADS_PER_PROCESS",
-                    "help": "Number of threads per process. Default: 4"
-                },
-            },
+            "argument_aspects": ["common", "kafka_base"],
         },
         'kafka-withinfo': {
             "help": 'Read JSON Lines from Apache Kafka topic. Return info to a queue.',
+            "argument_aspects": ["common", "kafka_base"],
             "arguments": {
-                "--data-source": {
-                    "dest": "data_source",
-                    "metavar": "SENZING_DATA_SOURCE",
-                    "help": "Data Source."
-                },
-                "--debug": {
-                    "dest": "debug",
-                    "action": "store_true",
-                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
-                },
-                "--delay-in-seconds": {
-                    "dest": "delay_in_seconds",
-                    "metavar": "SENZING_DELAY_IN_SECONDS",
-                    "help": "Delay before processing in seconds. DEFAULT: 0"
-                },
-                "--engine-configuration-json": {
-                    "dest": "engine_configuration_json",
-                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
-                    "help": "Advanced Senzing engine configuration. Default: none"
-                },
-                "--entity-type": {
-                    "dest": "entity_type",
-                    "metavar": "SENZING_ENTITY_TYPE",
-                    "help": "Entity type."
-                },
-                "--kafka-bootstrap-server": {
-                    "dest": "kafka_bootstrap_server",
-                    "metavar": "SENZING_KAFKA_BOOTSTRAP_SERVER",
-                    "help": "Kafka bootstrap server. Default: localhost:9092"
-                },
                 "--kafka-failure-bootstrap-server": {
                     "dest": "kafka_failure_bootstrap_server",
                     "metavar": "SENZING_KAFKA_FAILURE_BOOTSTRAP_SERVER",
@@ -409,11 +334,6 @@ def get_parser():
                     "dest": "kafka_failure_topic",
                     "metavar": "SENZING_KAFKA_FAILURE_TOPIC",
                     "help": "Kafka topic for failures. Default: senzing-kafka-failure-topic"
-                },
-                "--kafka-group": {
-                    "dest": "kafka_group",
-                    "metavar": "SENZING_KAFKA_GROUP",
-                    "help": "Kafka group. Default: senzing-kafka-group"
                 },
                 "--kafka-info-bootstrap-server": {
                     "dest": "kafka_info_bootstrap_server",
@@ -425,141 +345,16 @@ def get_parser():
                     "metavar": "SENZING_KAFKA_INFO_TOPIC",
                     "help": "Kafka topic for info. Default: senzing-kafka-info-topic"
                 },
-                "--kafka-topic": {
-                    "dest": "kafka_topic",
-                    "metavar": "SENZING_KAFKA_TOPIC",
-                    "help": "Kafka topic. Default: senzing-kafka-topic"
-                },
-                "--monitoring-period-in-seconds": {
-                    "dest": "monitoring_period_in_seconds",
-                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 600"
-                },
-                "--threads-per-process": {
-                    "dest": "threads_per_process",
-                    "metavar": "SENZING_THREADS_PER_PROCESS",
-                    "help": "Number of threads per process. Default: 4"
-                },
             },
         },
         'rabbitmq': {
             "help": 'Read JSON Lines from RabbitMQ queue.',
-            "arguments": {
-                "--data-source": {
-                    "dest": "data_source",
-                    "metavar": "SENZING_DATA_SOURCE",
-                    "help": "Data Source."
-                },
-                "--debug": {
-                    "dest": "debug",
-                    "action": "store_true",
-                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
-                },
-                "--delay-in-seconds": {
-                    "dest": "delay_in_seconds",
-                    "metavar": "SENZING_DELAY_IN_SECONDS",
-                    "help": "Delay before processing in seconds. DEFAULT: 0"
-                },
-                "--engine-configuration-json": {
-                    "dest": "engine_configuration_json",
-                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
-                    "help": "Advanced Senzing engine configuration. Default: none"
-                },
-                "--entity-type": {
-                    "dest": "entity_type",
-                    "metavar": "SENZING_ENTITY_TYPE",
-                    "help": "Entity type."
-                },
-                "--monitoring-period-in-seconds": {
-                    "dest": "monitoring_period_in_seconds",
-                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 600"
-                },
-                "--rabbitmq-host": {
-                    "dest": "rabbitmq_host",
-                    "metavar": "SENZING_RABBITMQ_HOST",
-                    "help": "RabbitMQ host. Default: localhost:5672"
-                },
-                "--rabbitmq-password": {
-                    "dest": "rabbitmq_password",
-                    "metavar": "SENZING_RABBITMQ_PASSWORD",
-                    "help": "RabbitMQ password. Default: bitnami"
-                },
-                "--rabbitmq-queue": {
-                    "dest": "rabbitmq_queue",
-                    "metavar": "SENZING_RABBITMQ_QUEUE",
-                    "help": "RabbitMQ queue. Default: senzing-rabbitmq-queue"
-                },
-                "--rabbitmq-username": {
-                    "dest": "rabbitmq_username",
-                    "metavar": "SENZING_RABBITMQ_USERNAME",
-                    "help": "RabbitMQ username. Default: user"
-                },
-                "--threads-per-process": {
-                    "dest": "threads_per_process",
-                    "metavar": "SENZING_THREADS_PER_PROCESS",
-                    "help": "Number of threads per process. Default: 4"
-                },
-                "--rabbitmq-prefetch-count": {
-                    "dest": "rabbitmq_prefetch_count",
-                    "metavar": "SENZING_RABBITMQ_PREFETCH_COUNT",
-                    "help": "RabbitMQ prefetch-count. Default: 50"
-                }
-            },
+            "argument_aspects": ["common", "rabbitmq_base"],
         },
         'rabbitmq-withinfo': {
             "help": 'Read JSON Lines from RabbitMQ queue. Return info to a queue.',
+            "argument_aspects": ["common", "rabbitmq_base"],
             "arguments": {
-                "--data-source": {
-                    "dest": "data_source",
-                    "metavar": "SENZING_DATA_SOURCE",
-                    "help": "Data Source."
-                },
-                "--debug": {
-                    "dest": "debug",
-                    "action": "store_true",
-                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
-                },
-                "--delay-in-seconds": {
-                    "dest": "delay_in_seconds",
-                    "metavar": "SENZING_DELAY_IN_SECONDS",
-                    "help": "Delay before processing in seconds. DEFAULT: 0"
-                },
-                "--engine-configuration-json": {
-                    "dest": "engine_configuration_json",
-                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
-                    "help": "Advanced Senzing engine configuration. Default: none"
-                },
-                "--entity-type": {
-                    "dest": "entity_type",
-                    "metavar": "SENZING_ENTITY_TYPE",
-                    "help": "Entity type."
-                },
-                "--monitoring-period-in-seconds": {
-                    "dest": "monitoring_period_in_seconds",
-                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 600"
-                },
-                "--rabbitmq-host": {
-                    "dest": "rabbitmq_host",
-                    "metavar": "SENZING_RABBITMQ_HOST",
-                    "help": "RabbitMQ host. Default: localhost:5672"
-                },
-                "--rabbitmq-password": {
-                    "dest": "rabbitmq_password",
-                    "metavar": "SENZING_RABBITMQ_PASSWORD",
-                    "help": "RabbitMQ password. Default: bitnami"
-                },
-                "--rabbitmq-queue": {
-                    "dest": "rabbitmq_queue",
-                    "metavar": "SENZING_RABBITMQ_QUEUE",
-                    "help": "RabbitMQ queue. Default: senzing-rabbitmq-queue"
-                },
-                "--rabbitmq-username": {
-                    "dest": "rabbitmq_username",
-                    "metavar": "SENZING_RABBITMQ_USERNAME",
-                    "help": "RabbitMQ username. Default: user"
-                },
                 "--rabbitmq-info-host": {
                     "dest": "rabbitmq_info_host",
                     "metavar": "SENZING_RABBITMQ_INFO_HOST",
@@ -600,16 +395,6 @@ def get_parser():
                     "metavar": "SENZING_RABBITMQ_FAILURE_USERNAME",
                     "help": "RabbitMQ username. Default: SENZING_RABBITMQ_USERNAME"
                 },
-                "--threads-per-process": {
-                    "dest": "threads_per_process",
-                    "metavar": "SENZING_THREADS_PER_PROCESS",
-                    "help": "Number of threads per process. Default: 4"
-                },
-                "--rabbitmq-prefetch-count": {
-                    "dest": "rabbitmq_prefetch_count",
-                    "metavar": "SENZING_RABBITMQ_PREFETCH_COUNT",
-                    "help": "RabbitMQ prefetch-count. Default: 50"
-                }
             },
         },
         'sleep': {
@@ -624,82 +409,12 @@ def get_parser():
         },
         'sqs': {
             "help": 'Read JSON Lines from AWS SQS queue.',
-            "arguments": {
-                "--data-source": {
-                    "dest": "data_source",
-                    "metavar": "SENZING_DATA_SOURCE",
-                    "help": "Data Source."
-                },
-                "--debug": {
-                    "dest": "debug",
-                    "action": "store_true",
-                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
-                },
-                "--delay-in-seconds": {
-                    "dest": "delay_in_seconds",
-                    "metavar": "SENZING_DELAY_IN_SECONDS",
-                    "help": "Delay before processing in seconds. DEFAULT: 0"
-                },
-                "--engine-configuration-json": {
-                    "dest": "engine_configuration_json",
-                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
-                    "help": "Advanced Senzing engine configuration. Default: none"
-                },
-                "--entity-type": {
-                    "dest": "entity_type",
-                    "metavar": "SENZING_ENTITY_TYPE",
-                    "help": "Entity type."
-                },
-                "--monitoring-period-in-seconds": {
-                    "dest": "monitoring_period_in_seconds",
-                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 600"
-                },
-                "--sqs-queue-url": {
-                    "dest": "sqs_queue_url",
-                    "metavar": "SENZING_SQS_QUEUE_URL",
-                    "help": "AWS SQS URL. Default: none"
-                },
-                "--threads-per-process": {
-                    "dest": "threads_per_process",
-                    "metavar": "SENZING_THREADS_PER_PROCESS",
-                    "help": "Number of threads per process. Default: 4"
-                }
-            },
+            "argument_aspects": ["common", "sqs_base"],
         },
         'sqs-withinfo': {
             "help": 'Read JSON Lines from AWS SQS queue.  Return info to a queue.',
+            "argument_aspects": ["common", "sqs_base"],
             "arguments": {
-                "--data-source": {
-                    "dest": "data_source",
-                    "metavar": "SENZING_DATA_SOURCE",
-                    "help": "Data Source."
-                },
-                "--debug": {
-                    "dest": "debug",
-                    "action": "store_true",
-                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
-                },
-                "--delay-in-seconds": {
-                    "dest": "delay_in_seconds",
-                    "metavar": "SENZING_DELAY_IN_SECONDS",
-                    "help": "Delay before processing in seconds. DEFAULT: 0"
-                },
-                "--engine-configuration-json": {
-                    "dest": "engine_configuration_json",
-                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
-                    "help": "Advanced Senzing engine configuration. Default: none"
-                },
-                "--entity-type": {
-                    "dest": "entity_type",
-                    "metavar": "SENZING_ENTITY_TYPE",
-                    "help": "Entity type."
-                },
-                "--monitoring-period-in-seconds": {
-                    "dest": "monitoring_period_in_seconds",
-                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 600"
-                },
                 "--sqs-failure-queue-url": {
                     "dest": "sqs_failure_queue_url",
                     "metavar": "SENZING_SQS_FAILURE_QUEUE_URL",
@@ -710,60 +425,16 @@ def get_parser():
                     "metavar": "SENZING_SQS_INFO_QUEUE_URL",
                     "help": "AWS SQS URL for info. Default: none"
                 },
-                "--sqs-queue-url": {
-                    "dest": "sqs_queue_url",
-                    "metavar": "SENZING_SQS_QUEUE_URL",
-                    "help": "AWS SQS URL. Default: none"
-                },
-                "--threads-per-process": {
-                    "dest": "threads_per_process",
-                    "metavar": "SENZING_THREADS_PER_PROCESS",
-                    "help": "Number of threads per process. Default: 4"
-                }
             },
         },
         'url': {
             "help": 'Read JSON Lines from URL-addressable file.',
+            "argument_aspects": ["common"],
             "arguments": {
-                "--data-source": {
-                    "dest": "data_source",
-                    "metavar": "SENZING_DATA_SOURCE",
-                    "help": "Data Source."
-                },
-                "--debug": {
-                    "dest": "debug",
-                    "action": "store_true",
-                    "help": "Enable debugging. (SENZING_DEBUG) Default: False"
-                },
-                "--delay-in-seconds": {
-                    "dest": "delay_in_seconds",
-                    "metavar": "SENZING_DELAY_IN_SECONDS",
-                    "help": "Delay before processing in seconds. DEFAULT: 0"
-                },
-                "--engine-configuration-json": {
-                    "dest": "engine_configuration_json",
-                    "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
-                    "help": "Advanced Senzing engine configuration. Default: none"
-                },
-                "--entity-type": {
-                    "dest": "entity_type",
-                    "metavar": "SENZING_ENTITY_TYPE",
-                    "help": "Entity type."
-                },
                 "-input-url": {
                     "dest": "input_url",
                     "metavar": "SENZING_INPUT_URL",
                     "help": "URL to file of JSON lines."
-                },
-                "--monitoring-period-in-seconds": {
-                    "dest": "monitoring_period_in_seconds",
-                    "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
-                    "help": "Period, in seconds, between monitoring reports. Default: 600"
-                },
-                "--threads-per-process": {
-                    "dest": "threads_per_process",
-                    "metavar": "SENZING_THREADS_PER_PROCESS",
-                    "help": "Number of threads per process. Default: 4"
                 },
             },
         },
@@ -775,7 +446,111 @@ def get_parser():
         },
     }
 
-    parser = argparse.ArgumentParser(prog="stream-loader.py", description="Load Senzing from a stream. For more information, see https://github.com/senzing/stream-loader")
+    # Define argument_aspects.
+
+    argument_aspects = {
+        "common": {
+            "--data-source": {
+                "dest": "data_source",
+                "metavar": "SENZING_DATA_SOURCE",
+                "help": "Data Source."
+            },
+            "--delay-in-seconds": {
+                "dest": "delay_in_seconds",
+                "metavar": "SENZING_DELAY_IN_SECONDS",
+                "help": "Delay before processing in seconds. DEFAULT: 0"
+            },
+            "--debug": {
+                "dest": "debug",
+                "action": "store_true",
+                "help": "Enable debugging. (SENZING_DEBUG) Default: False"
+            },
+            "--engine-configuration-json": {
+                "dest": "engine_configuration_json",
+                "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
+                "help": "Advanced Senzing engine configuration. Default: none"
+            },
+            "--entity-type": {
+                "dest": "entity_type",
+                "metavar": "SENZING_ENTITY_TYPE",
+                "help": "Entity type."
+            },
+            "--monitoring-period-in-seconds": {
+                "dest": "monitoring_period_in_seconds",
+                "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
+                "help": "Period, in seconds, between monitoring reports. Default: 600"
+            },
+            "--threads-per-process": {
+                "dest": "threads_per_process",
+                "metavar": "SENZING_THREADS_PER_PROCESS",
+                "help": "Number of threads per process. Default: 4"
+            },
+        },
+        "kafka_base": {
+          "--kafka-bootstrap-server": {
+                "dest": "kafka_bootstrap_server",
+                "metavar": "SENZING_KAFKA_BOOTSTRAP_SERVER",
+                "help": "Kafka bootstrap server. Default: localhost:9092"
+            },
+            "--kafka-group": {
+                "dest": "kafka_group",
+                "metavar": "SENZING_KAFKA_GROUP",
+                "help": "Kafka group. Default: senzing-kafka-group"
+            },
+            "--kafka-topic": {
+                "dest": "kafka_topic",
+                "metavar": "SENZING_KAFKA_TOPIC",
+                "help": "Kafka topic. Default: senzing-kafka-topic"
+            },
+        },
+        "rabbitmq_base": {
+            "--rabbitmq-host": {
+                "dest": "rabbitmq_host",
+                "metavar": "SENZING_RABBITMQ_HOST",
+                "help": "RabbitMQ host. Default: localhost:5672"
+            },
+            "--rabbitmq-password": {
+                "dest": "rabbitmq_password",
+                "metavar": "SENZING_RABBITMQ_PASSWORD",
+                "help": "RabbitMQ password. Default: bitnami"
+            },
+            "--rabbitmq-queue": {
+                "dest": "rabbitmq_queue",
+                "metavar": "SENZING_RABBITMQ_QUEUE",
+                "help": "RabbitMQ queue. Default: senzing-rabbitmq-queue"
+            },
+            "--rabbitmq-username": {
+                "dest": "rabbitmq_username",
+                "metavar": "SENZING_RABBITMQ_USERNAME",
+                "help": "RabbitMQ username. Default: user"
+            },
+            "--rabbitmq-prefetch-count": {
+                "dest": "rabbitmq_prefetch_count",
+                "metavar": "SENZING_RABBITMQ_PREFETCH_COUNT",
+                "help": "RabbitMQ prefetch-count. Default: 50"
+            }
+        },
+        "sqs_base": {
+            "--sqs-queue-url": {
+                "dest": "sqs_queue_url",
+                "metavar": "SENZING_SQS_QUEUE_URL",
+                "help": "AWS SQS URL. Default: none"
+            },
+        },
+    }
+
+    # Augment "subcommands" variable with arguments specified by aspects.
+
+    for subcommand, subcommand_value in subcommands.items():
+        if 'argument_aspects' in subcommand_value:
+            for aspect in subcommand_value['argument_aspects']:
+                if 'arguments' not in subcommands[subcommand]:
+                    subcommands[subcommand]['arguments'] = {}
+                arguments = argument_aspects.get(aspect, {})
+                for argument, argument_value in arguments.items():
+                    subcommands[subcommand]['arguments'][argument] = argument_value
+
+    parser = argparse.ArgumentParser(prog="init-container.py", description="Initialize Senzing installation. For more information, see https://github.com/Senzing/docker-init-container")
     subparsers = parser.add_subparsers(dest='subcommand', help='Subcommands (SENZING_SUBCOMMAND):')
 
     for subcommand_key, subcommand_values in subcommands.items():
@@ -1135,7 +910,10 @@ def get_configuration(args):
 
     # Special case: Change boolean strings to booleans.
 
-    booleans = ['debug']
+    booleans = [
+        'debug',
+        'skip_database_performance_test'
+    ]
     for boolean in booleans:
         boolean_value = result.get(boolean)
         if isinstance(boolean_value, str):
@@ -1435,7 +1213,10 @@ class WriteG2Thread(threading.Thread):
         assert type(jsonline) == str
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
-        record_id = str(json_dictionary.get('RECORD_ID'))
+        record_id = json_dictionary.get('RECORD_ID')
+        if record_id is not None:
+            record_id = str(record_id)
+
         try:
             self.g2_engine.addRecord(data_source, record_id, jsonline)
         except Exception as err:
@@ -1451,7 +1232,9 @@ class WriteG2Thread(threading.Thread):
         assert type(jsonline) == str
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
-        record_id = str(json_dictionary.get('RECORD_ID'))
+        record_id = json_dictionary.get('RECORD_ID')
+        if record_id is not None:
+            record_id = str(record_id)
         response_bytearray = bytearray()
         try:
             self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
@@ -2971,7 +2754,8 @@ def common_prolog(config):
 
     # Test performance.
 
-    log_performance(config)
+    if not config.get('skip_database_performance_test', False):
+        log_performance(config)
 
 # -----------------------------------------------------------------------------
 # dohelper_* functions

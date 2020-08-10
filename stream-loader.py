@@ -703,6 +703,7 @@ message_dictionary = {
     "904": "Thread: {0} processed: {1}",
     "910": "Adding JSON to info queue: {0}",
     "911": "Adding JSON to failure queue: {0}",
+    "998": "Debugging enabled.",
     "999": "{0}",
 }
 
@@ -911,6 +912,11 @@ def get_configuration(args):
         new_key = key.format(subcommand.replace('-', '_'))
         if value:
             result[new_key] = value
+
+    # Add program information.
+
+    result['program_version'] = __version__
+    result['program_updated'] = __updated__
 
     # Special case: subcommand from command-line
 
@@ -2260,15 +2266,6 @@ class MonitorThread(threading.Thread):
 
         while active_workers > 0:
 
-            time.sleep(sleep_time_in_seconds)
-
-            # Calculate active Threads.
-
-            active_workers = len(self.workers)
-            for worker in self.workers:
-                if not worker.is_alive():
-                    active_workers -= 1
-
             # Determine if we're running out of workers.
 
             if (active_workers / float(len(self.workers))) < 0.5:
@@ -2329,38 +2326,7 @@ class MonitorThread(threading.Thread):
             last_queued_records = queued_records_total
             last_time = now
 
-# -----------------------------------------------------------------------------
-# Class: MonitorThread
-# -----------------------------------------------------------------------------
-
-
-class MonitorTestThread(threading.Thread):
-
-    def __init__(self, config, workers):
-        threading.Thread.__init__(self)
-        self.config = config
-        self.workers = workers
-
-    def run(self):
-        '''Periodically monitor what is happening.'''
-
-        last_queued_records = 0
-        last_kafka_poll = 0
-        last_kafka_commit = 0
-        last_time = time.time()
-
-        # Define monitoring report interval.
-
-        sleep_time_in_seconds = self.config.get('monitoring_period_in_seconds')
-
-        # Sleep-monitor loop.
-
-        active_workers = len(self.workers)
-        for worker in self.workers:
-            if not worker.is_alive():
-                active_workers -= 1
-
-        while active_workers > 0:
+            # Sleep for the monitoring period.
 
             time.sleep(sleep_time_in_seconds)
 
@@ -2370,70 +2336,6 @@ class MonitorTestThread(threading.Thread):
             for worker in self.workers:
                 if not worker.is_alive():
                     active_workers -= 1
-
-            # Determine if we're running out of workers.
-
-            if (active_workers / float(len(self.workers))) < 0.5:
-                logging.warning(message_warning(721))
-
-            # Calculate rates.
-
-            now = time.time()
-            uptime = now - self.config.get('start_time', now)
-            elapsed_time = now - last_time
-
-            queued_records_total = self.config['counter_queued_records']
-            queued_records_interval = queued_records_total - last_queued_records
-            rate_queued_total = queued_records_total / uptime
-            rate_queued_interval = queued_records_interval / elapsed_time
-
-            kafka_poll_total = self.config['kafka_poll_elapsed']
-            kafka_poll_interval = kafka_poll_total - last_kafka_poll
-            rate_kafka_poll_total = kafka_poll_total / uptime
-            rate_kafka_poll_interval = kafka_poll_interval / elapsed_time
-
-            kafka_commit_total = self.config['kafka_commit_elapsed']
-            kafka_commit_interval = kafka_commit_total - last_kafka_commit
-            rate_kafka_commit_total = kafka_commit_total / uptime
-            rate_kafka_commit_interval = kafka_commit_interval / elapsed_time
-
-            # Calculate averages.
-
-            average_rate_kafka_commit_interval = 0
-            average_rate_kafka_poll_interval = 0
-            if queued_records_interval > 0:
-                average_rate_kafka_commit_interval = rate_kafka_commit_interval / queued_records_interval
-                average_rate_kafka_poll_interval = rate_kafka_poll_interval / queued_records_interval
-
-            # Construct and log monitor statistics.
-
-            stats = {
-                "average_rate_kafka_commit_interval": average_rate_kafka_commit_interval,
-                "average_rate_kafka_poll_interval": average_rate_kafka_poll_interval,
-                "kafka_commit_interval": kafka_commit_interval,
-                "kafka_commit_total": kafka_commit_total,
-                "kafka_poll_interval": kafka_poll_interval,
-                "kafka_poll_total": kafka_poll_total,
-                "queued_records_interval": queued_records_interval,
-                "queued_records_total": queued_records_total,
-                "rate_kafka_commit_interval": rate_kafka_commit_interval,
-                "rate_kafka_commit_total": rate_kafka_commit_total,
-                "rate_kafka_poll_interval": rate_kafka_poll_interval,
-                "rate_kafka_poll_total": rate_kafka_poll_total,
-                "rate_queued_interval": rate_queued_interval,
-                "rate_queued_total": rate_queued_total,
-                "uptime": int(uptime),
-                "workers_total": len(self.workers),
-                "workers_active": active_workers,
-            }
-            logging.info(message_info(127, json.dumps(stats, sort_keys=True)))
-
-            # Store values for next iteration of loop.
-
-            last_queued_records = queued_records_total
-            last_kafka_poll = kafka_poll_total
-            last_kafka_commit = kafka_commit_total
-            last_time = now
 
 # -----------------------------------------------------------------------------
 # Utility functions
@@ -2839,6 +2741,11 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
     # Collect inactive threads from master process.
 
     for thread in threads:
+        thread.join()
+
+    # Start administrative threads for master process.
+
+    for thread in adminThreads:
         thread.join()
 
     # Cleanup.
@@ -3269,6 +3176,7 @@ if __name__ == "__main__":
     log_level_parameter = os.getenv("SENZING_LOG_LEVEL", "info").lower()
     log_level = log_level_map.get(log_level_parameter, logging.INFO)
     logging.basicConfig(format=log_format, level=log_level)
+    logging.debug(message_debug(998))
 
     # Trap signals temporarily until args are parsed.
 

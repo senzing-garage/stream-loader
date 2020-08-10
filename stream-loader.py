@@ -39,9 +39,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.5.6"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.5.7"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-08-06'
+__updated__ = '2020-08-10'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -99,6 +99,11 @@ configuration_locator = {
         "default": None,
         "env": "SENZING_ENTITY_TYPE",
         "cli": "entity-type"
+    },
+    "exit_on_empty_queue": {
+        "default": False,
+        "env": "SENZING_EXIT_ON_EMPTY_QUEUE",
+        "cli": "exit-on-empty-queue"
     },
     "expiration_warning_in_days": {
         "default": 30,
@@ -274,6 +279,11 @@ configuration_locator = {
         "default": None,
         "env": "SENZING_SQS_QUEUE_URL",
         "cli": "sqs-queue-url"
+    },
+    "sqs_wait_time_seconds": {
+        "default": 20,
+        "env": "SENZING_SQS_WAIT_TIME_SECONDS",
+        "cli": "sqs-wait-time-seconds"
     },
     "subcommand": {
         "default": None,
@@ -617,7 +627,8 @@ message_dictionary = {
     "168": "  Expiration time: EXPIRED {0} days ago",
     "180": "User-supplied Governor loaded from {0}.",
     "181": "User-supplied InfoFilter loaded from {0}.",
-    "190": "AWS SQS Long-polling: No messages from {0}",
+    "190": "Thread: {0} AWS SQS Long-polling: No messages from {1}",
+    "191": "Thread: {0} Exiting. No messages from {1}.",
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
@@ -688,10 +699,8 @@ message_dictionary = {
     "900": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}D",
     "901": "Queued: {0}",
     "902": "Processed: {0}",
-    "903": "{0} queued: {1}",
-    "904": "{0} processed: {1}",
-    "905": "{0} Kafka read: {1} Kafka commit: {2}",
-    "906": "{0} RabbitMQ read: {1} RabbitMQ ack: {2}",
+    "903": "Thread: {0} queued: {1}",
+    "904": "Thread: {0} processed: {1}",
     "910": "Adding JSON to info queue: {0}",
     "911": "Adding JSON to failure queue: {0}",
     "999": "{0}",
@@ -912,6 +921,7 @@ def get_configuration(args):
 
     booleans = [
         'debug',
+        'exit_on_empty_queue',
         'skip_database_performance_test'
     ]
     for boolean in booleans:
@@ -933,9 +943,10 @@ def get_configuration(args):
         'monitoring_period_in_seconds',
         'processes',
         'queue_maxsize',
-        'sleep_time_in_seconds',
-        'threads_per_process',
         'rabbitmq_prefetch_count',
+        'sleep_time_in_seconds',
+        'sqs_wait_time_seconds',
+        'threads_per_process',
     ]
     for integer in integers:
         integer_string = result.get(integer)
@@ -1806,18 +1817,17 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager):
         super().__init__(config, g2_engine, g2_configuration_manager)
+        self.data_source = self.config.get('data_source')
+        self.entity_type = self.config.get('entity_type')
+        self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.queue_url = config.get("sqs_queue_url")
         self.sqs = boto3.client("sqs")
+        self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
 
     def run(self):
         '''Process for reading lines from AWS SQS and feeding them to a process_function() function'''
 
         logging.info(message_info(129, threading.current_thread().name))
-
-        # Data to be inserted into messages.
-
-        data_source = self.config.get('data_source')
-        entity_type = self.config.get('entity_type')
 
         # In a loop, get messages from AWS SQS.
 
@@ -1835,7 +1845,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                 MaxNumberOfMessages=1,
                 MessageAttributeNames=[],
                 VisibilityTimeout=30,
-                WaitTimeSeconds=20
+                WaitTimeSeconds=self.sqs_wait_time_seconds
             )
 
             # If non-standard SQS output or empty messages, just loop.
@@ -1844,8 +1854,12 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                 continue
             sqs_messages = sqs_response.get("Messages", [])
             if not sqs_messages:
-                logging.info(message_info(190, self.queue_url))
-                continue
+                if self.exit_on_empty_queue:
+                    logging.info(message_info(191, threading.current_thread().name, self.queue_url))
+                    break
+                else:
+                    logging.info(message_info(190, threading.current_thread().name, self.queue_url))
+                    continue
 
             # Construct and verify SQS message.
 
@@ -1866,9 +1880,9 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
             # If needed, modify JSON message.
 
             if 'DATA_SOURCE' not in sqs_message_dictionary:
-                sqs_message_dictionary['DATA_SOURCE'] = data_source
+                sqs_message_dictionary['DATA_SOURCE'] = self.data_source
             if 'ENTITY_TYPE' not in sqs_message_dictionary:
-                sqs_message_dictionary['ENTITY_TYPE'] = entity_type
+                sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
             sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
 
             # Send valid JSON to Senzing.
@@ -1895,10 +1909,13 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager):
         super().__init__(config, g2_engine, g2_configuration_manager)
+        self.data_source = self.config.get('data_source')
+        self.entity_type = self.config.get('entity_type')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.info_queue_url = config.get("sqs_info_queue_url")
         self.queue_url = config.get("sqs_queue_url")
         self.sqs = boto3.client("sqs")
+        self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
 
     def add_to_failure_queue(self, jsonline):
         '''Overwrite superclass method.'''
@@ -1933,12 +1950,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
         logging.info(message_info(129, threading.current_thread().name))
 
-        # Data to be inserted into messages.
-
-        data_source = self.config.get('data_source')
-        entity_type = self.config.get('entity_type')
-
-        # In a loop, get messages from Kafka.
+        # In a loop, get messages from SQS.
 
         while True:
 
@@ -1954,7 +1966,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                 MaxNumberOfMessages=1,
                 MessageAttributeNames=[],
                 VisibilityTimeout=30,
-                WaitTimeSeconds=20
+                WaitTimeSeconds=self.sqs_wait_time_seconds
             )
 
             # If non-standard SQS output or empty messages, just loop.
@@ -1963,8 +1975,12 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                 continue
             sqs_messages = sqs_response.get("Messages", [])
             if not sqs_messages:
-                logging.info(message_info(190, self.queue_url))
-                continue
+                if self.exit_on_empty_queue:
+                    logging.info(message_info(191, threading.current_thread().name, self.queue_url))
+                    break
+                else:
+                    logging.info(message_info(190, threading.current_thread().name, self.queue_url))
+                    continue
 
             # Construct and verify SQS message.
 
@@ -1985,9 +2001,9 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             # If needed, modify JSON message.
 
             if 'DATA_SOURCE' not in sqs_message_dictionary:
-                sqs_message_dictionary['DATA_SOURCE'] = data_source
+                sqs_message_dictionary['DATA_SOURCE'] = self.data_source
             if 'ENTITY_TYPE' not in sqs_message_dictionary:
-                sqs_message_dictionary['ENTITY_TYPE'] = entity_type
+                sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
             sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
 
             # Send valid JSON to Senzing.

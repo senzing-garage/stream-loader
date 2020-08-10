@@ -703,6 +703,7 @@ message_dictionary = {
     "904": "Thread: {0} processed: {1}",
     "910": "Adding JSON to info queue: {0}",
     "911": "Adding JSON to failure queue: {0}",
+    "998": "Debugging enabled.",
     "999": "{0}",
 }
 
@@ -911,6 +912,11 @@ def get_configuration(args):
         new_key = key.format(subcommand.replace('-', '_'))
         if value:
             result[new_key] = value
+
+    # Add program information.
+
+    result['program_version'] = __version__
+    result['program_updated'] = __updated__
 
     # Special case: subcommand from command-line
 
@@ -3269,6 +3275,7 @@ if __name__ == "__main__":
     log_level_parameter = os.getenv("SENZING_LOG_LEVEL", "info").lower()
     log_level = log_level_map.get(log_level_parameter, logging.INFO)
     logging.basicConfig(format=log_format, level=log_level)
+    logging.debug(message_debug(998))
 
     # Trap signals temporarily until args are parsed.
 

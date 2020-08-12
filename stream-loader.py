@@ -41,7 +41,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.7"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-08-10'
+__updated__ = '2020-08-12'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -57,9 +57,9 @@ MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES = 6
 
 # Lists from https://www.ietf.org/rfc/rfc1738.txt
 
-safe_character_list = ['$', '-', '_', '.', '+', '!', '*', '(', ')', ',', '"' ] + list(string.ascii_letters)
-unsafe_character_list = [ '"', '<', '>', '#', '%', '{', '}', '|', '\\', '^', '~', '[', ']', '`']
-reserved_character_list = [ ';', ',', '/', '?', ':', '@', '=', '&']
+safe_character_list = ['$', '-', '_', '.', '+', '!', '*', '(', ')', ',', '"'] + list(string.ascii_letters)
+unsafe_character_list = ['"', '<', '>', '#', '%', '{', '}', '|', '\\', '^', '~', '[', ']', '`']
+reserved_character_list = [';', ',', '/', '?', ':', '@', '=', '&']
 
 # The "configuration_locator" describes where configuration variables are in:
 # 1) Command line options, 2) Environment variables, 3) Configuration files, 4) Default values
@@ -497,7 +497,7 @@ def get_parser():
             },
         },
         "kafka_base": {
-          "--kafka-bootstrap-server": {
+            "--kafka-bootstrap-server": {
                 "dest": "kafka_bootstrap_server",
                 "metavar": "SENZING_KAFKA_BOOTSTRAP_SERVER",
                 "help": "Kafka bootstrap server. Default: localhost:9092"
@@ -652,6 +652,7 @@ message_dictionary = {
     "410": "RabbitMQ queue: {0} Unknown RabbitMQ error when connecting: {1}.",
     "411": "RabbitMQ queue: {0} Unknown RabbitMQ error: {1} Message: {2}",
     "412": "RabbitMQ queue: {0} AMQPConnectionError: {1} Could not connect to RabbitMQ host at {2}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
+    "413": "SQS queue: {0} Unknown SQS error: {1} Message: {2}",
     "499": "{0}",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "551": "Missing G2 database URL.",
@@ -1935,7 +1936,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             )
             logging.info(message_info(911, jsonline))
         except:
-            logging.warn(message_warning(407, self.failure_topic, err, jsonline))
+            logging.warn(message_warning(413, self.failure_queue_url, err, jsonline))
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
@@ -1949,7 +1950,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             )
             logging.debug(message_debug(910, jsonline))
         except:
-            logging.warn(message_warning(407, self.info_topic, err, jsonline))
+            logging.warn(message_warning(413, self.info_queue_url, err, jsonline))
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''

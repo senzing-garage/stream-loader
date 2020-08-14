@@ -41,7 +41,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.7"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-08-12'
+__updated__ = '2020-08-14'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -104,6 +104,11 @@ configuration_locator = {
         "default": False,
         "env": "SENZING_EXIT_ON_EMPTY_QUEUE",
         "cli": "exit-on-empty-queue"
+    },
+    "exit_sleep_time_in_seconds": {
+        "default": 0,
+        "env": "SENZING_EXIT_SLEEP_TIME_IN_SECONDS",
+        "cli": "exit-sleep-time-in-seconds"
     },
     "expiration_warning_in_days": {
         "default": 30,
@@ -945,6 +950,7 @@ def get_configuration(args):
     integers = [
         'configuration_check_frequency_in_seconds',
         'delay_in_seconds',
+        'exit_sleep_time_in_seconds',
         'expiration_warning_in_days',
         'log_license_period_in_seconds',
         'monitoring_period_in_seconds',
@@ -2700,6 +2706,8 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     # Pull values from configuration.
 
+    exit_sleep_time_in_seconds = config.get('exit_sleep_time_in_seconds')
+    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     threads_per_process = config.get('threads_per_process')
 
     # Get the Senzing G2 resources.
@@ -2724,7 +2732,6 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     # Sleep, if requested.
 
-    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     if sleep_time_in_seconds > 0:
         logging.info(message_info(152, sleep_time_in_seconds))
         time.sleep(sleep_time_in_seconds)
@@ -2752,6 +2759,12 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
     # Cleanup.
 
     g2_engine.destroy()
+
+    # Sleep, if requested.
+
+    if exit_sleep_time_in_seconds > 0:
+        logging.info(message_info(152, exit_sleep_time_in_seconds))
+        time.sleep(exit_sleep_time_in_seconds)
 
     # Epilog.
 
@@ -2792,6 +2805,7 @@ def do_kafka(args):
 
     # Pull values from configuration.
 
+    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     threads_per_process = config.get('threads_per_process')
 
     # Get the Senzing G2 resources.
@@ -2821,7 +2835,6 @@ def do_kafka(args):
 
     # Sleep, if requested.
 
-    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     if sleep_time_in_seconds > 0:
         logging.info(message_info(152, sleep_time_in_seconds))
         time.sleep(sleep_time_in_seconds)
@@ -2869,6 +2882,7 @@ def do_kafka_withinfo(args):
 
     # Pull values from configuration.
 
+    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     threads_per_process = config.get('threads_per_process')
 
     # Get the Senzing G2 resources.
@@ -2898,7 +2912,6 @@ def do_kafka_withinfo(args):
 
     # Sleep, if requested.
 
-    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     if sleep_time_in_seconds > 0:
         logging.info(message_info(152, sleep_time_in_seconds))
         time.sleep(sleep_time_in_seconds)
@@ -2935,6 +2948,7 @@ def do_rabbitmq(args):
 
     # Pull values from configuration.
 
+    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     threads_per_process = config.get('threads_per_process')
 
     # Get the Senzing G2 resources.
@@ -2964,7 +2978,6 @@ def do_rabbitmq(args):
 
     # Sleep, if requested.
 
-    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     if sleep_time_in_seconds > 0:
         logging.info(message_info(152, sleep_time_in_seconds))
         time.sleep(sleep_time_in_seconds)
@@ -3016,6 +3029,7 @@ def do_rabbitmq_withinfo(args):
 
     # Pull values from configuration.
 
+    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     threads_per_process = config.get('threads_per_process')
 
     # Get the Senzing G2 resources.
@@ -3045,7 +3059,6 @@ def do_rabbitmq_withinfo(args):
 
     # Sleep, if requested.
 
-    sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     if sleep_time_in_seconds > 0:
         logging.info(message_info(152, sleep_time_in_seconds))
         time.sleep(sleep_time_in_seconds)

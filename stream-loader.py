@@ -621,6 +621,7 @@ message_dictionary = {
     "151": "For database tuning help, see: https://senzing.zendesk.com/hc/en-us/sections/360000386433-Technical-Database",
     "152": "Sleeping {0} seconds before deploying administrative threads.",
     "153": "Created datasource {0}. Return code: {1}",
+    "154": "Sleeping for a requested {0} seconds before exiting.",
     "160": "{0} LICENSE {0}",
     "161": "          Version: {0} ({1})",
     "162": "         Customer: {0}",
@@ -2763,7 +2764,7 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
     # Sleep, if requested.
 
     if exit_sleep_time_in_seconds > 0:
-        logging.info(message_info(152, exit_sleep_time_in_seconds))
+        logging.info(message_info(154, exit_sleep_time_in_seconds))
         time.sleep(exit_sleep_time_in_seconds)
 
     # Epilog.

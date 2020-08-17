@@ -41,7 +41,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.7"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-08-14'
+__updated__ = '2020-08-17'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -638,6 +638,7 @@ message_dictionary = {
     "201": "Python 'psutil' not installed. Could not report memory.",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
+    "221": "AWS SQS redrive: {0}",
     "292": "Configuration change detected.  Old: {0} New: {1}",
     "293": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "294": "Version: {0}  Updated: {1}",
@@ -1834,9 +1835,33 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
         self.data_source = self.config.get('data_source')
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
+        self.failure_queue_url = config.get("sqs_failure_queue_url")
+        self.message_is_live = False
         self.queue_url = config.get("sqs_queue_url")
         self.sqs = boto3.client("sqs")
         self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
+
+    def add_to_failure_queue(self, jsonline):
+        '''
+        Overwrite superclass method.
+        Support AWS SQS dead-letter queue.
+        '''
+
+        assert type(jsonline) == str
+        if self.sqs_failure_queue_url:
+            try:
+                response = self.sqs.send_message(
+                    QueueUrl=self.failure_queue_url,
+                    DelaySeconds=10,
+                    MessageAttributes={},
+                    MessageBody=(jsonline),
+                )
+                logging.info(message_info(911, jsonline))
+            except:
+                logging.warn(message_warning(413, self.failure_queue_url, err, jsonline))
+        else:
+            self.message_is_live = False
+            logging.info(message_info(221, jsonline))
 
     def run(self):
         '''Process for reading lines from AWS SQS and feeding them to a process_function() function'''
@@ -1901,18 +1926,20 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
             # Send valid JSON to Senzing.
 
+            self.message_is_live = True
             self.send_jsonline_to_g2_engine(sqs_message_string)
+            if self.message_is_live:
 
-            # Record successful transfer to Senzing.
+                # Record successful transfer to Senzing.
 
-            self.config['counter_processed_records'] += 1
+                self.config['counter_processed_records'] += 1
 
-            # After successful import into Senzing, tell AWS SQS we're done with message.
+                # After successful import into Senzing, tell AWS SQS we're done with message.
 
-            self.sqs.delete_message(
-                QueueUrl=self.queue_url,
-                ReceiptHandle=sqs_message_receipt_handle
-            )
+                self.sqs.delete_message(
+                    QueueUrl=self.queue_url,
+                    ReceiptHandle=sqs_message_receipt_handle
+                )
 
 # -----------------------------------------------------------------------------
 # Class: ReadSqsWriteG2WithInfoThread
@@ -1927,23 +1954,32 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         self.entity_type = self.config.get('entity_type')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.info_queue_url = config.get("sqs_info_queue_url")
+        self.message_is_live = False
         self.queue_url = config.get("sqs_queue_url")
         self.sqs = boto3.client("sqs")
         self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
 
     def add_to_failure_queue(self, jsonline):
-        '''Overwrite superclass method.'''
+        '''
+        Overwrite superclass method.
+        Support AWS SQS dead-letter queue.
+        '''
+
         assert type(jsonline) == str
-        try:
-            response = self.sqs.send_message(
-                QueueUrl=self.failure_queue_url,
-                DelaySeconds=10,
-                MessageAttributes={},
-                MessageBody=(jsonline),
-            )
-            logging.info(message_info(911, jsonline))
-        except:
-            logging.warn(message_warning(413, self.failure_queue_url, err, jsonline))
+        if self.sqs_failure_queue_url:
+            try:
+                response = self.sqs.send_message(
+                    QueueUrl=self.failure_queue_url,
+                    DelaySeconds=10,
+                    MessageAttributes={},
+                    MessageBody=(jsonline),
+                )
+                logging.info(message_info(911, jsonline))
+            except:
+                logging.warn(message_warning(413, self.failure_queue_url, err, jsonline))
+        else:
+            self.message_is_live = False
+            logging.info(message_info(221, jsonline))
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
@@ -2022,18 +2058,20 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
             # Send valid JSON to Senzing.
 
+            self.message_is_live = True
             self.send_jsonline_to_g2_engine_withinfo(sqs_message_string)
+            if self.message_is_live:
 
-            # Record successful transfer to Senzing.
+                # Record successful transfer to Senzing.
 
-            self.config['counter_processed_records'] += 1
+                self.config['counter_processed_records'] += 1
 
-            # After successful import into Senzing, tell AWS SQS we're done with message.
+                # After successful import into Senzing, tell AWS SQS we're done with message.
 
-            self.sqs.delete_message(
-                QueueUrl=self.queue_url,
-                ReceiptHandle=sqs_message_receipt_handle
-            )
+                self.sqs.delete_message(
+                    QueueUrl=self.queue_url,
+                    ReceiptHandle=sqs_message_receipt_handle
+                )
 
 # -----------------------------------------------------------------------------
 # Class: UrlProcess

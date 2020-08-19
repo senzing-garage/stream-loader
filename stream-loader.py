@@ -542,7 +542,7 @@ def get_parser():
             "--rabbitmq-use-existing-entities": {
                 "dest": "rabbitmq_use_existing_entities",
                 "metavar": "SENZING_RABBITMQ_USE_EXISTNG_ENTTIES",
-                "help": "Connect to an existing exchange and queue using their settings. An error is thrown if the exchange or queue does not exist. If False, it will create the exchange and queue if they do not exist. If they exist, then it will attempt to connect, checking the settings match. Default: True"
+                "help": "Connect to an existing queue using its settings. An error is thrown if the queue does not exist. If False, it will create a queue if one does not exist with the specified name. If it exists, then it will attempt to connect, checking the settings match. Default: True"
             },
             "--rabbitmq-username": {
                 "dest": "rabbitmq_username",

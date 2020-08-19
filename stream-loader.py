@@ -41,7 +41,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.7"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-08-18'
+__updated__ = '2020-08-19'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -249,6 +249,11 @@ configuration_locator = {
         "default": "senzing-rabbitmq-queue",
         "env": "SENZING_RABBITMQ_QUEUE",
         "cli": "rabbitmq-queue",
+    },
+    "rabbitmq_use_existing_entities": {
+        "default": True,
+        "env": "SENZING_RABBITMQ_USE_EXISTING_ENTITIES",
+        "cli": "rabbitmq-use-existing-entities",
     },
     "rabbitmq_username": {
         "default": "user",
@@ -534,6 +539,11 @@ def get_parser():
                 "metavar": "SENZING_RABBITMQ_QUEUE",
                 "help": "RabbitMQ queue. Default: senzing-rabbitmq-queue"
             },
+            "--rabbitmq-use-existing-entities": {
+                "dest": "rabbitmq_use_existing_entities",
+                "metavar": "SENZING_RABBITMQ_USE_EXISTNG_ENTTIES",
+                "help": "Connect to an existing exchange and queue using their settings. An error is thrown if the exchange or queue does not exist. If False, it will create the exchange and queue if they do not exist. If they exist, then it will attempt to connect, checking the settings match. Default: True"
+            },
             "--rabbitmq-username": {
                 "dest": "rabbitmq_username",
                 "metavar": "SENZING_RABBITMQ_USERNAME",
@@ -660,6 +670,8 @@ message_dictionary = {
     "411": "RabbitMQ queue: {0} Unknown RabbitMQ error: {1} Message: {2}",
     "412": "RabbitMQ queue: {0} AMQPConnectionError: {1} Could not connect to RabbitMQ host at {2}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
     "413": "SQS queue: {0} Unknown SQS error: {1} Message: {2}",
+    "414": "The exchange {0} and/or the queue {1} exist but are configured with different parameters. Set rabbitmq-use-existing-entities to True to connect to the preconfigured exchange and queue, or delete the existing exchange and queue and try again.",
+    "415": "The exchange {0} and/or the queue {1} do not exist. Create them, or set rabbitmq-use-existing-entities to False to have stream-loader create them.",
     "499": "{0}",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "551": "Missing G2 database URL.",
@@ -936,7 +948,8 @@ def get_configuration(args):
     booleans = [
         'debug',
         'exit_on_empty_queue',
-        'skip_database_performance_test'
+        'skip_database_performance_test',
+        'rabbitmq_use_existing_entities',
     ]
     for boolean in booleans:
         boolean_value = result.get(boolean)
@@ -1641,6 +1654,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_password = self.config.get("rabbitmq_password")
         rabbitmq_host = self.config.get("rabbitmq_host")
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
+        rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
         self.data_source = self.config.get("data_source")
         self.entitiy_type = self.config.get("entity_type")
 
@@ -1650,7 +1664,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, credentials=credentials))
             channel = connection.channel()
-            channel.queue_declare(queue=rabbitmq_queue)
+            channel.queue_declare(queue=rabbitmq_queue, passive=rabbitmq_passive_declare)
             channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
             channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
         except pika.exceptions.AMQPConnectionError as err:
@@ -1777,6 +1791,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         rabbitmq_failure_username = self.config.get("rabbitmq_failure_username")
 
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
+        rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
 
         # Create RabbitMQ channel to publish "info".
 
@@ -1784,7 +1799,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
             info_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_info_host, credentials=info_credentials))
             self.info_channel = info_connection.channel()
-            self.info_channel.queue_declare(queue=rabbitmq_info_queue)
+            self.info_channel.queue_declare(queue=rabbitmq_info_queue, passive=rabbitmq_passive_declare)
         except (pika.exceptions.AMQPConnectionError) as err:
             exit_error(412, rabbitmq_info_queue, err, rabbitmq_info_host)
         except BaseException as err:
@@ -1796,7 +1811,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             failure_credentials = pika.PlainCredentials(rabbitmq_failure_username, rabbitmq_failure_password)
             failure_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_failure_host, credentials=failure_credentials))
             self.failure_channel = failure_connection.channel()
-            self.failure_channel.queue_declare(queue=rabbitmq_failure_queue)
+            self.failure_channel.queue_declare(queue=rabbitmq_failure_queue, passive=rabbitmq_passive_declare)
         except (pika.exceptions.AMQPConnectionError) as err:
             exit_error(412, rabbitmq_failure_queue, err, rabbitmq_failure_host)
         except BaseException as err:
@@ -1808,7 +1823,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, credentials=credentials))
             channel = connection.channel()
-            channel.queue_declare(queue=rabbitmq_queue)
+            channel.queue_declare(queue=rabbitmq_queue, passive=rabbitmq_passive_declare)
             channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
             channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
         except pika.exceptions.AMQPConnectionError as err:

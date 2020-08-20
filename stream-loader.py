@@ -195,6 +195,11 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_FAILURE_HOST",
         "cli": "rabbitmq-failure-host",
     },
+    "rabbitmq_failure_port": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_FAILURE_PORT",
+        "cli": "rabbitmq-failure-port",
+    },
     "rabbitmq_failure_password": {
         "default": None,
         "env": "SENZING_RABBITMQ_FAILURE_PASSWORD",
@@ -220,6 +225,11 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_INFO_HOST",
         "cli": "rabbitmq-info-host",
     },
+    "rabbitmq_info_port": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_INFO_PORT",
+        "cli": "rabbitmq-info-port",
+    },
     "rabbitmq_info_password": {
         "default": None,
         "env": "SENZING_RABBITMQ_INFO_PASSWORD",
@@ -239,6 +249,11 @@ configuration_locator = {
         "default": "bitnami",
         "env": "SENZING_RABBITMQ_PASSWORD",
         "cli": "rabbitmq-password",
+    },
+    "rabbitmq_port": {
+        "default": "5672",
+        "env": "SENZING_RABBITMQ_PORT",
+        "cli": "rabbitmq-port",
     },
     "rabbitmq_prefetch_count": {
         "default": 50,
@@ -380,6 +395,11 @@ def get_parser():
                     "metavar": "SENZING_RABBITMQ_INFO_HOST",
                     "help": "RabbitMQ host. Default: SENZING_RABBITMQ_HOST"
                 },
+                "--rabbitmq-info-port": {
+                    "dest": "rabbitmq_info_port",
+                    "metavar": "SENZING_RABBITMQ_INFO_PORT",
+                    "help": "RabbitMQ host. Default: SENZING_RABBITMQ_PORT"
+                },
                 "--rabbitmq-info-password": {
                     "dest": "rabbitmq_info_password",
                     "metavar": "SENZING_RABBITMQ_INFO_PASSWORD",
@@ -399,6 +419,11 @@ def get_parser():
                     "dest": "rabbitmq_failure_host",
                     "metavar": "SENZING_RABBITMQ_FAILURE_HOST",
                     "help": "RabbitMQ host. Default: SENZING_RABBITMQ_HOST"
+                },
+                "--rabbitmq-failure-port": {
+                    "dest": "rabbitmq_failure_port",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_PORT",
+                    "help": "RabbitMQ port. Default: SENZING_RABBITMQ_PORT"
                 },
                 "--rabbitmq-failure-password": {
                     "dest": "rabbitmq_failure_password",
@@ -528,6 +553,11 @@ def get_parser():
                 "dest": "rabbitmq_host",
                 "metavar": "SENZING_RABBITMQ_HOST",
                 "help": "RabbitMQ host. Default: localhost:5672"
+            },
+            "--rabbitmq-port": {
+                "dest": "rabbitmq_port",
+                "metavar": "SENZING_RABBITMQ_PORT",
+                "help": "RabbitMQ port. Default: 5672"
             },
             "--rabbitmq-password": {
                 "dest": "rabbitmq_password",
@@ -1653,6 +1683,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_username = self.config.get("rabbitmq_username")
         rabbitmq_password = self.config.get("rabbitmq_password")
         rabbitmq_host = self.config.get("rabbitmq_host")
+        rabbitmq_port = self.config.get("rabbitmq_port")
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
         self.data_source = self.config.get("data_source")
@@ -1662,7 +1693,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
         try:
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, credentials=credentials))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=credentials))
             channel = connection.channel()
             channel.queue_declare(queue=rabbitmq_queue, passive=rabbitmq_passive_declare)
             channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
@@ -1776,16 +1807,19 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         # Get config parameters.
 
         rabbitmq_host = self.config.get("rabbitmq_host")
+        rabbitmq_port = self.config.get("rabbitmq_port")
         rabbitmq_password = self.config.get("rabbitmq_password")
         rabbitmq_queue = self.config.get("rabbitmq_queue")
         rabbitmq_username = self.config.get("rabbitmq_username")
 
         rabbitmq_info_host = self.config.get("rabbitmq_info_host")
+        rabbitmq_info_port = self.config.get("rabbitmq_info_port")
         rabbitmq_info_password = self.config.get("rabbitmq_info_password")
         rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
         rabbitmq_info_username = self.config.get("rabbitmq_info_username")
 
         rabbitmq_failure_host = self.config.get("rabbitmq_failure_host")
+        rabbitmq_failure_port = self.config.get("rabbitmq_failure_port")
         rabbitmq_failure_password = self.config.get("rabbitmq_failure_password")
         rabbitmq_failure_queue = self.config.get("rabbitmq_failure_queue")
         rabbitmq_failure_username = self.config.get("rabbitmq_failure_username")
@@ -1797,7 +1831,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         try:
             info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
-            info_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_info_host, credentials=info_credentials))
+            info_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_info_host, port=rabbitmq_info_port, credentials=info_credentials))
             self.info_channel = info_connection.channel()
             self.info_channel.queue_declare(queue=rabbitmq_info_queue, passive=rabbitmq_passive_declare)
         except (pika.exceptions.AMQPConnectionError) as err:
@@ -1809,7 +1843,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         try:
             failure_credentials = pika.PlainCredentials(rabbitmq_failure_username, rabbitmq_failure_password)
-            failure_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_failure_host, credentials=failure_credentials))
+            failure_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_failure_host, port=rabbitmq_failure_port, credentials=failure_credentials))
             self.failure_channel = failure_connection.channel()
             self.failure_channel.queue_declare(queue=rabbitmq_failure_queue, passive=rabbitmq_passive_declare)
         except (pika.exceptions.AMQPConnectionError) as err:
@@ -1821,7 +1855,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         try:
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, credentials=credentials))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=credentials))
             channel = connection.channel()
             channel.queue_declare(queue=rabbitmq_queue, passive=rabbitmq_passive_declare)
             channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
@@ -3066,9 +3100,11 @@ def do_rabbitmq_withinfo(args):
 
     options_to_defaults_map = {
         "rabbitmq_failure_host": "rabbitmq_host",
+        "rabbitmq_failure_port": "rabbitmq_port",
         "rabbitmq_failure_password": "rabbitmq_password",
         "rabbitmq_failure_username": "rabbitmq_username",
         "rabbitmq_info_host": "rabbitmq_host",
+        "rabbitmq_info_port": "rabbitmq_port",
         "rabbitmq_info_password": "rabbitmq_password",
         "rabbitmq_info_username": "rabbitmq_username",
     }

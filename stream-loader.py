@@ -41,7 +41,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.7"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-08-19'
+__updated__ = '2020-08-20'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -1967,6 +1967,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         super().__init__(config, g2_engine, g2_configuration_manager)
         self.data_source = self.config.get('data_source')
         self.entity_type = self.config.get('entity_type')
+        self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.info_queue_url = config.get("sqs_info_queue_url")
         self.message_is_live = False

@@ -1411,7 +1411,7 @@ class WriteG2Thread(threading.Thread):
 
         filtered_info_json = self.filter_info_message(message=info_json)
 
-#         # Put "info" on info queue.
+        # Put "info" on info queue.
 
         if filtered_info_json:
             self.add_to_info_queue(filtered_info_json)

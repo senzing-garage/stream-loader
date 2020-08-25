@@ -205,10 +205,20 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_FAILURE_PASSWORD",
         "cli": "rabbitmq-failure-password",
     },
+    "rabbitmq_failure_exchange": {
+        "default": "senzing-rabbitmq-failure-exchange",
+        "env": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
+        "cli": "rabbitmq-failure-exchange",
+    },
     "rabbitmq_failure_queue": {
         "default": "senzing-rabbitmq-failure-queue",
         "env": "SENZING_RABBITMQ_FAILURE_QUEUE",
         "cli": "rabbitmq-failure-queue",
+    },
+    "rabbitmq_failure_routing_key": {
+        "default": "senzing.failure",
+        "env": "SENZING_RABBITMQ_FAILURE_ROUTING_KEY",
+        "cli": "rabbitmq-failure-routing-key",
     },
     "rabbitmq_failure_username": {
         "default": None,
@@ -235,10 +245,20 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_INFO_PASSWORD",
         "cli": "rabbitmq-info-password",
     },
+    "rabbitmq_info_exchange": {
+        "default": "senzing-rabbitmq-info-exchange",
+        "env": "SENZING_RABBITMQ_INFO_EXCHANGE",
+        "cli": "rabbitmq-info-exchange",
+    },
     "rabbitmq_info_queue": {
         "default": "senzing-rabbitmq-info-queue",
         "env": "SENZING_RABBITMQ_INFO_QUEUE",
         "cli": "rabbitmq-info-queue",
+    },
+    "rabbitmq_info_routing_key": {
+        "default": "senzing.info",
+        "env": "SENZING_RABBITMQ_INFO_ROUTING_KEY",
+        "cli": "rabbitmq-info-routing-key",
     },
     "rabbitmq_info_username": {
         "default": None,
@@ -405,10 +425,20 @@ def get_parser():
                     "metavar": "SENZING_RABBITMQ_INFO_PASSWORD",
                     "help": "RabbitMQ password. Default: SENZING_RABBITMQ_PASSWORD"
                 },
+                "--rabbitmq-info-exchange": {
+                    "dest": "rabbitmq_info_exchange",
+                    "metavar": "SENZING_RABBITMQ_INFO_EXCHANGE",
+                    "help": "RabbitMQ exchange for info. Default: senzing-rabbitmq-info-exchange"
+                },
                 "--rabbitmq-info-queue": {
                     "dest": "rabbitmq_info_queue",
                     "metavar": "SENZING_RABBITMQ_INFO_QUEUE",
                     "help": "RabbitMQ queue for info. Default: senzing-rabbitmq-info-queue"
+                },
+                "--rabbitmq-info-routing-key": {
+                    "dest": "rabbitmq_info_routing_key",
+                    "metavar": "SENZING_RABBITMQ_INFO_ROUTING_KEY",
+                    "help": "RabbitMQ routing key for info. Default: senzing-rabbitmq-info-routing-key"
                 },
                 "--rabbitmq-info-username": {
                     "dest": "rabbitmq_info_username",
@@ -430,10 +460,20 @@ def get_parser():
                     "metavar": "SENZING_RABBITMQ_FAILURE_PASSWORD",
                     "help": "RabbitMQ password. Default: SENZING_RABBITMQ_PASSWORD"
                 },
+                "--rabbitmq-failure-exchange": {
+                    "dest": "rabbitmq_failure_exchange",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
+                    "help": "RabbitMQ exchange for failures. Default: senzing-rabbitmq-failure-exchange"
+                },
                 "--rabbitmq-failure-queue": {
                     "dest": "rabbitmq_failure_queue",
                     "metavar": "SENZING_RABBITMQ_FAILURE_QUEUE",
                     "help": "RabbitMQ queue for failures. Default: senzing-rabbitmq-failure-queue"
+                },
+                "--rabbitmq-failure-routing-key": {
+                    "dest": "rabbitmq_failure_routing_key",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_ROUTING_KEY",
+                    "help": "RabbitMQ routing key for failures. Default: senzing.failure"
                 },
                 "--rabbitmq-failure-username": {
                     "dest": "rabbitmq_failure_username",
@@ -1371,7 +1411,7 @@ class WriteG2Thread(threading.Thread):
 
         filtered_info_json = self.filter_info_message(message=info_json)
 
-#         # Put "info" on info queue.
+        # Put "info" on info queue.
 
         if filtered_info_json:
             self.add_to_info_queue(filtered_info_json)
@@ -1731,8 +1771,8 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         jsonline_bytes = jsonline.encode()
         try:
             self.failure_channel.basic_publish(
-                exchange='',
-                routing_key=self.rabbitmq_failure_queue,
+                exchange=self.rabbitmq_failure_exchange,
+                routing_key=self.rabbitmq_failure_routing_key,
                 body=jsonline_bytes,
                 properties=pika.BasicProperties(
                     delivery_mode=2
@@ -1748,9 +1788,10 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         assert type(jsonline) == str
         jsonline_bytes = jsonline.encode()
         try:
+            #logging.warn("basic_publish to info exchange exchange=" + self.rabbitmq_info_exchange + " exchange " + 'senzing.info')
             self.info_channel.basic_publish(
-                exchange='',
-                routing_key=self.rabbitmq_info_queue,
+                exchange=self.rabbitmq_info_exchange,
+                routing_key=self.rabbitmq_info_routing_key,
                 body=jsonline_bytes,
                 properties=pika.BasicProperties(
                     delivery_mode=2
@@ -1815,13 +1856,17 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         rabbitmq_info_host = self.config.get("rabbitmq_info_host")
         rabbitmq_info_port = self.config.get("rabbitmq_info_port")
         rabbitmq_info_password = self.config.get("rabbitmq_info_password")
+        self.rabbitmq_info_exchange = self.config.get("rabbitmq_info_exchange")
         rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
+        self.rabbitmq_info_routing_key = self.config.get("rabbitmq_info_routing_key")
         rabbitmq_info_username = self.config.get("rabbitmq_info_username")
 
         rabbitmq_failure_host = self.config.get("rabbitmq_failure_host")
         rabbitmq_failure_port = self.config.get("rabbitmq_failure_port")
         rabbitmq_failure_password = self.config.get("rabbitmq_failure_password")
+        self.rabbitmq_failure_exchange = self.config.get("rabbitmq_failure_exchange")
         rabbitmq_failure_queue = self.config.get("rabbitmq_failure_queue")
+        self.rabbitmq_failure_routing_key = self.config.get("rabbitmq_failure_routing_key")
         rabbitmq_failure_username = self.config.get("rabbitmq_failure_username")
 
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
@@ -1833,7 +1878,12 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
             info_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_info_host, port=rabbitmq_info_port, credentials=info_credentials))
             self.info_channel = info_connection.channel()
-            self.info_channel.queue_declare(queue=rabbitmq_info_queue, passive=rabbitmq_passive_declare)
+            self.info_channel.exchange_declare(exchange=self.rabbitmq_info_exchange, passive=rabbitmq_passive_declare)
+            info_queue = self.info_channel.queue_declare(queue=rabbitmq_info_queue, passive=rabbitmq_passive_declare)
+
+            # if we are actively declaring, then we need to bind. If passive declare, we assume it is already set up
+            if not rabbitmq_passive_declare:
+                self.info_channel.queue_bind(exchange=self.rabbitmq_info_exchange, routing_key=self.rabbitmq_info_routing_key, queue=info_queue.method.queue)
         except (pika.exceptions.AMQPConnectionError) as err:
             exit_error(412, rabbitmq_info_queue, err, rabbitmq_info_host)
         except BaseException as err:
@@ -1845,7 +1895,12 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             failure_credentials = pika.PlainCredentials(rabbitmq_failure_username, rabbitmq_failure_password)
             failure_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_failure_host, port=rabbitmq_failure_port, credentials=failure_credentials))
             self.failure_channel = failure_connection.channel()
-            self.failure_channel.queue_declare(queue=rabbitmq_failure_queue, passive=rabbitmq_passive_declare)
+            self.failure_channel.exchange_declare(exchange=self.rabbitmq_failure_exchange, passive=rabbitmq_passive_declare)
+            failure_queue = self.failure_channel.queue_declare(queue=rabbitmq_failure_queue, passive=rabbitmq_passive_declare)
+
+            # if we are actively declaring, then we need to bind. If passive declare, we assume it is already set up
+            if not rabbitmq_passive_declare:
+                self.failure_channel.queue_bind(exchange=self.rabbitmq_failure_exchange, routing_key=self.rabbitmq_failure_routing_key, queue=failure_queue.method.queue)
         except (pika.exceptions.AMQPConnectionError) as err:
             exit_error(412, rabbitmq_failure_queue, err, rabbitmq_failure_host)
         except BaseException as err:

@@ -1134,6 +1134,7 @@ class Governor:
 
     def __init__(self, g2_engine=None, hint=None, *args, **kwargs):
         self.g2_engine = g2_engine
+        self.hint = hint
 
     def govern(self, *args, **kwargs):
         return
@@ -2189,7 +2190,7 @@ class UrlProcess(multiprocessing.Process):
 
         engine_name = "loader-G2-engine-{0}".format(self.name)
         self.g2_engine = get_g2_engine(config, engine_name)
-        governor = Governor(g2_engine=g2_engine)
+        governor = Governor(g2_engine=g2_engine, hint="stream-loader")
 
         # List of all threads.
 
@@ -2856,7 +2857,7 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
-    governor = Governor(g2_engine=g2_engine)
+    governor = Governor(g2_engine=g2_engine, hint="stream-loader")
 
     # Create RabbitMQ reader threads for master process.
 
@@ -2955,7 +2956,7 @@ def do_kafka(args):
 
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
-    governor = Governor(g2_engine=g2_engine)
+    governor = Governor(g2_engine=g2_engine, hint="stream-loader")
 
     # Create kafka reader threads for master process.
 
@@ -3033,7 +3034,7 @@ def do_kafka_withinfo(args):
 
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
-    governor = Governor(g2_engine=g2_engine)
+    governor = Governor(g2_engine=g2_engine, hint="stream-loader")
 
     # Create kafka reader threads for master process.
 
@@ -3100,7 +3101,7 @@ def do_rabbitmq(args):
 
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
-    governor = Governor(g2_engine=g2_engine)
+    governor = Governor(g2_engine=g2_engine, hint="stream-loader")
 
     # Create RabbitMQ reader threads for master process.
 
@@ -3184,7 +3185,7 @@ def do_rabbitmq_withinfo(args):
 
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
-    governor = Governor(g2_engine=g2_engine)
+    governor = Governor(g2_engine=g2_engine, hint="stream-loader")
 
     # Create RabbitMQ reader threads for master process.
 

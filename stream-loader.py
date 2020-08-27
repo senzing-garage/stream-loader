@@ -41,7 +41,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.7"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-08-20'
+__updated__ = '2020-08-27'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -177,11 +177,6 @@ configuration_locator = {
         "default": 60 * 10,
         "env": "SENZING_MONITORING_PERIOD_IN_SECONDS",
         "cli": "monitoring-period-in-seconds",
-    },
-    "processes": {
-        "default": 1,
-        "env": "SENZING_PROCESSES",
-        "cli": "processes",
     },
     "python_path": {
         "env": "PYTHONPATH"
@@ -753,7 +748,6 @@ message_dictionary = {
     "557": "Invalid JSON received: {0}",
     "558": "LD_LIBRARY_PATH environment variable not set.",
     "559": "PYTHONPATH environment variable not set.",
-    "560": "SENZING_PROCESSES for 'url' subcommand must be 1. Currently set to {0}.",
     "561": "Unknown RabbitMQ error when connecting: {0}.",
     "562": "Could not connect to RabbitMQ host at {1}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details. Error: {0}",
     "563": "Could not perform database performance test.",
@@ -1039,7 +1033,6 @@ def get_configuration(args):
         'expiration_warning_in_days',
         'log_license_period_in_seconds',
         'monitoring_period_in_seconds',
-        'processes',
         'queue_maxsize',
         'rabbitmq_prefetch_count',
         'sleep_time_in_seconds',
@@ -1087,11 +1080,6 @@ def validate_configuration(config):
 
         if not config.get('python_path'):
             user_error_messages.append(message_error(559))
-
-    if subcommand in ['stdin', 'url']:
-
-        if config.get('processes') > 1:
-            user_error_messages.append(message_error(560, config.get('processes')))
 
     if subcommand in ['stdin']:
 
@@ -1150,6 +1138,15 @@ class Governor:
     def govern(self, *args, **kwargs):
         return
 
+    def close(self):
+        return
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
+
 # -----------------------------------------------------------------------------
 # Class: InfoFilter
 # -----------------------------------------------------------------------------
@@ -1168,7 +1165,7 @@ class InfoFilter:
 # -----------------------------------------------------------------------------
 
 
-class KafkaProcess(multiprocessing.Process):
+class XXKafkaProcess(multiprocessing.Process):
 
     def __init__(self, config, g2_engine, g2_configuration_manager):
         multiprocessing.Process.__init__(self)
@@ -1209,7 +1206,7 @@ class KafkaProcess(multiprocessing.Process):
 # -----------------------------------------------------------------------------
 
 
-class RabbitMQProcess(multiprocessing.Process):
+class XXRabbitMQProcess(multiprocessing.Process):
 
     def __init__(self, config, g2_engine, g2_configuration_manager):
         multiprocessing.Process.__init__(self)
@@ -1252,12 +1249,12 @@ class RabbitMQProcess(multiprocessing.Process):
 
 class WriteG2Thread(threading.Thread):
 
-    def __init__(self, config, g2_engine, g2_configuration_manager):
+    def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         threading.Thread.__init__(self)
         self.config = config
         self.g2_engine = g2_engine
         self.g2_configuration_manager = g2_configuration_manager
-        self.governor = Governor(g2_engine=g2_engine)
+        self.governor = governor
         self.info_filter = InfoFilter(g2_engine=g2_engine)
 
     def add_to_failure_queue(self, jsonline):
@@ -1424,8 +1421,8 @@ class WriteG2Thread(threading.Thread):
 
 class ReadKafkaWriteG2Thread(WriteG2Thread):
 
-    def __init__(self, config, g2_engine, g2_configuration_manager):
-        super().__init__(config, g2_engine, g2_configuration_manager)
+    def __init__(self, config, g2_engine, g2_configuration_manager, governor):
+        super().__init__(config, g2_engine, g2_configuration_manager, governor)
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -1519,8 +1516,8 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
 class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
-    def __init__(self, config, g2_engine, g2_configuration_manager):
-        super().__init__(config, g2_engine, g2_configuration_manager)
+    def __init__(self, config, g2_engine, g2_configuration_manager, governor):
+        super().__init__(config, g2_engine, g2_configuration_manager, governor)
         self.info_producer = None
         self.info_topic = config.get("kafka_info_topic")
         self.failure_producer = None
@@ -1672,8 +1669,8 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
 class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
-    def __init__(self, config, g2_engine, g2_configuration_manager):
-        super().__init__(config, g2_engine, g2_configuration_manager)
+    def __init__(self, config, g2_engine, g2_configuration_manager, governor):
+        super().__init__(config, g2_engine, g2_configuration_manager, governor)
 
     def callback(self, ch, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -1757,8 +1754,8 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
 class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
-    def __init__(self, config, g2_engine, g2_configuration_manager):
-        super().__init__(config, g2_engine, g2_configuration_manager)
+    def __init__(self, config, g2_engine, g2_configuration_manager, governor):
+        super().__init__(config, g2_engine, g2_configuration_manager, governor)
         self.data_source = self.config.get("data_source")
         self.entitiy_type = self.config.get("entity_type")
         self.rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
@@ -1788,7 +1785,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         assert type(jsonline) == str
         jsonline_bytes = jsonline.encode()
         try:
-            #logging.warn("basic_publish to info exchange exchange=" + self.rabbitmq_info_exchange + " exchange " + 'senzing.info')
+            # logging.warn("basic_publish to info exchange exchange=" + self.rabbitmq_info_exchange + " exchange " + 'senzing.info')
             self.info_channel.basic_publish(
                 exchange=self.rabbitmq_info_exchange,
                 routing_key=self.rabbitmq_info_routing_key,
@@ -1934,8 +1931,8 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
 class ReadSqsWriteG2Thread(WriteG2Thread):
 
-    def __init__(self, config, g2_engine, g2_configuration_manager):
-        super().__init__(config, g2_engine, g2_configuration_manager)
+    def __init__(self, config, g2_engine, g2_configuration_manager, governor):
+        super().__init__(config, g2_engine, g2_configuration_manager, governor)
         self.data_source = self.config.get('data_source')
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
@@ -2052,8 +2049,8 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
 class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
-    def __init__(self, config, g2_engine, g2_configuration_manager):
-        super().__init__(config, g2_engine, g2_configuration_manager)
+    def __init__(self, config, g2_engine, g2_configuration_manager, governor):
+        super().__init__(config, g2_engine, g2_configuration_manager, governor)
         self.data_source = self.config.get('data_source')
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
@@ -2192,6 +2189,7 @@ class UrlProcess(multiprocessing.Process):
 
         engine_name = "loader-G2-engine-{0}".format(self.name)
         self.g2_engine = get_g2_engine(config, engine_name)
+        governor = Governor(g2_engine=g2_engine)
 
         # List of all threads.
 
@@ -2207,7 +2205,7 @@ class UrlProcess(multiprocessing.Process):
 
         threads_per_process = config.get('threads_per_process')
         for i in range(0, threads_per_process):
-            thread = ReadQueueWriteG2Thread(config, self.g2_engine, self.g2_configuration_manager, work_queue)
+            thread = ReadQueueWriteG2Thread(config, self.g2_engine, self.g2_configuration_manager, work_queue, governor)
             thread.name = "{0}-writer-{1}".format(self.name, i)
             self.threads.append(thread)
 
@@ -2361,8 +2359,8 @@ class ReadUrlWriteQueueThread(threading.Thread):
 class ReadQueueWriteG2Thread(WriteG2Thread):
     '''Thread for writing ...'''
 
-    def __init__(self, config, g2_engine, g2_configuration_manager, queue):
-        super().__init__(config, g2_engine, g2_configuration_manager)
+    def __init__(self, config, g2_engine, g2_configuration_manager, queue, governor):
+        super().__init__(config, g2_engine, g2_configuration_manager, governor)
         self.queue = queue
 
     def run(self):
@@ -2858,12 +2856,13 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
+    governor = Governor(g2_engine=g2_engine)
 
     # Create RabbitMQ reader threads for master process.
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = threadClass(config, g2_engine, g2_configuration_manager)
+        thread = threadClass(config, g2_engine, g2_configuration_manager, governor)
         thread.name = "{0}-0-thread-{1}".format(threadClass.__name__, i)
         threads.append(thread)
 
@@ -2956,12 +2955,13 @@ def do_kafka(args):
 
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
+    governor = Governor(g2_engine=g2_engine)
 
     # Create kafka reader threads for master process.
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadKafkaWriteG2Thread(config, g2_engine, g2_configuration_manager)
+        thread = ReadKafkaWriteG2Thread(config, g2_engine, g2_configuration_manager, governor)
         thread.name = "KafkaProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
@@ -3033,12 +3033,13 @@ def do_kafka_withinfo(args):
 
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
+    governor = Governor(g2_engine=g2_engine)
 
     # Create kafka reader threads for master process.
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadKafkaWriteG2WithInfoThread(config, g2_engine, g2_configuration_manager)
+        thread = ReadKafkaWriteG2WithInfoThread(config, g2_engine, g2_configuration_manager, governor)
         thread.name = "KafkaProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
@@ -3099,12 +3100,13 @@ def do_rabbitmq(args):
 
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
+    governor = Governor(g2_engine=g2_engine)
 
     # Create RabbitMQ reader threads for master process.
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadRabbitMQWriteG2Thread(config, g2_engine, g2_configuration_manager)
+        thread = ReadRabbitMQWriteG2Thread(config, g2_engine, g2_configuration_manager, governor)
         thread.name = "RabbitMQProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
@@ -3182,12 +3184,13 @@ def do_rabbitmq_withinfo(args):
 
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
+    governor = Governor(g2_engine=g2_engine)
 
     # Create RabbitMQ reader threads for master process.
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadRabbitMQWriteG2WithInfoThread(config, g2_engine, g2_configuration_manager)
+        thread = ReadRabbitMQWriteG2WithInfoThread(config, g2_engine, g2_configuration_manager, governor)
         thread.name = "RabbitMQProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
@@ -3285,7 +3288,6 @@ def do_url(args):
 
     # Pull values from configuration.
 
-    number_of_processes = config.get('processes')
     queue_maxsize = config.get('queue_maxsize')
 
     # Create Queue.
@@ -3295,9 +3297,10 @@ def do_url(args):
     # Start processes.
 
     processes = []
-    for i in range(0, number_of_processes):
+    for i in range(0, 1):
         process = UrlProcess(config, work_queue)
         process.start()
+        processes.append(process)
 
     # Collect inactive processes.
 

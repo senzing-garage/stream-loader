@@ -41,7 +41,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.7"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-08-27'
+__updated__ = '2020-08-28'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -1160,88 +1160,6 @@ class InfoFilter:
 
     def filter(self, message=None, *args, **kwargs):
         return message
-
-# -----------------------------------------------------------------------------
-# Class: KafkaProcess
-# -----------------------------------------------------------------------------
-
-
-class XXKafkaProcess(multiprocessing.Process):
-
-    def __init__(self, config, g2_engine, g2_configuration_manager):
-        multiprocessing.Process.__init__(self)
-
-        # Create kafka reader threads.
-
-        self.threads = []
-        threads_per_process = config.get('threads_per_process')
-        for i in range(0, threads_per_process):
-            thread = ReadKafkaWriteG2Thread(config, g2_engine, g2_configuration_manager)
-            thread.name = "{0}-thread-{1}".format(self.name, i)
-            self.threads.append(thread)
-
-        # Create administrative threads for this process.
-
-        self.adminThreads = []
-        thread = MonitorThread(config, g2_engine, self.threads)
-        thread.name = "{0}-thread-monitor".format(self.name)
-        self.adminThreads.append(thread)
-
-    def run(self):
-
-        # Start threads.
-
-        for thread in self.threads:
-            thread.start()
-
-        for thread in self.adminThreads:
-            thread.start()
-
-        # Collect inactive threads.
-
-        for thread in self.threads:
-            thread.join()
-
-# -----------------------------------------------------------------------------
-# Class: RabbitMQProcess
-# -----------------------------------------------------------------------------
-
-
-class XXRabbitMQProcess(multiprocessing.Process):
-
-    def __init__(self, config, g2_engine, g2_configuration_manager):
-        multiprocessing.Process.__init__(self)
-
-        # Create RabbitMQ reader threads.
-
-        self.threads = []
-        threads_per_process = config.get('threads_per_process')
-        for i in range(0, threads_per_process):
-            thread = ReadRabbitMQWriteG2Thread(config, g2_engine, g2_configuration_manager)
-            thread.name = "{0}-thread-{1}".format(self.name, i)
-            self.threads.append(thread)
-
-        # Create administrative threads for this process.
-
-        self.adminThreads = []
-        thread = MonitorThread(config, g2_engine, self.threads)
-        thread.name = "{0}-thread-monitor".format(self.name)
-        self.adminThreads.append(thread)
-
-    def run(self):
-
-        # Start threads.
-
-        for thread in self.threads:
-            thread.start()
-
-        for thread in self.adminThreads:
-            thread.start()
-
-        # Collect inactive threads.
-
-        for thread in self.threads:
-            thread.join()
 
 # -----------------------------------------------------------------------------
 # Class: WriteG2Thread

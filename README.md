@@ -344,6 +344,12 @@ For other databases, these steps may be skipped.
       senzing/stream-loader
     ```
 
+## Demonstrate using Kubernetes
+
+## Demonstrate using Openshift
+
+## Demonstrate using AWS-ECS
+
 ## Develop
 
 ### Prerequisite software

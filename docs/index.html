@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport"
+    content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="description" content="">
+<meta name="author" content="support@senzing.com">
+<title>Senzing Certified: Stream Loader</title>
+<link rel="canonical" href="https://senzing.github.io/">
+<link rel="icon" type="image/png" sizes="32x32"
+    href="/images/favicon/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="96x96"
+    href="/images/favicon/favicon-96x96.png">
+<link rel="icon" type="image/png" sizes="16x16"
+    href="/images/favicon/favicon-16x16.png">
+
+<!-- CSS -->
+
+<link rel="stylesheet"
+    href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z"
+    crossorigin="anonymous">
+
+<style>
+.bd-placeholder-img {
+  font-size: 1.125rem;
+  text-anchor: middle;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+@media ( min-width : 768px) {
+  .bd-placeholder-img-lg {
+    font-size: 3.5rem;
+  }
+}
+</style>
+
+<link
+    href="https://fonts.googleapis.com/css?family=Playfair+Display:700,900"
+    rel="stylesheet">
+<link href="index.css" rel="stylesheet">
+
+</head>
+<body>
+    <header>
+        <div class="navbar navbar-dark bg-dark shadow-sm">
+            <div class="container d-flex justify-content-between">
+                <a href="#"
+                    class="navbar-brand d-flex align-items-center">
+                    <strong>Sen<span style="color: red">z</span>ing
+                </strong>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main role="main">
+
+    <div class="container">
+        <div class="row mb-2"></div>
+
+        <div class="jumbotron p-3 p-md-5 text-white rounded bg-dark">
+            <div class="row mb-2">
+                <div class="col-md-6 px-0">
+                    <h1 class="display-4 font-italic">Stream Loader</h1>
+                    <h4 class="text-center text-muted">
+                        Version <span class="senzing-artifact-version"></span>
+                    </h4>
+                    <p class="senzing-description lead my-3"></p>
+                </div>
+                <div class="col-md-6 px-0">
+                    <img src="img/thumbnail.png" alt="..."
+                        class="img-thumbnail mx-auto d-block">
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-md-12 px-0">
+                    <p class=" lead my-3">The Senzing Stream Loader
+                        is used to pull messages from a queue and insert
+                        into the Senzing Model via the Senzing Engine.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-2"></div>
+        <div class="row mb-0">
+
+            <!-- Linux -->
+
+            <div class="col-md-6">
+                <div class="card flex-md-row mb-4 box-shadow h-md-250">
+                    <div
+                        class="card-body d-flex flex-column align-items-start">
+                        <strong class="d-inline-block mb-2 text-success">Linux</strong>
+                        <p class="card-text mb-auto">
+                            <code class="text-dark">stream-loader.py</code>
+                            can be run directly on Linux. Simply
+                            download the python script and run.
+                        </p>
+                        <p>
+                            <a
+                                class="senzing-add-href-for-github-command-line"
+                                href="">More information...</a>
+                        </p>
+                        <div>
+                            <a download
+                                class="senzing-add-href-for-artifact"
+                                href="#">
+                                <button type="button"
+                                    class="btn btn-primary">Download</button>
+                            </a> <a
+                                class="senzing-add-href-for-github-repository"
+                                href="#">
+                                <button type="button"
+                                    class="btn btn-secondary">
+                                    <img
+                                        src="/images/github/GitHub-Mark-Light-19px.png">
+                                    View on GitHub
+                                </button>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Docker -->
+
+            <div class="col-md-6">
+                <div class="card flex-md-row mb-4 box-shadow h-md-250">
+                    <div class="card-body d-flex flex-column">
+                        <strong class="d-inline-block mb-2 text-success">Docker</strong>
+
+                        <p class="card-text mb-auto">
+                            <code class="text-dark">stream-loader.py</code>
+                            is wrapped in a docker container.
+                        </p>
+                        <p>
+                            <code class="d-block p-2 bg-dark text-white">
+                                docker pull senzing/stream-loader:<span
+                                    class="senzing-artifact-version"></span>
+                            </code>
+                        </p>
+                        <p>
+                            <a
+                                class="senzing-add-href-for-github-docker"
+                                href="">More information...</a>
+                        </p>
+                        <div>
+                            <a
+                                class="senzing-add-href-for-docker-repository"
+                                href="https://hub.docker.com/r/senzing/stream-loader">
+                                <button type="button"
+                                    class="btn btn-secondary">
+                                    <img
+                                        src="/images/dockerhub/DockerHub-Mark-Light-27x19px.png">
+                                    View on DockerHub
+                                </button>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kubernetes -->
+
+            <div class="col-md-6">
+                <div class="card flex-md-row mb-4 box-shadow h-md-250">
+                    <div
+                        class="card-body d-flex flex-column align-items-start">
+                        <strong class="d-inline-block mb-2 text-success">Kubernetes</strong>
+                        <p class="card-text mb-auto">Install Helm
+                            Chart.</p>
+                        <p>
+                            <code class="d-block p-2 bg-dark text-white">
+                                helm install --set image.tag=<span
+                                    class="senzing-artifact-version"></span>
+                                ... senzing/stream-loader
+                            </code>
+                        </p>
+                        <p>
+                            <a
+                                class="senzing-add-href-for-github-kubernetes"
+                                href="#">More information...</a>
+                        </p>
+                        <div>
+                            <a
+                                class="senzing-add-href-for-docker-repository"
+                                href="https://github.com/Senzing/charts/tree/master/charts/senzing-stream-loader/senzing-stream-loader">
+                                <button type="button"
+                                    class="btn btn-secondary">
+                                    <img
+                                        src="/images/helm/Helm-Mark-Light-20x19px.png">
+                                    View Helm Chart
+                                </button>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AWS Elastic Container Service -->
+
+            <div class="col-md-6">
+                <div class="card flex-md-row mb-4 box-shadow h-md-250">
+                    <div
+                        class="card-body d-flex flex-column align-items-start">
+                        <strong class="d-inline-block mb-2 text-success">AWS
+                            Elastic Container Service</strong>
+                        <p class="card-text mb-auto"></p>
+                        <p>
+                            <a
+                                class="senzing-add-href-for-github-aws-ecs"
+                                href="#">More information...</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OpenShift -->
+
+            <div class="col-md-6">
+                <div class="card flex-md-row mb-4 box-shadow h-md-250">
+                    <div
+                        class="card-body d-flex flex-column align-items-start">
+                        <strong class="d-inline-block mb-2 text-success">OpenShift</strong>
+                        <p class="card-text mb-auto"></p>
+                        <p>
+                            <a
+                                class="senzing-add-href-for-github-openshift"
+                                href="#">More information...</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- End of tiles -->
+
+        </div>
+    </div>
+    </main>
+
+    <footer class="blog-footer">
+        <p>
+            <a href="#">Back to top</a>
+        </p>
+    </footer>
+
+    <!-- Scripts -->
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"
+        integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
+        crossorigin="anonymous"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"
+        integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN"
+        crossorigin="anonymous"></script>
+    <script
+        src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+        integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV"
+        crossorigin="anonymous"></script>
+    <script>
+    $(document).ready(function() {
+      $.getJSON("certification-data/certified-artifacts.json", function(data) {
+
+        <!-- Get certification data -->
+
+        var certified = data.certified.streamLoader
+        var description = certified.description != null ? certified.description : "No description"
+        var certifiedCurrent = certified.certifiedCurrent != null ? certified.certifiedCurrent : "0.0.0"
+
+        <!-- Modify HTML -->
+
+        $("<span>" + certifiedCurrent + "</span>").appendTo(".senzing-artifact-version")
+        $("<span>" + description + "</span>").appendTo(".senzing-description")
+        $('.senzing-add-href-for-artifact').attr('href', "https://raw.githubusercontent.com/Senzing/stream-loader/" + certifiedCurrent + "/stream-loader.py");
+        $('.senzing-add-href-for-github-aws-ecs').attr('href', "https://github.com/Senzing/stream-loader/blob/" + certifiedCurrent + "/README.md#demonstrate-using-aws-ecs");
+        $('.senzing-add-href-for-github-command-line').attr('href', "https://github.com/Senzing/stream-loader/blob/" + certifiedCurrent + "/README.md#demonstrate-using-command-line");
+        $('.senzing-add-href-for-github-docker').attr('href', "https://github.com/Senzing/stream-loader/blob/" + certifiedCurrent + "/README.md#demonstrate-using-docker");
+        $('.senzing-add-href-for-github-kubernetes').attr('href', "https://github.com/Senzing/stream-loader/blob/" + certifiedCurrent + "/README.md#demonstrate-using-kubernetes");
+        $('.senzing-add-href-for-github-openshift').attr('href', "https://github.com/Senzing/stream-loader/blob/" + certifiedCurrent + "/README.md#demonstrate-using-openshift");
+        $('.senzing-add-href-for-github-repository').attr('href', "https://github.com/Senzing/stream-loader/tree/" + certifiedCurrent);
+
+      });
+    });
+  </script>
+</html>

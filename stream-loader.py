@@ -41,7 +41,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.5.7"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-08-28'
+__updated__ = '2020-09-10'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -304,6 +304,11 @@ configuration_locator = {
         "default": 0,
         "env": "SENZING_SLEEP_TIME_IN_SECONDS",
         "cli": "sleep-time-in-seconds"
+    },
+    "sqs_dead_letter_queue_enabled": {
+        "default": False,
+        "env": "SENZING_SQS_DEAD_LETTER_QUEUE_ENABLED",
+        "cli": "sqs-dead-letter-queue-enabled"
     },
     "sqs_failure_queue_url": {
         "default": None,
@@ -737,6 +742,7 @@ message_dictionary = {
     "413": "SQS queue: {0} Unknown SQS error: {1} Message: {2}",
     "414": "The exchange {0} and/or the queue {1} exist but are configured with different parameters. Set rabbitmq-use-existing-entities to True to connect to the preconfigured exchange and queue, or delete the existing exchange and queue and try again.",
     "415": "The exchange {0} and/or the queue {1} do not exist. Create them, or set rabbitmq-use-existing-entities to False to have stream-loader create them.",
+    "416": "Candidate for SQS dead-letter queue: {0}",
     "499": "{0}",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "551": "Missing G2 database URL.",
@@ -1012,8 +1018,9 @@ def get_configuration(args):
     booleans = [
         'debug',
         'exit_on_empty_queue',
-        'skip_database_performance_test',
         'rabbitmq_use_existing_entities',
+        'skip_database_performance_test',
+        'sqs_dead_letter_queue_enabled',
     ]
     for boolean in booleans:
         boolean_value = result.get(boolean)
@@ -1274,6 +1281,7 @@ class WriteG2Thread(threading.Thread):
     def send_jsonline_to_g2_engine(self, jsonline):
         '''Send the JSONline to G2 engine.'''
         assert type(jsonline) == str
+        result = True
 
         # Periodically, check for configuration update.
 
@@ -1286,19 +1294,25 @@ class WriteG2Thread(threading.Thread):
         try:
             self.add_record(jsonline)
         except G2Exception.G2ModuleNotInitialized as err:
+            result = False
             exit_error(888, err, jsonline)
         except G2Exception.G2ModuleGenericException as err:
+            result = False
             logging.error(message_error(889, err, jsonline))
             self.add_to_failure_queue(jsonline)
         except Exception as err:
+            result = False
             logging.error(message_error(890, err, jsonline))
             self.add_to_failure_queue(jsonline)
 
         logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
+        return result
+
     def send_jsonline_to_g2_engine_withinfo(self, jsonline):
         '''Send the JSONline to G2 engine.'''
         assert type(jsonline) == str
+        result = True
 
         # Periodically, check for configuration update.
 
@@ -1312,26 +1326,33 @@ class WriteG2Thread(threading.Thread):
         try:
             info_json = self.add_record_withinfo(jsonline)
         except G2Exception.G2ModuleNotInitialized as err:
+            result = False
             self.add_to_failure_queue(jsonline)
             exit_error(888, err, jsonline)
         except G2Exception.G2ModuleGenericException as err:
+            result = False
             self.add_to_failure_queue(jsonline)
             logging.error(message_error(889, err, jsonline))
-            return
         except Exception as err:
+            result = False
             self.add_to_failure_queue(jsonline)
             logging.error(message_error(890, err, jsonline))
-            return
 
-        # Allow user to manipulate the message.
+        # If successful add_record_withinfo().
 
-        filtered_info_json = self.filter_info_message(message=info_json)
+        if result:
 
-        # Put "info" on info queue.
+            # Allow user to manipulate the Info message.
 
-        if filtered_info_json:
-            self.add_to_info_queue(filtered_info_json)
-            logging.debug(message_debug(904, threading.current_thread().name, filtered_info_json))
+            filtered_info_json = self.filter_info_message(message=info_json)
+
+            # Put "info" on info queue.
+
+            if filtered_info_json:
+                self.add_to_info_queue(filtered_info_json)
+                logging.debug(message_debug(904, threading.current_thread().name, filtered_info_json))
+
+        return result
 
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaWriteG2Thread
@@ -1856,9 +1877,9 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
-        self.message_is_live = False
         self.queue_url = config.get("sqs_queue_url")
         self.sqs = boto3.client("sqs")
+        self.sqs_dead_letter_queue_enabled = config.get('sqs_dead_letter_queue_enabled')
         self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
 
     def add_to_failure_queue(self, jsonline):
@@ -1879,8 +1900,9 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                 logging.info(message_info(911, jsonline))
             except:
                 logging.warn(message_warning(413, self.failure_queue_url, err, jsonline))
+        elif self.sqs_dead_letter_queue_enabled:
+            logging.warn(message_warning(416, jsonline))
         else:
-            self.message_is_live = False
             logging.info(message_info(221, jsonline))
 
     def run(self):
@@ -1946,9 +1968,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
             # Send valid JSON to Senzing.
 
-            self.message_is_live = True
-            self.send_jsonline_to_g2_engine(sqs_message_string)
-            if self.message_is_live:
+            if self.send_jsonline_to_g2_engine(sqs_message_string):
 
                 # Record successful transfer to Senzing.
 
@@ -1975,9 +1995,9 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.info_queue_url = config.get("sqs_info_queue_url")
-        self.message_is_live = False
         self.queue_url = config.get("sqs_queue_url")
         self.sqs = boto3.client("sqs")
+        self.sqs_dead_letter_queue_enabled = config.get('sqs_dead_letter_queue_enabled')
         self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
 
     def add_to_failure_queue(self, jsonline):
@@ -1998,8 +2018,9 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                 logging.info(message_info(911, jsonline))
             except:
                 logging.warn(message_warning(413, self.failure_queue_url, err, jsonline))
+        elif self.sqs_dead_letter_queue_enabled:
+            logging.warn(message_warning(416, jsonline))
         else:
-            self.message_is_live = False
             logging.info(message_info(221, jsonline))
 
     def add_to_info_queue(self, jsonline):
@@ -2079,9 +2100,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
             # Send valid JSON to Senzing.
 
-            self.message_is_live = True
-            self.send_jsonline_to_g2_engine_withinfo(sqs_message_string)
-            if self.message_is_live:
+            if self.send_jsonline_to_g2_engine_withinfo(sqs_message_string):
 
                 # Record successful transfer to Senzing.
 

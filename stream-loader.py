@@ -185,6 +185,11 @@ configuration_locator = {
         "default": 10,
         "env": "SENZING_QUEUE_MAX",
     },
+    "rabbitmq_exchange": {
+        "default": "senzing-rabbitmq-exchange",
+        "env": "SENZING_RABBITMQ_EXCHANGE",
+        "cli": "rabbitmq-exchange",
+    },
     "rabbitmq_failure_host": {
         "default": None,
         "env": "SENZING_RABBITMQ_FAILURE_HOST",
@@ -201,7 +206,7 @@ configuration_locator = {
         "cli": "rabbitmq-failure-password",
     },
     "rabbitmq_failure_exchange": {
-        "default": "senzing-rabbitmq-failure-exchange",
+        "default": None,
         "env": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
         "cli": "rabbitmq-failure-exchange",
     },
@@ -241,7 +246,7 @@ configuration_locator = {
         "cli": "rabbitmq-info-password",
     },
     "rabbitmq_info_exchange": {
-        "default": "senzing-rabbitmq-info-exchange",
+        "default": None,
         "env": "SENZING_RABBITMQ_INFO_EXCHANGE",
         "cli": "rabbitmq-info-exchange",
     },
@@ -423,7 +428,7 @@ def get_parser():
                 "--rabbitmq-info-exchange": {
                     "dest": "rabbitmq_info_exchange",
                     "metavar": "SENZING_RABBITMQ_INFO_EXCHANGE",
-                    "help": "RabbitMQ exchange for info. Default: senzing-rabbitmq-info-exchange"
+                    "help": "RabbitMQ exchange for info. Default: SENZING_RABBITMQ_EXCHANGE"
                 },
                 "--rabbitmq-info-queue": {
                     "dest": "rabbitmq_info_queue",
@@ -458,7 +463,7 @@ def get_parser():
                 "--rabbitmq-failure-exchange": {
                     "dest": "rabbitmq_failure_exchange",
                     "metavar": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
-                    "help": "RabbitMQ exchange for failures. Default: senzing-rabbitmq-failure-exchange"
+                    "help": "RabbitMQ exchange for failures. Default: SENZING_RABBITMQ_EXCHANGE"
                 },
                 "--rabbitmq-failure-queue": {
                     "dest": "rabbitmq_failure_queue",
@@ -584,6 +589,11 @@ def get_parser():
             },
         },
         "rabbitmq_base": {
+            "--rabbitmq-exchange": {
+                "dest": "rabbitmq_exchange",
+                "metavar": "SENZING_RABBITMQ_EXCHANGE",
+                "help": "RabbitMQ exchange. Default: senzing-rabbitmq-exchange"
+            },
             "--rabbitmq-host": {
                 "dest": "rabbitmq_host",
                 "metavar": "SENZING_RABBITMQ_HOST",
@@ -1704,7 +1714,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         assert type(jsonline) == str
         jsonline_bytes = jsonline.encode()
         try:
-            # logging.warn("basic_publish to info exchange exchange=" + self.rabbitmq_info_exchange + " exchange " + 'senzing.info')
             self.info_channel.basic_publish(
                 exchange=self.rabbitmq_info_exchange,
                 routing_key=self.rabbitmq_info_routing_key,
@@ -3076,10 +3085,12 @@ def do_rabbitmq_withinfo(args):
     # If configuration values not specified, use defaults.
 
     options_to_defaults_map = {
+        "rabbitmq_failure_exchange": "rabbitmq_exchange",
         "rabbitmq_failure_host": "rabbitmq_host",
         "rabbitmq_failure_port": "rabbitmq_port",
         "rabbitmq_failure_password": "rabbitmq_password",
         "rabbitmq_failure_username": "rabbitmq_username",
+        "rabbitmq_info_exchange": "rabbitmq_exchange",
         "rabbitmq_info_host": "rabbitmq_host",
         "rabbitmq_info_port": "rabbitmq_port",
         "rabbitmq_info_password": "rabbitmq_password",

@@ -41,7 +41,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.6.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-09-10'
+__updated__ = '2020-09-11'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -1741,7 +1741,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         except BaseException as err:
             result = False
-            logging.warning(message_warning(411, self.rabbitmq_failure_queue, err, jsonline))
+            logging.warning(message_warning(411, self.rabbitmq_failure_exchange, err, jsonline))
 
         return result
 
@@ -1762,7 +1762,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             logging.debug(message_debug(910, jsonline))
 
         except BaseException as err:
-            logging.warning(message_warning(411, self.rabbitmq_info_queue, err, jsonline))
+            logging.warning(message_warning(411, self.rabbitmq_info_exchange, err, jsonline))
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))

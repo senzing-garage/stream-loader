@@ -1342,7 +1342,7 @@ class WriteG2Thread(threading.Thread):
 
         # If successful add_record_withinfo().
 
-        if result:
+        if info_json:
 
             # Allow user to manipulate the Info message.
 
@@ -1473,7 +1473,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         message_error = message.error()
         logging.debug(message_debug(103, message_topic, message_value, message_error, error))
         if error is not None:
-            logging.warn(message_warning(408, message_topic, message_value, message_error, error))
+            logging.warning(message_warning(408, message_topic, message_value, message_error, error))
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -1488,16 +1488,16 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             logging.info(message_info(911, jsonline))
         except BufferError as err:
             result = False
-            logging.warn(message_warning(404, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(404, self.failure_topic, err, jsonline))
         except KafkaException as err:
             result = False
-            logging.warn(message_warning(405, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(405, self.failure_topic, err, jsonline))
         except NotImplemented as err:
             result = False
-            logging.warn(message_warning(406, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(406, self.failure_topic, err, jsonline))
         except:
             result = False
-            logging.warn(message_warning(407, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(407, self.failure_topic, err, jsonline))
 
         return result
 
@@ -1509,13 +1509,13 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             self.info_producer.produce(self.info_topic, jsonline, on_delivery=self.on_kafka_delivery)
             logging.debug(message_debug(910, jsonline))
         except BufferError as err:
-            logging.warn(message_warning(404, self.info_topic, err, jsonline))
+            logging.warning(message_warning(404, self.info_topic, err, jsonline))
         except KafkaException as err:
-            logging.warn(message_warning(405, self.info_topic, err, jsonline))
+            logging.warning(message_warning(405, self.info_topic, err, jsonline))
         except NotImplemented as err:
-            logging.warn(message_warning(406, self.info_topic, err, jsonline))
+            logging.warning(message_warning(406, self.info_topic, err, jsonline))
         except:
-            logging.warn(message_warning(407, self.info_topic, err, jsonline))
+            logging.warning(message_warning(407, self.info_topic, err, jsonline))
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -1741,7 +1741,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         except BaseException as err:
             result = False
-            logging.warn(message_warning(411, self.rabbitmq_failure_queue, err, jsonline))
+            logging.warning(message_warning(411, self.rabbitmq_failure_queue, err, jsonline))
 
         return result
 
@@ -1750,7 +1750,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         assert type(jsonline) == str
         jsonline_bytes = jsonline.encode()
         try:
-            # logging.warn("basic_publish to info exchange exchange=" + self.rabbitmq_info_exchange + " exchange " + 'senzing.info')
+            # logging.warning("basic_publish to info exchange exchange=" + self.rabbitmq_info_exchange + " exchange " + 'senzing.info')
             self.info_channel.basic_publish(
                 exchange=self.rabbitmq_info_exchange,
                 routing_key=self.rabbitmq_info_routing_key,
@@ -1762,7 +1762,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             logging.debug(message_debug(910, jsonline))
 
         except BaseException as err:
-            logging.warn(message_warning(411, self.rabbitmq_info_queue, err, jsonline))
+            logging.warning(message_warning(411, self.rabbitmq_info_queue, err, jsonline))
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -1927,10 +1927,10 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                 logging.info(message_info(911, jsonline))
             except:
                 result = False
-                logging.warn(message_warning(413, self.failure_queue_url, err, jsonline))
+                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
         elif self.sqs_dead_letter_queue_enabled:
             result = False
-            logging.warn(message_warning(416, jsonline))
+            logging.warning(message_warning(416, jsonline))
         else:
             result = False
             logging.info(message_info(221, jsonline))
@@ -2057,10 +2057,10 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                 logging.info(message_info(911, jsonline))
             except:
                 result = False
-                logging.warn(message_warning(413, self.failure_queue_url, err, jsonline))
+                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
         elif self.sqs_dead_letter_queue_enabled:
             result = False
-            logging.warn(message_warning(416, jsonline))
+            logging.warning(message_warning(416, jsonline))
         else:
             result = False
             logging.info(message_info(221, jsonline))
@@ -2079,7 +2079,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             )
             logging.debug(message_debug(910, jsonline))
         except:
-            logging.warn(message_warning(413, self.info_queue_url, err, jsonline))
+            logging.warning(message_warning(413, self.info_queue_url, err, jsonline))
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''

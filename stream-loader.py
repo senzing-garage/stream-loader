@@ -678,7 +678,7 @@ message_dictionary = {
     "103": "Kafka topic: {0}; message: {1}; error: {2}; error: {3}",
     "120": "Sleeping for requested delay of {0} seconds.",
     "121": "Adding JSON to failure queue: {0}",
-    "122": "Quitting time!",
+    "122": "Quitting time!  Error: {0}",
     "123": "Total     memory: {0:>15} bytes",
     "124": "Available memory: {0:>15} bytes",
     "125": "G2 engine statistics: {0}",
@@ -686,7 +686,7 @@ message_dictionary = {
     "127": "Monitor: {0}",
     "128": "Adding JSON to info queue: {0}",
     "129": "{0} is running.",
-    "130": "RabbitMQ channel closed by the broker. Shutting down thread {0}.",
+    "130": "RabbitMQ channel closed by the broker. Shutting down thread {0}. Error: {1}",
     "140": "System Resources:",
     "141": "    Physical cores: {0}",
     "142": "     Logical cores: {0}",
@@ -715,7 +715,7 @@ message_dictionary = {
     "181": "User-supplied InfoFilter loaded from {0}.",
     "190": "Thread: {0} AWS SQS Long-polling: No messages from {1}",
     "191": "Thread: {0} Exiting. No messages from {1}.",
-    "201": "Python 'psutil' not installed. Could not report memory.",
+    "201": "Python 'psutil' not installed. Could not report memory. Error: {0}",
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
     "221": "AWS SQS redrive: {0}",
@@ -751,7 +751,7 @@ message_dictionary = {
     "554": "Running with less than the recommended total memory of {0} GiB.",
     "555": "Running with less than the recommended available memory of {0} GiB.",
     "556": "SENZING_KAFKA_BOOTSTRAP_SERVER not set. See ./stream-loader.py kafka --help.",
-    "557": "Invalid JSON received: {0}",
+    "557": "Invalid JSON received: {0} Error: {1}",
     "558": "LD_LIBRARY_PATH environment variable not set.",
     "559": "PYTHONPATH environment variable not set.",
     "561": "Unknown RabbitMQ error when connecting: {0}.",
@@ -767,11 +767,14 @@ message_dictionary = {
     "699": "{0}",
     "700": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "721": "Running low on workers.  May need to restart",
-    "722": "Kafka commit failed for {0}",
+    "722": "Kafka commit failed for {0} Error: {1}",
+    "723": "Kafka poll error: {0}",
     "726": "Could not do performance test. G2 Translation error. Error: {0}",
     "727": "Could not do performance test. G2 module initialization error. Error: {0}",
     "728": "Could not do performance test. G2 generic exception. Error: {0}",
+    "729": "Could not do performance test. Error: {0}",
     "730": "There are not enough safe characters to do the translation. Unsafe Characters: {0}; Safe Characters: {1}",
+    "880": "Unspecific error when {1}. Error: {0}",
     "885": "License has expired.",
     "886": "G2Engine.addRecord() bad return code: {0}; JSON: {1}",
     "888": "G2Engine.addRecord() G2ModuleNotInitialized: {0}; JSON: {1}",
@@ -1255,7 +1258,10 @@ class WriteG2Thread(threading.Thread):
         except Exception as err:
             if self.is_g2_default_configuration_changed():
                 self.update_active_g2_configuration()
-                self.g2_engine.addRecord(data_source, record_id, jsonline)
+                try:
+                    self.g2_engine.addRecord(data_source, record_id, jsonline)
+                except Exception as err:
+                    raise err
             else:
                 raise err
         return
@@ -1274,7 +1280,10 @@ class WriteG2Thread(threading.Thread):
         except Exception as err:
             if self.is_g2_default_configuration_changed():
                 self.update_active_g2_configuration()
-                self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
+                try:
+                    self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
+                except Exception as err:
+                    raise err
             else:
                 raise err
         return response_bytearray.decode()
@@ -1302,10 +1311,10 @@ class WriteG2Thread(threading.Thread):
             exit_error(888, err, jsonline)
         except G2Exception.G2ModuleGenericException as err:
             logging.error(message_error(889, err, jsonline))
-            result = self.add_to_failure_queue(jsonline)
+            result = self.add_to_failure_queue(str(jsonline))
         except Exception as err:
             logging.error(message_error(890, err, jsonline))
-            result = self.add_to_failure_queue(jsonline)
+            result = self.add_to_failure_queue(str(jsonline))
 
         logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
@@ -1331,13 +1340,13 @@ class WriteG2Thread(threading.Thread):
         try:
             info_json = self.add_record_withinfo(jsonline)
         except G2Exception.G2ModuleNotInitialized as err:
-            result = self.add_to_failure_queue(jsonline)
+            result = self.add_to_failure_queue(str(jsonline))
             exit_error(888, err, jsonline)
         except G2Exception.G2ModuleGenericException as err:
-            result = self.add_to_failure_queue(jsonline)
+            result = self.add_to_failure_queue(str(jsonline))
             logging.error(message_error(889, err, jsonline))
         except Exception as err:
-            result = self.add_to_failure_queue(jsonline)
+            result = self.add_to_failure_queue(str(jsonline))
             logging.error(message_error(890, err, jsonline))
 
         # If successful add_record_withinfo().
@@ -1408,7 +1417,7 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
                 if kafka_message.error().code() == confluent_kafka.KafkaError._PARTITION_EOF:
                     continue
                 else:
-                    logging.error(message_error(722, kafka_message.error()))
+                    logging.error(message_error(723, kafka_message.error()))
                     continue
 
             # Construct and verify Kafka message.
@@ -1423,11 +1432,13 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
             try:
                 kafka_message_dictionary = json.loads(kafka_message_string)
-            except:
-                logging.info(message_debug(557, kafka_message_string))
-                if self.add_to_failure_queue(kafka_message_string):
-                    if not consumer.commit():
-                        logging.error(message_error(722, kafka_message_string))
+            except Exception as err:
+                logging.info(message_debug(557, kafka_message_string, err))
+                if self.add_to_failure_queue(str(kafka_message_string)):
+                    try:
+                        consumer.commit()
+                    except Exception as err:
+                        logging.error(message_error(722, kafka_message_string, err))
                 continue
 
             # If needed, modify JSON message.
@@ -1448,8 +1459,10 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
                 # After successful import into Senzing, tell Kafka we're done with message.
 
-                if not consumer.commit():
-                    logging.error(message_error(722, kafka_message_string))
+                try:
+                    consumer.commit()
+                except Exception as err:
+                    logging.error(message_error(722, kafka_message_string, err))
 
         consumer.close()
 
@@ -1495,7 +1508,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         except NotImplemented as err:
             result = False
             logging.warning(message_warning(406, self.failure_topic, err, jsonline))
-        except:
+        except Exception as err:
             result = False
             logging.warning(message_warning(407, self.failure_topic, err, jsonline))
 
@@ -1514,7 +1527,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             logging.warning(message_warning(405, self.info_topic, err, jsonline))
         except NotImplemented as err:
             logging.warning(message_warning(406, self.info_topic, err, jsonline))
-        except:
+        except Exception as err:
             logging.warning(message_warning(407, self.info_topic, err, jsonline))
 
     def run(self):
@@ -1573,7 +1586,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
                 if kafka_message.error().code() == confluent_kafka.KafkaError._PARTITION_EOF:
                     continue
                 else:
-                    logging.error(message_error(722, kafka_message.error()))
+                    logging.error(message_error(723, kafka_message.error()))
                     continue
 
             # Construct and verify Kafka message.
@@ -1588,11 +1601,13 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
             try:
                 kafka_message_dictionary = json.loads(kafka_message_string)
-            except:
-                logging.info(message_debug(557, kafka_message_string))
-                if self.add_to_failure_queue(kafka_message_string):
-                    if not consumer.commit():
-                        logging.error(message_error(722, kafka_message_string))
+            except Exception as err:
+                logging.info(message_debug(557, kafka_message_string, err))
+                if self.add_to_failure_queue(str(kafka_message_string)):
+                    try:
+                        consumer.commit()
+                    except Exception as err:
+                        logging.error(message_error(722, kafka_message_string, err))
                 continue
 
             # If needed, modify JSON message.
@@ -1613,8 +1628,10 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
                 # After successful import into Senzing, tell Kafka we're done with message.
 
-                if not consumer.commit():
-                    logging.error(message_error(722, kafka_message_string))
+                try:
+                    consumer.commit()
+                except Exception as err:
+                    logging.error(message_error(722, kafka_message_string, err))
 
         consumer.close()
 
@@ -1640,9 +1657,9 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
         try:
             rabbitmq_message_dictionary = json.loads(body)
-        except:
-            logging.info(message_debug(557, body))
-            if self.add_to_failure_queue(body):
+        except Exception as err:
+            logging.info(message_debug(557, body, err))
+            if self.add_to_failure_queue(str(body)):
                 channel.basic_ack(delivery_tag=method.delivery_tag)
             return
 
@@ -1696,13 +1713,17 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             exit_error(562, err, rabbitmq_host)
         except BaseException as err:
             exit_error(561, err)
+        except Exception as err:
+            exit_error(880, err, "creating RabbitMQ channel")
 
         # Start consuming.
 
         try:
             channel.start_consuming()
-        except pika.exceptions.ChannelClosed:
-            logging.info(message_info(130, threading.current_thread().name))
+        except pika.exceptions.ChannelClosed as err:
+            logging.info(message_info(130, threading.current_thread().name), err)
+        except Exception as err:
+            exit_error(880, err, "channel.start_consuming()")
 
 # -----------------------------------------------------------------------------
 # Class: ReadRabbitMQWriteG2WithInfoThread
@@ -1742,6 +1763,8 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         except BaseException as err:
             result = False
             logging.warning(message_warning(411, self.rabbitmq_failure_exchange, err, jsonline))
+        except Exception as err:
+            exit_error(880, err, "failure_channel.basic_publish().")
 
         return result
 
@@ -1763,6 +1786,8 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         except BaseException as err:
             logging.warning(message_warning(411, self.rabbitmq_info_exchange, err, jsonline))
+        except Exception as err:
+            exit_error(880, err, "info_channel.basic_publish().")
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -1776,9 +1801,9 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         try:
             rabbitmq_message_dictionary = json.loads(body)
-        except:
-            logging.info(message_debug(557, body))
-            if self.add_to_failure_queue(body):
+        except Exception as err:
+            logging.info(message_debug(557, body, err))
+            if self.add_to_failure_queue(str(body)):
                 channel.basic_ack(delivery_tag=method.delivery_tag)
             return
 
@@ -1850,6 +1875,8 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             exit_error(412, rabbitmq_info_queue, err, rabbitmq_info_host)
         except BaseException as err:
             exit_error(410, rabbitmq_info_queue, err)
+        except Exception as err:
+            exit_error(880, err, "creating RabbitMQ info channel")
 
         # Create RabbitMQ channel to publish "failure".
 
@@ -1867,6 +1894,8 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             exit_error(412, rabbitmq_failure_queue, err, rabbitmq_failure_host)
         except BaseException as err:
             exit_error(410, rabbitmq_failure_queue, err)
+        except Exception as err:
+            exit_error(880, err, "creating RabbitMQ failure channel")
 
         # Create RabbitMQ channel to subscribe to records.
 
@@ -1881,13 +1910,17 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             exit_error(562, err, rabbitmq_host)
         except BaseException as err:
             exit_error(561, err)
+        except Exception as err:
+            exit_error(880, err, "creating RabbitMQ channel")
 
         # Start consuming.
 
         try:
             channel.start_consuming()
-        except pika.exceptions.ChannelClosed:
-            logging.info(message_info(130, threading.current_thread().name))
+        except pika.exceptions.ChannelClosed as err:
+            logging.info(message_info(130, threading.current_thread().name), err)
+        except Exception as err:
+            exit_error(880, err, "channel.start_consuming()")
 
 # -----------------------------------------------------------------------------
 # Class: ReadSqsWriteG2Thread
@@ -1925,7 +1958,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                     MessageBody=(jsonline),
                 )
                 logging.info(message_info(911, jsonline))
-            except:
+            except Exception as err:
                 result = False
                 logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
         elif self.sqs_dead_letter_queue_enabled:
@@ -1985,9 +2018,9 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
             try:
                 sqs_message_dictionary = json.loads(sqs_message_body)
-            except:
-                logging.info(message_debug(557, sqs_message_body))
-                if self.add_to_failure_queue(sqs_message_body):
+            except Exception as err:
+                logging.info(message_debug(557, sqs_message_body, err))
+                if self.add_to_failure_queue(str(sqs_message_body)):
                     self.sqs.delete_message(
                         QueueUrl=self.queue_url,
                         ReceiptHandle=sqs_message_receipt_handle
@@ -2055,7 +2088,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                     MessageBody=(jsonline),
                 )
                 logging.info(message_info(911, jsonline))
-            except:
+            except Exception as err:
                 result = False
                 logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
         elif self.sqs_dead_letter_queue_enabled:
@@ -2078,7 +2111,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                 MessageBody=(jsonline),
             )
             logging.debug(message_debug(910, jsonline))
-        except:
+        except Exception as err:
             logging.warning(message_warning(413, self.info_queue_url, err, jsonline))
 
     def run(self):
@@ -2130,9 +2163,9 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
             try:
                 sqs_message_dictionary = json.loads(sqs_message_body)
-            except:
-                logging.info(message_debug(557, sqs_message_body))
-                if self.add_to_failure_queue(sqs_message_body):
+            except Exception as err:
+                logging.info(message_debug(557, sqs_message_body, err))
+                if self.add_to_failure_queue(str(sqs_message_body)):
                     self.sqs.delete_message(
                         QueueUrl=self.queue_url,
                         ReceiptHandle=sqs_message_receipt_handle
@@ -2363,8 +2396,10 @@ class ReadQueueWriteG2Thread(WriteG2Thread):
                 jsonline = self.queue.get()
                 self.send_jsonline_to_g2_engine(jsonline)
                 self.config['counter_processed_records'] += 1
-            except queue.Empty:
-                logging.info(message_info(122))
+            except queue.Empty as err:
+                logging.info(message_info(122, err))
+            except Exception as err:
+                exit_error(880, err, "send_jsonline_to_g2_engine()")
 
 # -----------------------------------------------------------------------------
 # Class: MonitorThread
@@ -2751,6 +2786,8 @@ def log_performance(config):
         logging.warning(message_warning(727, err))
     except G2Exception.G2ModuleGenericException as err:
         logging.warning(message_warning(728, err))
+    except Exception as err:
+        logging.warning(message_warning(729, err))
 
 
 def log_memory():
@@ -2778,8 +2815,8 @@ def log_memory():
         if available_memory < minimum_available_memory:
             logging.warning(message_warning(555, MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES))
 
-    except:
-        logging.warning(message_warning(201))
+    except Exception as err:
+        logging.warning(message_warning(201, err))
 
 # -----------------------------------------------------------------------------
 # Worker functions

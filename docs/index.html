@@ -7,7 +7,7 @@
 <meta name="description" content="">
 <meta name="author" content="support@senzing.com">
 <title>Senzing Certified: Stream Loader</title>
-<link rel="canonical" href="https://senzing.github.io/">
+<link rel="canonical" href="https://certified.senzing.com/">
 <link rel="icon" type="image/png" sizes="32x32"
     href="/images/favicon/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="96x96"
@@ -73,7 +73,9 @@ min-width
                 <div class="col-md-6 px-0">
                     <h1 class="display-4 font-italic">Stream Loader</h1>
                     <h4 class="text-center text-muted">
-                        Version <span class="senzing-artifact-version"></span>
+                        Version <span class="senzing-artifact-version"></span> -
+                    <span class="senzing-updated"></span>
+
                     </h4>
                     <p class="senzing-description lead my-3"></p>
                 </div>
@@ -319,14 +321,22 @@ min-width
 
         <!-- Get certification data -->
 
-        var certified = data.certified.streamLoader
+        var certified = data.data.certified["stream-loader"] != null ? data.data.certified["stream-loader"] : {}
         var description = certified.description != null ? certified.description : "No description"
         var certifiedCurrent = certified.certifiedCurrent != null ? certified.certifiedCurrent : "0.0.0"
+        var updated = certified.updated != null ? certified.updated : ""
+
+        <!-- Date parsing -->
+
+        var parsedDate = Date.parse(updated)
+        var updatedDate = new Date(parsedDate)
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
 
         <!-- Modify HTML -->
 
         $("<span>" + certifiedCurrent + "</span>").appendTo(".senzing-artifact-version")
         $("<span>" + description + "</span>").appendTo(".senzing-description")
+        $("<span>" + updatedDate.toLocaleDateString(undefined, options) + "</span>").appendTo(".senzing-updated")
         $('.senzing-add-href-for-artifact').attr('href', "https://raw.githubusercontent.com/Senzing/stream-loader/" + certifiedCurrent + "/stream-loader.py");
         $('.senzing-add-href-for-github-aws-ecs').attr('href', "https://github.com/Senzing/stream-loader/blob/" + certifiedCurrent + "/README.md#demonstrate-using-aws-ecs");
         $('.senzing-add-href-for-github-command-line').attr('href', "https://github.com/Senzing/stream-loader/blob/" + certifiedCurrent + "/README.md#demonstrate-using-command-line");

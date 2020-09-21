@@ -39,9 +39,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.6.1"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.6.2"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-09-11'
+__updated__ = '2020-09-21'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -115,11 +115,6 @@ configuration_locator = {
         "env": "SENZING_EXPIRATION_WARNING_IN_DAYS",
         "cli": "expiration-warning-in-days"
     },
-    "g2_configuration_file": {
-        "default": "/opt/senzing/g2/python/g2config.json",
-        "env": "SENZING_G2_CONFIGURATION_FILE",
-        "cli": "g2-configuration-file"
-    },
     "g2_database_url_generic": {
         "default": "sqlite3://na:na@/var/opt/senzing/sqlite/G2C.db",
         "env": "SENZING_DATABASE_URL",
@@ -177,6 +172,11 @@ configuration_locator = {
         "default": 60 * 10,
         "env": "SENZING_MONITORING_PERIOD_IN_SECONDS",
         "cli": "monitoring-period-in-seconds",
+    },
+    "prime_engine": {
+        "default": False,
+        "env": "SENZING_PRIME_ENGINE",
+        "cli": "prime-engine"
     },
     "python_path": {
         "env": "PYTHONPATH"
@@ -785,6 +785,7 @@ message_dictionary = {
     "729": "Could not do performance test. Error: {0}",
     "730": "There are not enough safe characters to do the translation. Unsafe Characters: {0}; Safe Characters: {1}",
     "880": "Unspecific error when {1}. Error: {0}",
+    "881": "Could not G2Engine.primeEngine with '{0}'. Error: {1}",
     "885": "License has expired.",
     "886": "G2Engine.addRecord() bad return code: {0}; JSON: {1}",
     "888": "G2Engine.addRecord() G2ModuleNotInitialized: {0}; JSON: {1}",
@@ -1031,6 +1032,7 @@ def get_configuration(args):
     booleans = [
         'debug',
         'exit_on_empty_queue',
+        'prime_engine',
         'rabbitmq_use_existing_entities',
         'skip_database_performance_test',
         'sqs_dead_letter_queue_enabled',
@@ -2657,6 +2659,12 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
         config['last_configuration_check'] = time.time()
     except G2Exception.G2ModuleException as err:
         exit_error(898, g2_configuration_json, err)
+
+    if config.get('prime_engine'):
+        try:
+            result.primeEngine()
+        except G2Exception.G2ModuleGenericException as err:
+            exit_error(881, g2_configuration_json, err)
     return result
 
 

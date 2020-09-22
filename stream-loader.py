@@ -225,6 +225,11 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_FAILURE_USERNAME",
         "cli": "rabbitmq-failure-username",
     },
+    "rabbitmq_heartbeat_in_seconds": {
+        "default": "60",
+        "env": "SENZING_RABBITMQ_HEARTBEAT_IN_SECONDS",
+        "cli": "rabbitmq-heartbeat-in-seconds",
+    },
     "rabbitmq_host": {
         "default": "localhost:5672",
         "env": "SENZING_RABBITMQ_HOST",
@@ -598,6 +603,11 @@ def get_parser():
                 "dest": "rabbitmq_exchange",
                 "metavar": "SENZING_RABBITMQ_EXCHANGE",
                 "help": "RabbitMQ exchange. Default: senzing-rabbitmq-exchange"
+            },
+            "--rabbitmq-heartbeat-in-seconds": {
+                "dest": "rabbitmq_heartbeat_in_seconds",
+                "metavar": "SENZING_RABBITMQ_HEARTBEAT_IN_SECONDS",
+                "help": "RabbitMQ heartbeat. Default: 60"
             },
             "--rabbitmq-host": {
                 "dest": "rabbitmq_host",
@@ -1056,6 +1066,7 @@ def get_configuration(args):
         'log_license_period_in_seconds',
         'monitoring_period_in_seconds',
         'queue_maxsize',
+        'rabbitmq_heartbeat_in_seconds',
         'rabbitmq_prefetch_count',
         'sleep_time_in_seconds',
         'sqs_wait_time_seconds',
@@ -1709,6 +1720,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_port = self.config.get("rabbitmq_port")
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
+        rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
         self.data_source = self.config.get("data_source")
         self.entitiy_type = self.config.get("entity_type")
 
@@ -1716,7 +1728,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
         try:
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=credentials))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=credentials, heartbeat=rabbitmq_heartbeat))
             channel = connection.channel()
             channel.queue_declare(queue=rabbitmq_queue, passive=rabbitmq_passive_declare)
             channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
@@ -1869,12 +1881,13 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
+        rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
 
         # Create RabbitMQ channel to publish "info".
 
         try:
             info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
-            info_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_info_host, port=rabbitmq_info_port, credentials=info_credentials))
+            info_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_info_host, port=rabbitmq_info_port, credentials=info_credentials, heartbeat=rabbitmq_heartbeat))
             self.info_channel = info_connection.channel()
             self.info_channel.exchange_declare(exchange=self.rabbitmq_info_exchange, passive=rabbitmq_passive_declare)
             info_queue = self.info_channel.queue_declare(queue=rabbitmq_info_queue, passive=rabbitmq_passive_declare)
@@ -1893,7 +1906,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         try:
             failure_credentials = pika.PlainCredentials(rabbitmq_failure_username, rabbitmq_failure_password)
-            failure_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_failure_host, port=rabbitmq_failure_port, credentials=failure_credentials))
+            failure_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_failure_host, port=rabbitmq_failure_port, credentials=failure_credentials, heartbeat=rabbitmq_heartbeat))
             self.failure_channel = failure_connection.channel()
             self.failure_channel.exchange_declare(exchange=self.rabbitmq_failure_exchange, passive=rabbitmq_passive_declare)
             failure_queue = self.failure_channel.queue_declare(queue=rabbitmq_failure_queue, passive=rabbitmq_passive_declare)
@@ -1912,7 +1925,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         try:
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=credentials))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=credentials, heartbeat=rabbitmq_heartbeat))
             channel = connection.channel()
             channel.queue_declare(queue=rabbitmq_queue, passive=rabbitmq_passive_declare)
             channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)

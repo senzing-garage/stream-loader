@@ -41,7 +41,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.6.2"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-09-21'
+__updated__ = '2020-09-23'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -162,6 +162,11 @@ configuration_locator = {
     },
     "ld_library_path": {
         "env": "LD_LIBRARY_PATH"
+    },
+    "log_level_parameter": {
+        "default": "info",
+        "env": "SENZING_LOG_LEVEL",
+        "cli": "log-level-parameter"
     },
     "log_license_period_in_seconds": {
         "default": 60 * 60 * 24,
@@ -817,6 +822,7 @@ message_dictionary = {
     "904": "Thread: {0} processed: {1}",
     "910": "Adding JSON to info queue: {0}",
     "911": "Adding JSON to failure queue: {0}",
+    "915": "pstack information",
     "998": "Debugging enabled.",
     "999": "{0}",
 }
@@ -2436,6 +2442,8 @@ class MonitorThread(threading.Thread):
         threading.Thread.__init__(self)
         self.config = config
         self.g2_engine = g2_engine
+        self.log_level_parameter = config.get("log_level_parameter")
+        self.log_license_period_in_seconds = config.get("log_license_period_in_seconds")
         self.workers = workers
         # FIXME: self.last_daily = datetime.
 
@@ -2446,7 +2454,6 @@ class MonitorThread(threading.Thread):
         last_queued_records = 0
         last_time = time.time()
         last_log_license = time.time()
-        log_license_period_in_seconds = self.config.get("log_license_period_in_seconds")
 
         # Define monitoring report interval.
 
@@ -2475,7 +2482,7 @@ class MonitorThread(threading.Thread):
 
             # Log license periodically to show days left in license.
 
-            if elapsed_log_license > log_license_period_in_seconds:
+            if elapsed_log_license > self.log_license_period_in_seconds:
                 log_license(self.config)
                 last_log_license = now
 
@@ -2514,6 +2521,11 @@ class MonitorThread(threading.Thread):
             self.g2_engine.stats(g2_engine_stats_response)
             g2_engine_stats_dictionary = json.loads(g2_engine_stats_response.decode())
             logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
+
+            # pstack
+
+            if self.log_level_parameter == "debug":
+                logging.debug(message_debug(915))
 
             # Store values for next iteration of loop.
 

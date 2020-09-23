@@ -2612,6 +2612,7 @@ def get_g2_configuration_dictionary(config):
         },
         "SQL": {
             "CONNECTION": config.get("g2_database_url_specific"),
+            "LAST_TOUCH_WAIT": 100,
         }
     }
     return result

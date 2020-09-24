@@ -4,7 +4,6 @@
 # stream-loader.py Loader for streaming input.
 # -----------------------------------------------------------------------------
 
-from glob import glob
 from urllib.parse import urlparse, urlunparse
 from urllib.request import urlopen
 import argparse

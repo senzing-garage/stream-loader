@@ -2460,6 +2460,7 @@ class MonitorThread(threading.Thread):
         self.log_level_parameter = config.get("log_level_parameter")
         self.log_license_period_in_seconds = config.get("log_license_period_in_seconds")
         self.pstack_pid = config.get("pstack_pid")
+        self.sleep_time_in_seconds = config.get('monitoring_period_in_seconds')
         self.workers = workers
 
     def run(self):
@@ -2469,10 +2470,6 @@ class MonitorThread(threading.Thread):
         last_queued_records = 0
         last_time = time.time()
         last_log_license = time.time()
-
-        # Define monitoring report interval.
-
-        sleep_time_in_seconds = self.config.get('monitoring_period_in_seconds')
 
         # Sleep-monitor loop.
 
@@ -2554,26 +2551,39 @@ class MonitorThread(threading.Thread):
 
                 if completed_process is not None:
 
-                    # Process output.
+                    # Process gdb output.
 
-                    output_lines = []
-                    input_lines = str(completed_process.stdout).split('\\n')
-
-                    for input_line in input_lines:
+                    counter = 0
+                    stdout_dict = {}
+                    stdout_lines = str(completed_process.stdout).split('\\n')
+                    for stdout_line in stdout_lines:
 
                         # Filter lines.
 
-                        if self.digits_regex_pattern.search(input_line) is not None and self.in_regex_pattern.search(input_line) is not None:
+                        if self.digits_regex_pattern.search(stdout_line) is not None and self.in_regex_pattern.search(stdout_line) is not None:
 
                             # Format lines.
 
-                            line_parts = input_line.split()
-                            output_line = "{0} {1}  {2}".format(line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
-                            output_lines.append(output_line)
+                            counter += 1
+                            line_parts = stdout_line.split()
+                            output_line = "{0:>4} {1:40} {2}".format(line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
+                            stdout_dict[str(counter).zfill(4)] = output_line
 
-                    output_text = '\\n'.join(output_lines)
-                    logging.debug(message_debug(915, output_text))
-                    logging.debug(message_debug(916, str(completed_process.stderr)))
+                    # Log STDOUT.
+
+                    stdout_json = json.dumps(stdout_dict)
+                    logging.debug(message_debug(915, stdout_json))
+
+                    # Log STDERR.
+
+                    counter = 0
+                    stderr_dict = {}
+                    stderr_lines = str(completed_process.stderr).split('\\n')
+                    for stderr_line in stderr_lines:
+                        counter += 1
+                        stderr_dict[str(counter).zfill(4)] = stderr_line
+                    stderr_json = json.dumps(stderr_dict)
+                    logging.debug(message_debug(916, stderr_json))
 
             # Store values for next iteration of loop.
 
@@ -2583,7 +2593,7 @@ class MonitorThread(threading.Thread):
 
             # Sleep for the monitoring period.
 
-            time.sleep(sleep_time_in_seconds)
+            time.sleep(self.sleep_time_in_seconds)
 
             # Calculate active Threads.
 

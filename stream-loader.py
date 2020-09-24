@@ -828,8 +828,8 @@ message_dictionary = {
     "904": "Thread: {0} processed: {1}",
     "910": "Adding JSON to info queue: {0}",
     "911": "Adding JSON to failure queue: {0}",
-    "915": "gdb STDOUT: {0}",
-    "916": "gdb STDERR: {0}",
+    "920": "gdb STDOUT: {0}",
+    "921": "gdb STDERR: {0}",
     "998": "Debugging enabled.",
     "999": "{0}",
 }
@@ -2571,7 +2571,7 @@ class MonitorThread(threading.Thread):
                     # Log STDOUT.
 
                     stdout_json = json.dumps(stdout_dict)
-                    logging.debug(message_debug(915, stdout_json))
+                    logging.debug(message_debug(920, stdout_json))
 
                     # Log STDERR.
 
@@ -2582,7 +2582,7 @@ class MonitorThread(threading.Thread):
                         counter += 1
                         stderr_dict[str(counter).zfill(4)] = stderr_line
                     stderr_json = json.dumps(stderr_dict)
-                    logging.debug(message_debug(916, stderr_json))
+                    logging.debug(message_debug(921, stderr_json))
 
             # Store values for next iteration of loop.
 

@@ -201,25 +201,25 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_EXCHANGE",
         "cli": "rabbitmq-exchange",
     },
+    "rabbitmq_failure_exchange": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
+        "cli": "rabbitmq-failure-exchange",
+    },
     "rabbitmq_failure_host": {
         "default": None,
         "env": "SENZING_RABBITMQ_FAILURE_HOST",
         "cli": "rabbitmq-failure-host",
-    },
-    "rabbitmq_failure_port": {
-        "default": None,
-        "env": "SENZING_RABBITMQ_FAILURE_PORT",
-        "cli": "rabbitmq-failure-port",
     },
     "rabbitmq_failure_password": {
         "default": None,
         "env": "SENZING_RABBITMQ_FAILURE_PASSWORD",
         "cli": "rabbitmq-failure-password",
     },
-    "rabbitmq_failure_exchange": {
+    "rabbitmq_failure_port": {
         "default": None,
-        "env": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
-        "cli": "rabbitmq-failure-exchange",
+        "env": "SENZING_RABBITMQ_FAILURE_PORT",
+        "cli": "rabbitmq-failure-port",
     },
     "rabbitmq_failure_queue": {
         "default": "senzing-rabbitmq-failure-queue",
@@ -246,6 +246,11 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_HOST",
         "cli": "rabbitmq-host",
     },
+    "rabbitmq_info_exchange": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_INFO_EXCHANGE",
+        "cli": "rabbitmq-info-exchange",
+    },
     "rabbitmq_info_host": {
         "default": None,
         "env": "SENZING_RABBITMQ_INFO_HOST",
@@ -260,11 +265,6 @@ configuration_locator = {
         "default": None,
         "env": "SENZING_RABBITMQ_INFO_PASSWORD",
         "cli": "rabbitmq-info-password",
-    },
-    "rabbitmq_info_exchange": {
-        "default": None,
-        "env": "SENZING_RABBITMQ_INFO_EXCHANGE",
-        "cli": "rabbitmq-info-exchange",
     },
     "rabbitmq_info_queue": {
         "default": "senzing-rabbitmq-info-queue",
@@ -2660,6 +2660,13 @@ def exit_error(index, *args):
     logging.error(message_error(index, *args))
     logging.error(message_error(698))
     sys.exit(1)
+
+
+def exit_error_program(index, *args):
+    ''' Log error message and exit program. '''
+    logging.error(message_error(index, *args))
+    logging.error(message_error(698))
+    os._exit(1)
 
 
 def exit_silently():

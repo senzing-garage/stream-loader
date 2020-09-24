@@ -20,8 +20,10 @@ import multiprocessing
 import os
 import pika
 import queue
+import re
 import signal
 import string
+import subprocess
 import sys
 import threading
 import time
@@ -41,7 +43,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.6.2"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-09-23'
+__updated__ = '2020-09-24'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -182,6 +184,11 @@ configuration_locator = {
         "default": False,
         "env": "SENZING_PRIME_ENGINE",
         "cli": "prime-engine"
+    },
+    "pstack_pid": {
+        "default": "1",
+        "env": "SENZING_PSTACK_PID",
+        "cli": "pstack-pid",
     },
     "python_path": {
         "env": "PYTHONPATH"
@@ -822,7 +829,8 @@ message_dictionary = {
     "904": "Thread: {0} processed: {1}",
     "910": "Adding JSON to info queue: {0}",
     "911": "Adding JSON to failure queue: {0}",
-    "915": "pstack information",
+    "915": "gdb STDOUT: {0}",
+    "916": "gdb STDERR: {0}",
     "998": "Debugging enabled.",
     "999": "{0}",
 }
@@ -1037,6 +1045,11 @@ def get_configuration(args):
 
     result['program_version'] = __version__
     result['program_updated'] = __updated__
+
+    # Add "run_as" information.
+
+    result['run_as_uid'] = os.getuid()
+    result['run_as_gid'] = os.getgid()
 
     # Special case: subcommand from command-line
 
@@ -2441,11 +2454,13 @@ class MonitorThread(threading.Thread):
     def __init__(self, config, g2_engine, workers):
         threading.Thread.__init__(self)
         self.config = config
+        self.digits_regex_pattern = re.compile(':\d+$')
         self.g2_engine = g2_engine
+        self.in_regex_pattern = re.compile('\sin\s')
         self.log_level_parameter = config.get("log_level_parameter")
         self.log_license_period_in_seconds = config.get("log_license_period_in_seconds")
+        self.pstack_pid = config.get("pstack_pid")
         self.workers = workers
-        # FIXME: self.last_daily = datetime.
 
     def run(self):
         '''Periodically monitor what is happening.'''
@@ -2522,10 +2537,43 @@ class MonitorThread(threading.Thread):
             g2_engine_stats_dictionary = json.loads(g2_engine_stats_response.decode())
             logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
 
-            # pstack
+            # If requested, debug stacks.
 
             if self.log_level_parameter == "debug":
-                logging.debug(message_debug(915))
+                completed_process = None
+                try:
+
+                    # Run gdb to get stacks.
+
+                    completed_process = subprocess.run(
+                        ["gdb", "-q", "-p", self.pstack_pid, "-batch", "-ex", "thread apply all bt"],
+                        capture_output=True)
+
+                except Exception as err:
+                    logging.warning(message_warning(999, err))
+
+                if completed_process is not None:
+
+                    # Process output.
+
+                    output_lines = []
+                    input_lines = str(completed_process.stdout).split('\\n')
+
+                    for input_line in input_lines:
+
+                        # Filter lines.
+
+                        if self.digits_regex_pattern.search(input_line) is not None and self.in_regex_pattern.search(input_line) is not None:
+
+                            # Format lines.
+
+                            line_parts = input_line.split()
+                            output_line = "{0} {1}  {2}".format(line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
+                            output_lines.append(output_line)
+
+                    output_text = '\\n'.join(output_lines)
+                    logging.debug(message_debug(915, output_text))
+                    logging.debug(message_debug(916, str(completed_process.stderr)))
 
             # Store values for next iteration of loop.
 

@@ -1,7 +1,7 @@
-ARG BASE_IMAGE=senzing/senzing-base:1.5.3
+ARG BASE_IMAGE=senzing/senzing-base:1.5.4
 FROM ${BASE_IMAGE}
 
-ENV REFRESHED_AT=2020-09-23
+ENV REFRESHED_AT=2020-09-24
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \

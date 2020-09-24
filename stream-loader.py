@@ -2566,7 +2566,7 @@ class MonitorThread(threading.Thread):
 
                             counter += 1
                             line_parts = stdout_line.split()
-                            output_line = "{0:>4} {1:30} {2}".format(line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
+                            output_line = "{0:<3} {1} {2}".format(line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
                             stdout_dict[str(counter).zfill(4)] = output_line
 
                     # Log STDOUT.

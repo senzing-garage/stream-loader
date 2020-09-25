@@ -4,7 +4,6 @@
 # stream-loader.py Loader for streaming input.
 # -----------------------------------------------------------------------------
 
-from glob import glob
 from urllib.parse import urlparse, urlunparse
 from urllib.request import urlopen
 import argparse
@@ -20,8 +19,10 @@ import multiprocessing
 import os
 import pika
 import queue
+import re
 import signal
 import string
+import subprocess
 import sys
 import threading
 import time
@@ -39,9 +40,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.6.2"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.6.3"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-09-21'
+__updated__ = '2020-09-25'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -163,6 +164,11 @@ configuration_locator = {
     "ld_library_path": {
         "env": "LD_LIBRARY_PATH"
     },
+    "log_level_parameter": {
+        "default": "info",
+        "env": "SENZING_LOG_LEVEL",
+        "cli": "log-level-parameter"
+    },
     "log_license_period_in_seconds": {
         "default": 60 * 60 * 24,
         "env": "SENZING_LOG_LICENSE_PERIOD_IN_SECONDS",
@@ -178,6 +184,11 @@ configuration_locator = {
         "env": "SENZING_PRIME_ENGINE",
         "cli": "prime-engine"
     },
+    "pstack_pid": {
+        "default": "1",
+        "env": "SENZING_PSTACK_PID",
+        "cli": "pstack-pid",
+    },
     "python_path": {
         "env": "PYTHONPATH"
     },
@@ -190,25 +201,25 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_EXCHANGE",
         "cli": "rabbitmq-exchange",
     },
+    "rabbitmq_failure_exchange": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
+        "cli": "rabbitmq-failure-exchange",
+    },
     "rabbitmq_failure_host": {
         "default": None,
         "env": "SENZING_RABBITMQ_FAILURE_HOST",
         "cli": "rabbitmq-failure-host",
-    },
-    "rabbitmq_failure_port": {
-        "default": None,
-        "env": "SENZING_RABBITMQ_FAILURE_PORT",
-        "cli": "rabbitmq-failure-port",
     },
     "rabbitmq_failure_password": {
         "default": None,
         "env": "SENZING_RABBITMQ_FAILURE_PASSWORD",
         "cli": "rabbitmq-failure-password",
     },
-    "rabbitmq_failure_exchange": {
+    "rabbitmq_failure_port": {
         "default": None,
-        "env": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
-        "cli": "rabbitmq-failure-exchange",
+        "env": "SENZING_RABBITMQ_FAILURE_PORT",
+        "cli": "rabbitmq-failure-port",
     },
     "rabbitmq_failure_queue": {
         "default": "senzing-rabbitmq-failure-queue",
@@ -235,6 +246,11 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_HOST",
         "cli": "rabbitmq-host",
     },
+    "rabbitmq_info_exchange": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_INFO_EXCHANGE",
+        "cli": "rabbitmq-info-exchange",
+    },
     "rabbitmq_info_host": {
         "default": None,
         "env": "SENZING_RABBITMQ_INFO_HOST",
@@ -249,11 +265,6 @@ configuration_locator = {
         "default": None,
         "env": "SENZING_RABBITMQ_INFO_PASSWORD",
         "cli": "rabbitmq-info-password",
-    },
-    "rabbitmq_info_exchange": {
-        "default": None,
-        "env": "SENZING_RABBITMQ_INFO_EXCHANGE",
-        "cli": "rabbitmq-info-exchange",
     },
     "rabbitmq_info_queue": {
         "default": "senzing-rabbitmq-info-queue",
@@ -817,6 +828,8 @@ message_dictionary = {
     "904": "Thread: {0} processed: {1}",
     "910": "Adding JSON to info queue: {0}",
     "911": "Adding JSON to failure queue: {0}",
+    "920": "gdb STDOUT: {0}",
+    "921": "gdb STDERR: {0}",
     "998": "Debugging enabled.",
     "999": "{0}",
 }
@@ -1031,6 +1044,11 @@ def get_configuration(args):
 
     result['program_version'] = __version__
     result['program_updated'] = __updated__
+
+    # Add "run_as" information.
+
+    result['run_as_uid'] = os.getuid()
+    result['run_as_gid'] = os.getgid()
 
     # Special case: subcommand from command-line
 
@@ -2435,9 +2453,14 @@ class MonitorThread(threading.Thread):
     def __init__(self, config, g2_engine, workers):
         threading.Thread.__init__(self)
         self.config = config
+        self.digits_regex_pattern = re.compile(':\d+$')
         self.g2_engine = g2_engine
+        self.in_regex_pattern = re.compile('\sin\s')
+        self.log_level_parameter = config.get("log_level_parameter")
+        self.log_license_period_in_seconds = config.get("log_license_period_in_seconds")
+        self.pstack_pid = config.get("pstack_pid")
+        self.sleep_time_in_seconds = config.get('monitoring_period_in_seconds')
         self.workers = workers
-        # FIXME: self.last_daily = datetime.
 
     def run(self):
         '''Periodically monitor what is happening.'''
@@ -2446,11 +2469,6 @@ class MonitorThread(threading.Thread):
         last_queued_records = 0
         last_time = time.time()
         last_log_license = time.time()
-        log_license_period_in_seconds = self.config.get("log_license_period_in_seconds")
-
-        # Define monitoring report interval.
-
-        sleep_time_in_seconds = self.config.get('monitoring_period_in_seconds')
 
         # Sleep-monitor loop.
 
@@ -2475,7 +2493,7 @@ class MonitorThread(threading.Thread):
 
             # Log license periodically to show days left in license.
 
-            if elapsed_log_license > log_license_period_in_seconds:
+            if elapsed_log_license > self.log_license_period_in_seconds:
                 log_license(self.config)
                 last_log_license = now
 
@@ -2515,6 +2533,57 @@ class MonitorThread(threading.Thread):
             g2_engine_stats_dictionary = json.loads(g2_engine_stats_response.decode())
             logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
 
+            # If requested, debug stacks.
+
+            if self.log_level_parameter == "debug":
+                completed_process = None
+                try:
+
+                    # Run gdb to get stacks.
+
+                    completed_process = subprocess.run(
+                        ["gdb", "-q", "-p", self.pstack_pid, "-batch", "-ex", "thread apply all bt"],
+                        capture_output=True)
+
+                except Exception as err:
+                    logging.warning(message_warning(999, err))
+
+                if completed_process is not None:
+
+                    # Process gdb output.
+
+                    counter = 0
+                    stdout_dict = {}
+                    stdout_lines = str(completed_process.stdout).split('\\n')
+                    for stdout_line in stdout_lines:
+
+                        # Filter lines.
+
+                        if self.digits_regex_pattern.search(stdout_line) is not None and self.in_regex_pattern.search(stdout_line) is not None:
+
+                            # Format lines.
+
+                            counter += 1
+                            line_parts = stdout_line.split()
+                            output_line = "{0:<3} {1} {2}".format(line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
+                            stdout_dict[str(counter).zfill(4)] = output_line
+
+                    # Log STDOUT.
+
+                    stdout_json = json.dumps(stdout_dict)
+                    logging.debug(message_debug(920, stdout_json))
+
+                    # Log STDERR.
+
+                    counter = 0
+                    stderr_dict = {}
+                    stderr_lines = str(completed_process.stderr).split('\\n')
+                    for stderr_line in stderr_lines:
+                        counter += 1
+                        stderr_dict[str(counter).zfill(4)] = stderr_line
+                    stderr_json = json.dumps(stderr_dict)
+                    logging.debug(message_debug(921, stderr_json))
+
             # Store values for next iteration of loop.
 
             last_processed_records = processed_records_total
@@ -2523,7 +2592,7 @@ class MonitorThread(threading.Thread):
 
             # Sleep for the monitoring period.
 
-            time.sleep(sleep_time_in_seconds)
+            time.sleep(self.sleep_time_in_seconds)
 
             # Calculate active Threads.
 
@@ -2593,6 +2662,13 @@ def exit_error(index, *args):
     sys.exit(1)
 
 
+def exit_error_program(index, *args):
+    ''' Log error message and exit program. '''
+    logging.error(message_error(index, *args))
+    logging.error(message_error(698))
+    os._exit(1)
+
+
 def exit_silently():
     ''' Exit program. '''
     sys.exit(0)
@@ -2612,7 +2688,6 @@ def get_g2_configuration_dictionary(config):
         },
         "SQL": {
             "CONNECTION": config.get("g2_database_url_specific"),
-            "LAST_TOUCH_WAIT": 100,
         }
     }
     return result

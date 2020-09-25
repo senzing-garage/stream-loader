@@ -7,7 +7,7 @@ GIT_VERSION := $(shell git describe --always --tags --long --dirty | sed -e 's/\
 
 DOCKER_IMAGE_TAG ?= $(GIT_REPOSITORY_NAME):$(GIT_VERSION)
 DOCKER_IMAGE_NAME := senzing/stream-loader
-BASE_IMAGE ?= senzing/senzing-base:1.5.2
+BASE_IMAGE ?= senzing/senzing-base:1.5.4
 
 # -----------------------------------------------------------------------------
 # The first "make" target runs as default.
@@ -31,6 +31,7 @@ docker-build: docker-rmi-for-build
 .PHONY: docker-build-development-cache
 docker-build-development-cache: docker-rmi-for-build-development-cache
 	docker build \
+		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--tag $(DOCKER_IMAGE_TAG) \
 		.
 

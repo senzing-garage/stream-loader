@@ -2251,7 +2251,7 @@ class UrlProcess(multiprocessing.Process):
 
         engine_name = "loader-G2-engine-{0}".format(self.name)
         self.g2_engine = get_g2_engine(config, engine_name)
-        governor = Governor(g2_engine=g2_engine, hint="stream-loader")
+        governor = Governor(g2_engine=self.g2_engine, hint="stream-loader")
 
         # List of all threads.
 
@@ -2265,9 +2265,10 @@ class UrlProcess(multiprocessing.Process):
 
         # Create URL writer threads.
 
+        g2_configuration_manager = get_g2_configuration_manager(config)
         threads_per_process = config.get('threads_per_process')
         for i in range(0, threads_per_process):
-            thread = ReadQueueWriteG2Thread(config, self.g2_engine, self.g2_configuration_manager, work_queue, governor)
+            thread = ReadQueueWriteG2Thread(config, self.g2_engine, g2_configuration_manager, work_queue, governor)
             thread.name = "{0}-writer-{1}".format(self.name, i)
             self.threads.append(thread)
 
@@ -2329,7 +2330,8 @@ class ReadUrlWriteQueueThread(threading.Thread):
         def input_lines_from_file(self, output_line_function):
             '''Process for reading lines from a file and feeding them to a output_line_function() function'''
             input_url = self.config.get('input_url')
-            with open(input_url, 'r') as input_file:
+            file_url = urlparse(input_url)
+            with open(file_url.path, 'r') as input_file:
                 line = input_file.readline()
                 while line:
                     self.config['counter_queued_records'] += 1

@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added in 1.6.4
 
-- Support for `SENZING_RANDOMIZE_DELAY`
+- Support for `SENZING_DELAY_RANDOMIZED`
 - Fixes in Governor support
 
 ## [1.6.3] - 2020-09-25

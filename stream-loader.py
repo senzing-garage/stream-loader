@@ -92,6 +92,11 @@ configuration_locator = {
         "env": "SENZING_DELAY_IN_SECONDS",
         "cli": "delay-in-seconds"
     },
+    "delay_randomized": {
+        "default": False,
+        "env": "SENZING_DELAY_RANDOMIZED",
+        "cli": "delay-randomized"
+    },
     "engine_configuration_json": {
         "default": None,
         "env": "SENZING_ENGINE_CONFIGURATION_JSON",
@@ -311,11 +316,6 @@ configuration_locator = {
         "default": "user",
         "env": "SENZING_RABBITMQ_USERNAME",
         "cli": "rabbitmq-username",
-    },
-    "randomize_delay": {
-        "default": False,
-        "env": "SENZING_RANDOMIZE_DELAY",
-        "cli": "randomize-delay"
     },
     "resource_path": {
         "default": "/opt/senzing/g2/resources",
@@ -1066,10 +1066,10 @@ def get_configuration(args):
 
     booleans = [
         'debug',
+        'delay_randomized',
         'exit_on_empty_queue',
         'prime_engine',
         'rabbitmq_use_existing_entities',
-        'randomize_delay',
         'skip_database_performance_test',
         'sqs_dead_letter_queue_enabled',
     ]
@@ -2634,10 +2634,10 @@ def create_signal_handler_function(args):
 
 def delay(config):
     delay_in_seconds = config.get('delay_in_seconds')
-    randomize_delay = config.get('randomize_delay')
+    delay_randomized = config.get('delay_randomized')
 
     if delay_in_seconds > 0:
-        if randomize_delay:
+        if delay_randomized:
             random.seed()
             random_delay_in_seconds = random.random() * delay_in_seconds
             logging.info(message_info(119, f'{random_delay_in_seconds:.6f}'))

@@ -1066,10 +1066,10 @@ def get_configuration(args):
 
     booleans = [
         'debug',
+        'delay_randomized',
         'exit_on_empty_queue',
         'prime_engine',
         'rabbitmq_use_existing_entities',
-        'delay_randomized',
         'skip_database_performance_test',
         'sqs_dead_letter_queue_enabled',
     ]

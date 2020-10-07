@@ -27,6 +27,7 @@ import subprocess
 import sys
 import threading
 import time
+import importlib
 
 # Import Senzing libraries.
 
@@ -2959,6 +2960,24 @@ def common_prolog(config):
 
     delay(config)
 
+    # Import plugins
+
+    try:
+        global Governor
+        senzing_governor = importlib.import_module("senzing_governor")
+        Governor = senzing_governor.Governor
+        logging.info(message_info(180, senzing_governor.__file__))
+    except ImportError:
+        pass
+
+    try:
+        global InfoFilter
+        senzing_info_filter = importlib.import_module("senzing_info_filter")
+        InfoFilter = senzing_info_filter
+        logging.info(message_info(181, senzing_info_filter.__file__))
+    except ImportError:
+        pass
+
     # Write license information to log.
 
     log_license(config)
@@ -3495,22 +3514,6 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGTERM, bootstrap_signal_handler)
     signal.signal(signal.SIGINT, bootstrap_signal_handler)
-
-    # Import plugins
-
-    try:
-        import senzing_governor
-        from senzing_governor import Governor
-        logging.info(message_info(180, senzing_governor.__file__))
-    except ImportError:
-        pass
-
-    try:
-        import senzing_info_filter
-        from senzing_info_filter import InfoFilter
-        logging.info(message_info(181, senzing_info_filter.__file__))
-    except ImportError:
-        pass
 
     # Parse the command line arguments.
 

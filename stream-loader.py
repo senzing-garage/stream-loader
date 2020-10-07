@@ -19,6 +19,7 @@ import multiprocessing
 import os
 import pika
 import queue
+import random
 import re
 import signal
 import string
@@ -42,7 +43,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.6.3"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-09-25'
+__updated__ = '2020-10-07'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -310,6 +311,11 @@ configuration_locator = {
         "default": "user",
         "env": "SENZING_RABBITMQ_USERNAME",
         "cli": "rabbitmq-username",
+    },
+    "randomize_delay": {
+        "default": False,
+        "env": "SENZING_RANDOMIZE_DELAY",
+        "cli": "randomize-delay"
     },
     "resource_path": {
         "default": "/opt/senzing/g2/resources",
@@ -707,6 +713,7 @@ MESSAGE_DEBUG = 900
 message_dictionary = {
     "100": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}I",
     "103": "Kafka topic: {0}; message: {1}; error: {2}; error: {3}",
+    "119": "Sleeping for randomized delay of {0} seconds.",
     "120": "Sleeping for requested delay of {0} seconds.",
     "121": "Adding JSON to failure queue: {0}",
     "122": "Quitting time!  Error: {0}",
@@ -1062,6 +1069,7 @@ def get_configuration(args):
         'exit_on_empty_queue',
         'prime_engine',
         'rabbitmq_use_existing_entities',
+        'randomize_delay',
         'skip_database_performance_test',
         'sqs_dead_letter_queue_enabled',
     ]
@@ -2626,9 +2634,17 @@ def create_signal_handler_function(args):
 
 def delay(config):
     delay_in_seconds = config.get('delay_in_seconds')
+    randomize_delay = config.get('randomize_delay')
+
     if delay_in_seconds > 0:
-        logging.info(message_info(120, delay_in_seconds))
-        time.sleep(delay_in_seconds)
+        if randomize_delay:
+            random.seed()
+            random_delay_in_seconds = random.random() * delay_in_seconds
+            logging.info(message_info(119, f'{random_delay_in_seconds:.6f}'))
+            time.sleep(random_delay_in_seconds)
+        else:
+            logging.info(message_info(120, delay_in_seconds))
+            time.sleep(delay_in_seconds)
 
 
 def entry_template(config):

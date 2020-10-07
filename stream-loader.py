@@ -2659,7 +2659,7 @@ def import_plugins():
     try:
         global InfoFilter
         senzing_info_filter = importlib.import_module("senzing_info_filter")
-        InfoFilter = senzing_info_filter
+        InfoFilter = senzing_info_filter.InfoFilter
         logging.info(message_info(181, senzing_info_filter.__file__))
     except ImportError:
         pass
@@ -2977,6 +2977,7 @@ def common_prolog(config):
     delay(config)
 
     # Import plugins
+
     import_plugins()
 
     # Write license information to log.

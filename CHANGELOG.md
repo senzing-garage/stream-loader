@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.4] - 2020-10-07
+
+### Added in 1.6.4
+
+- Support for `SENZING_RANDOMIZE_DELAY`
+- Fixes in Governor support
+
 ## [1.6.3] - 2020-09-25
 
 ### Added in 1.6.3

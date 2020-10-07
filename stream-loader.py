@@ -2647,6 +2647,22 @@ def delay(config):
             logging.info(message_info(120, delay_in_seconds))
             time.sleep(delay_in_seconds)
 
+def import_plugins():
+    try:
+        global Governor
+        senzing_governor = importlib.import_module("senzing_governor")
+        Governor = senzing_governor.Governor
+        logging.info(message_info(180, senzing_governor.__file__))
+    except ImportError:
+        pass
+
+    try:
+        global InfoFilter
+        senzing_info_filter = importlib.import_module("senzing_info_filter")
+        InfoFilter = senzing_info_filter
+        logging.info(message_info(181, senzing_info_filter.__file__))
+    except ImportError:
+        pass
 
 def entry_template(config):
     ''' Format of entry message. '''
@@ -2961,22 +2977,7 @@ def common_prolog(config):
     delay(config)
 
     # Import plugins
-
-    try:
-        global Governor
-        senzing_governor = importlib.import_module("senzing_governor")
-        Governor = senzing_governor.Governor
-        logging.info(message_info(180, senzing_governor.__file__))
-    except ImportError:
-        pass
-
-    try:
-        global InfoFilter
-        senzing_info_filter = importlib.import_module("senzing_info_filter")
-        InfoFilter = senzing_info_filter
-        logging.info(message_info(181, senzing_info_filter.__file__))
-    except ImportError:
-        pass
+    import_plugins()
 
     # Write license information to log.
 

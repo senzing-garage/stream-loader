@@ -775,9 +775,9 @@ message_dictionary = {
     "406": "Kafka topic: {0} NotImplemented: {1} Message: {2}",
     "407": "Kafka topic: {0} Unknown error: {1} Message: {2}",
     "408": "Kafka topic: {0}; message: {1}; error: {2}; error: {3}",
-    "410": "RabbitMQ queue: {0} Unknown RabbitMQ error when connecting: {1}.",
-    "411": "RabbitMQ queue: {0} Unknown RabbitMQ error: {1} Message: {2}",
-    "412": "RabbitMQ queue: {0} AMQPConnectionError: {1} Could not connect to RabbitMQ host at {2}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
+    "410": "RabbitMQ exchange: {0} queue: {1} routing key: {2} Unknown RabbitMQ error when connecting and declaring RabbitMQ entities: {3}.",
+    "411": "RabbitMQ exchange: {0} routing key {1} Unknown RabbitMQ error: {2} Message: {3}",
+    "412": "RabbitMQ exchange: {0} queue: {1} routing key: {2} AMQPConnectionError: {3} Could not connect to RabbitMQ host at {4}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
     "413": "SQS queue: {0} Unknown SQS error: {1} Message: {2}",
     "414": "The exchange {0} and/or the queue {1} exist but are configured with different parameters. Set rabbitmq-use-existing-entities to True to connect to the preconfigured exchange and queue, or delete the existing exchange and queue and try again.",
     "415": "The exchange {0} and/or the queue {1} do not exist. Create them, or set rabbitmq-use-existing-entities to False to have stream-loader create them.",
@@ -1813,7 +1813,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         except BaseException as err:
             result = False
-            logging.warning(message_warning(411, self.rabbitmq_failure_exchange, err, jsonline))
+            logging.warning(message_warning(411, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key, err, jsonline))
         except Exception as err:
             exit_error(880, err, "failure_channel.basic_publish().")
 
@@ -1835,7 +1835,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             logging.debug(message_debug(910, jsonline))
 
         except BaseException as err:
-            logging.warning(message_warning(411, self.rabbitmq_info_exchange, err, jsonline))
+            logging.warning(message_warning(411, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, err, jsonline))
         except Exception as err:
             exit_error(880, err, "info_channel.basic_publish().")
 
@@ -1923,11 +1923,11 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             if not rabbitmq_passive_declare:
                 self.info_channel.queue_bind(exchange=self.rabbitmq_info_exchange, routing_key=self.rabbitmq_info_routing_key, queue=info_queue.method.queue)
         except (pika.exceptions.AMQPConnectionError) as err:
-            exit_error(412, rabbitmq_info_queue, err, rabbitmq_info_host)
-        except BaseException as err:
-            exit_error(410, rabbitmq_info_queue, err)
+            exit_error(412, self.rabbitmq_info_exchange, rabbitmq_info_queue, self.rabbitmq_info_routing_key, err, rabbitmq_info_host)
         except Exception as err:
             exit_error(880, err, "creating RabbitMQ info channel")
+        except BaseException as err:
+            exit_error(410, self.rabbitmq_info_exchange, rabbitmq_info_queue, self.rabbitmq_info_routing_key, err)
 
         # Create RabbitMQ channel to publish "failure".
 
@@ -1942,11 +1942,11 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             if not rabbitmq_passive_declare:
                 self.failure_channel.queue_bind(exchange=self.rabbitmq_failure_exchange, routing_key=self.rabbitmq_failure_routing_key, queue=failure_queue.method.queue)
         except (pika.exceptions.AMQPConnectionError) as err:
-            exit_error(412, rabbitmq_failure_queue, err, rabbitmq_failure_host)
-        except BaseException as err:
-            exit_error(410, rabbitmq_failure_queue, err)
+            exit_error(412, self.rabbitmq_failure_exchange, rabbitmq_failure_queue, self.rabbitmq_failure_routing_key, err, rabbitmq_failure_host)
         except Exception as err:
             exit_error(880, err, "creating RabbitMQ failure channel")
+        except BaseException as err:
+            exit_error(410, self.rabbitmq_failure_exchange, rabbitmq_failure_queue, self.rabbitmq_failure_routing_key, err)
 
         # Create RabbitMQ channel to subscribe to records.
 
@@ -1959,10 +1959,10 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
         except pika.exceptions.AMQPConnectionError as err:
             exit_error(562, err, rabbitmq_host)
-        except BaseException as err:
-            exit_error(561, err)
         except Exception as err:
             exit_error(880, err, "creating RabbitMQ channel")
+        except BaseException as err:
+            exit_error(561, err)
 
         # Start consuming.
 

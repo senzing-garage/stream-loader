@@ -1530,7 +1530,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         self.failure_producer = None
         self.failure_topic = config.get("kafka_failure_topic")
 
-    def on_kafka_delivery(error, message):
+    def on_kafka_delivery(self, error, message):
         message_topic = message.topic()
         message_value = message.value()
         message_error = message.error()
@@ -1749,7 +1749,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
         rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
         self.data_source = self.config.get("data_source")
-        self.entitiy_type = self.config.get("entity_type")
+        self.entity_type = self.config.get("entity_type")
 
         # Connect to RabbitMQ queue.
 
@@ -1762,10 +1762,10 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
         except pika.exceptions.AMQPConnectionError as err:
             exit_error(562, err, rabbitmq_host)
-        except BaseException as err:
-            exit_error(561, err)
         except Exception as err:
             exit_error(880, err, "creating RabbitMQ channel")
+        except BaseException as err:
+            exit_error(561, err)
 
         # Start consuming.
 
@@ -1786,7 +1786,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
         self.data_source = self.config.get("data_source")
-        self.entitiy_type = self.config.get("entity_type")
+        self.entity_type = self.config.get("entity_type")
         self.rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
         self.info_channel = None
         self.failure_channel = None
@@ -1811,11 +1811,11 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             )  # make message persistent
             logging.debug(message_debug(911, jsonline))
 
+        except Exception as err:
+            exit_error(880, err, "failure_channel.basic_publish().")
         except BaseException as err:
             result = False
             logging.warning(message_warning(411, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key, err, jsonline))
-        except Exception as err:
-            exit_error(880, err, "failure_channel.basic_publish().")
 
         return result
 
@@ -1834,10 +1834,10 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             )  # make message persistent
             logging.debug(message_debug(910, jsonline))
 
-        except BaseException as err:
-            logging.warning(message_warning(411, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, err, jsonline))
         except Exception as err:
             exit_error(880, err, "info_channel.basic_publish().")
+        except BaseException as err:
+            logging.warning(message_warning(411, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, err, jsonline))
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -2351,7 +2351,7 @@ class ReadUrlWriteQueueThread(threading.Thread):
         def input_lines_from_url(self, output_line_function):
             '''Process for reading lines from a URL and feeding them to a output_line_function() function'''
             input_url = self.config.get('input_url')
-            data = urllib.request.urlopen(input_url)
+            data = urlopen(input_url)
             for line in data:
                 self.config['counter_queued_records'] += 1
                 logging.debug(message_debug(901, line))

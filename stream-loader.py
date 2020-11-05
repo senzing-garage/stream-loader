@@ -42,9 +42,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.6.4"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.6.5"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2020-10-07'
+__updated__ = '2020-11-05'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -112,11 +112,6 @@ configuration_locator = {
         "default": False,
         "env": "SENZING_EXIT_ON_EMPTY_QUEUE",
         "cli": "exit-on-empty-queue"
-    },
-    "exit_sleep_time_in_seconds": {
-        "default": 0,
-        "env": "SENZING_EXIT_SLEEP_TIME_IN_SECONDS",
-        "cli": "exit-sleep-time-in-seconds"
     },
     "expiration_warning_in_days": {
         "default": 30,
@@ -714,8 +709,8 @@ MESSAGE_DEBUG = 900
 message_dictionary = {
     "100": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}I",
     "103": "Kafka topic: {0}; message: {1}; error: {2}; error: {3}",
-    "119": "Sleeping for randomized delay of {0} seconds.",
-    "120": "Sleeping for requested delay of {0} seconds.",
+    "119": "Thread: {0} Sleeping for randomized delay of {1} seconds.",
+    "120": "Thread: {0} Sleeping for requested delay of {1} seconds.",
     "121": "Adding JSON to failure queue: {0}",
     "122": "Quitting time!  Error: {0}",
     "123": "Total     memory: {0:>15} bytes",
@@ -1088,7 +1083,6 @@ def get_configuration(args):
     integers = [
         'configuration_check_frequency_in_seconds',
         'delay_in_seconds',
-        'exit_sleep_time_in_seconds',
         'expiration_warning_in_days',
         'log_license_period_in_seconds',
         'monitoring_period_in_seconds',
@@ -2055,6 +2049,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                     break
                 else:
                     logging.info(message_info(190, threading.current_thread().name, self.queue_url))
+                    delay(self.config, threading.current_thread().name)
                     continue
 
             # Construct and verify SQS message.
@@ -2200,6 +2195,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                     break
                 else:
                     logging.info(message_info(190, threading.current_thread().name, self.queue_url))
+                    delay(self.config, threading.current_thread().name)
                     continue
 
             # Construct and verify SQS message.
@@ -2633,7 +2629,7 @@ def create_signal_handler_function(args):
     return result_function
 
 
-def delay(config):
+def delay(config, thread_name=""):
     delay_in_seconds = config.get('delay_in_seconds')
     delay_randomized = config.get('delay_randomized')
 
@@ -2641,11 +2637,12 @@ def delay(config):
         if delay_randomized:
             random.seed()
             random_delay_in_seconds = random.random() * delay_in_seconds
-            logging.info(message_info(119, f'{random_delay_in_seconds:.6f}'))
+            logging.info(message_info(119, thread_name, f'{random_delay_in_seconds:.6f}'))
             time.sleep(random_delay_in_seconds)
         else:
-            logging.info(message_info(120, delay_in_seconds))
+            logging.info(message_info(120, thread_name, delay_in_seconds))
             time.sleep(delay_in_seconds)
+
 
 def import_plugins():
     try:
@@ -2663,6 +2660,7 @@ def import_plugins():
         logging.info(message_info(181, senzing_info_filter.__file__))
     except ImportError:
         pass
+
 
 def entry_template(config):
     ''' Format of entry message. '''
@@ -2972,10 +2970,6 @@ def common_prolog(config):
 
     logging.info(entry_template(config))
 
-    # If requested, delay start.
-
-    delay(config)
-
     # Import plugins
 
     import_plugins()
@@ -3017,7 +3011,6 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     # Pull values from configuration.
 
-    exit_sleep_time_in_seconds = config.get('exit_sleep_time_in_seconds')
     sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     threads_per_process = config.get('threads_per_process')
 
@@ -3071,12 +3064,6 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
     # Cleanup.
 
     g2_engine.destroy()
-
-    # Sleep, if requested.
-
-    if exit_sleep_time_in_seconds > 0:
-        logging.info(message_info(154, exit_sleep_time_in_seconds))
-        time.sleep(exit_sleep_time_in_seconds)
 
     # Epilog.
 

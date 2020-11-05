@@ -1836,7 +1836,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             except pika.exceptions.StreamLostError as err:
                 logging.warning(message_warning(417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
 
-                # if we are out of retries, then exit TODO need new error code
+                # if we are out of retries, exit
                 if retries_remaining == 0:
                     exit_error(message_error(418, self.config.get("rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
                 retries_remaining = retries_remaining - 1
@@ -1848,7 +1848,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
-            self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_exchange, self.rabbitmq_failure_queue, self.rabbitmq_failure_routing_key, 15)
+            self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)
 
         return result
 
@@ -1875,7 +1875,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             except pika.exceptions.StreamLostError as err:
                 logging.warning(message_warning(417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
 
-                # if we are out of retries, then exit TODO need new error code
+                # if we are out of retries, exit
                 if retries_remaining == 0:
                     exit_error(message_error(418, self.config.get("rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
                 retries_remaining = retries_remaining - 1
@@ -1886,7 +1886,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
-            self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_exchange, self.rabbitmq_info_queue, self.rabbitmq_info_routing_key, 15)
+            self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
 
 
     def callback(self, channel, method, header, body):
@@ -1958,20 +1958,20 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
-        rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
+        self.rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
 
         # Create RabbitMQ channel to publish "info".
         self.info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
-        self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_exchange, self.rabbitmq_info_queue, self.rabbitmq_info_routing_key, rabbitmq_heartbeat)
+        self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
 
         # Create RabbitMQ channel to publish "failure".
 
         self.failure_credentials = pika.PlainCredentials(rabbitmq_failure_username, rabbitmq_failure_password)
-        self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_exchange, self.rabbitmq_failure_queue, self.rabbitmq_failure_routing_key, rabbitmq_heartbeat)
+        self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)
 
         # Create RabbitMQ channel to subscribe to records.
         self.credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
-        channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, None, rabbitmq_queue, None, rabbitmq_heartbeat)
+        channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, self.rabbitmq_heartbeat)
         channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
         channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
 
@@ -1984,7 +1984,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         except Exception as err:
             exit_error(880, err, "channel.start_consuming()")
 
-    def connect(self, credentials, host_name, port, exchange, queue_name, routing_key, heartbeat):
+    def connect(self, credentials, host_name, port, queue_name, heartbeat, exchange = None, routing_key = None):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
 
         try:

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.5] - 2020-11-05
+
+### Added in 1.6.5
+
+- Support for random delay on SQS empty queue
+
 ## [1.6.4] - 2020-10-07
 
 ### Added in 1.6.4

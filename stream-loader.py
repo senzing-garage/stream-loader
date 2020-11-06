@@ -303,6 +303,16 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_QUEUE",
         "cli": "rabbitmq-queue",
     },
+    "rabbitmq_reconnect_number_of_retries": {
+        "default": "10",
+        "env": "SENZING_RABBITMQ_RECONNECT_NUMBER_OF_RETRIES",
+        "cli": "rabbitmq-reconnect-number-of-retries",
+    },
+    "rabbitmq_reconnect_delay_in_seconds": {
+        "default": "60",
+        "env": "SENZING_RABBITMQ_RECONNECT_DELAY_IN_SECONDS",
+        "cli": "rabbitmq-reconnect-wait-time-in-seconds",
+    },
     "rabbitmq_use_existing_entities": {
         "default": True,
         "env": "SENZING_RABBITMQ_USE_EXISTING_ENTITIES",
@@ -642,6 +652,16 @@ def get_parser():
                 "metavar": "SENZING_RABBITMQ_QUEUE",
                 "help": "RabbitMQ queue. Default: senzing-rabbitmq-queue"
             },
+            "--rabbitmq-reconnect-number-of-retries": {
+                "dest": "rabbitmq_reconnect_number_of_retries",
+                "metavar": "SENZING_RABBITMQ_RECONNECT_NUMBER_OF_RETRIES",
+                "help": "The number of times to try reconnecting a dropped connection to the RabbitMQ broker. Default: 10"
+            },
+            "--rabbitmq-reconnect-delay-in-seconds": {
+                "dest": "rabbitmq_reconnect_delay_in_seconds",
+                "metavar": "SENZING_RABBITMQ_RECONNECT_DELAY_IN_SECONDS",
+                "help": "The time (in seconds) to wait between attempts to reconnect to the RabbitMQ broker. Default: 60"
+            },
             "--rabbitmq-use-existing-entities": {
                 "dest": "rabbitmq_use_existing_entities",
                 "metavar": "SENZING_RABBITMQ_USE_EXISTNG_ENTITIES",
@@ -777,6 +797,8 @@ message_dictionary = {
     "414": "The exchange {0} and/or the queue {1} exist but are configured with different parameters. Set rabbitmq-use-existing-entities to True to connect to the preconfigured exchange and queue, or delete the existing exchange and queue and try again.",
     "415": "The exchange {0} and/or the queue {1} do not exist. Create them, or set rabbitmq-use-existing-entities to False to have stream-loader create them.",
     "416": "Candidate for SQS dead-letter queue: {0}",
+    "417": "RabbitMQ exchange: {0} routing key {1}: Lost connection to server. Waiting {2} seconds and attempting to reconnect. Message: {3}",
+    "418": "Exceeded the requested number of attempts ({0}) to reconnect to RabbitMQ broker at {1}:{2} with no success. Exiting.",
     "499": "{0}",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "551": "Missing G2 database URL.",
@@ -789,7 +811,6 @@ message_dictionary = {
     "558": "LD_LIBRARY_PATH environment variable not set.",
     "559": "PYTHONPATH environment variable not set.",
     "561": "Unknown RabbitMQ error when connecting: {0}.",
-    "562": "Could not connect to RabbitMQ host at {1}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details. Error: {0}",
     "563": "Could not perform database performance test.",
     "564": "Database performance of {0:.2f}ms per insert is slower than the recommended minimum performance of {1:.2f}ms per insert",
     "565": "System has {0} cores which is less than the recommended minimum of {1} cores for this configuration.",
@@ -1089,6 +1110,8 @@ def get_configuration(args):
         'queue_maxsize',
         'rabbitmq_heartbeat_in_seconds',
         'rabbitmq_prefetch_count',
+        'rabbitmq_reconnect_number_of_retries',
+        'rabbitmq_reconnect_delay_in_seconds',
         'sleep_time_in_seconds',
         'sqs_wait_time_seconds',
         'threads_per_process',
@@ -1755,7 +1778,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
             channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
         except pika.exceptions.AMQPConnectionError as err:
-            exit_error(562, err, rabbitmq_host)
+            exit_error(412, "No exchange, consumer", rabbitmq_queue, "No routing key, consumer", err, rabbitmq_host)
         except Exception as err:
             exit_error(880, err, "creating RabbitMQ channel")
         except BaseException as err:
@@ -1794,22 +1817,38 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         result = True
 
         jsonline_bytes = jsonline.encode()
-        try:
-            self.failure_channel.basic_publish(
-                exchange=self.rabbitmq_failure_exchange,
-                routing_key=self.rabbitmq_failure_routing_key,
-                body=jsonline_bytes,
-                properties=pika.BasicProperties(
-                    delivery_mode=2
-                )
-            )  # make message persistent
-            logging.debug(message_debug(911, jsonline))
+        retries_remaining = self.config.get("rabbitmq_reconnect_number_of_retries")
+        retry_delay = self.config.get("rabbitmq_reconnect_delay_in_seconds")
+        while retries_remaining > 0:
+            try:
+                self.failure_channel.basic_publish(
+                    exchange=self.rabbitmq_failure_exchange,
+                    routing_key=self.rabbitmq_failure_routing_key,
+                    body=jsonline_bytes,
+                    properties=pika.BasicProperties(
+                        delivery_mode=2
+                    )
+                )  # make message persistent
+                logging.debug(message_debug(911, jsonline))
 
-        except Exception as err:
-            exit_error(880, err, "failure_channel.basic_publish().")
-        except BaseException as err:
-            result = False
-            logging.warning(message_warning(411, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key, err, jsonline))
+                # publish was successful so break out of rety loop
+                break
+            except pika.exceptions.StreamLostError as err:
+                logging.warning(message_warning(417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
+
+                # if we are out of retries, exit
+                if retries_remaining == 0:
+                    exit_error(message_error(418, self.config.get("rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
+                retries_remaining = retries_remaining - 1
+            except Exception as err:
+                exit_error(880, err, "failure_channel.basic_publish().")
+            except BaseException as err:
+                result = False
+                logging.warning(message_warning(411, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key, err, jsonline))
+
+            # sleep to give the broker time to come back
+            time.sleep(retry_delay)
+            self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)
 
         return result
 
@@ -1817,21 +1856,38 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         '''Overwrite superclass method.'''
         assert type(jsonline) == str
         jsonline_bytes = jsonline.encode()
-        try:
-            self.info_channel.basic_publish(
-                exchange=self.rabbitmq_info_exchange,
-                routing_key=self.rabbitmq_info_routing_key,
-                body=jsonline_bytes,
-                properties=pika.BasicProperties(
-                    delivery_mode=2
-                )
-            )  # make message persistent
-            logging.debug(message_debug(910, jsonline))
+        retries_remaining = self.config.get("rabbitmq_reconnect_number_of_retries")
+        retry_delay = self.config.get("rabbitmq_reconnect_delay_in_seconds")
+        while retries_remaining > 0:
+            try:
+                self.info_channel.basic_publish(
+                    exchange=self.rabbitmq_info_exchange,
+                    routing_key=self.rabbitmq_info_routing_key,
+                    body=jsonline_bytes,
+                    properties=pika.BasicProperties(
+                        delivery_mode=2
+                    )
+                )  # make message persistent
+                logging.debug(message_debug(910, jsonline))
 
-        except Exception as err:
-            exit_error(880, err, "info_channel.basic_publish().")
-        except BaseException as err:
-            logging.warning(message_warning(411, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, err, jsonline))
+                # publish was successful so break out of rety loop
+                break
+            except pika.exceptions.StreamLostError as err:
+                logging.warning(message_warning(417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
+
+                # if we are out of retries, exit
+                if retries_remaining == 0:
+                    exit_error(message_error(418, self.config.get("rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
+                retries_remaining = retries_remaining - 1
+            except Exception as err:
+                exit_error(880, err, "info_channel.basic_publish().")
+            except BaseException as err:
+                logging.warning(message_warning(411, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, err, jsonline))
+
+            # sleep to give the broker time to come back
+            time.sleep(retry_delay)
+            self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
+
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -1884,79 +1940,40 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         rabbitmq_queue = self.config.get("rabbitmq_queue")
         rabbitmq_username = self.config.get("rabbitmq_username")
 
-        rabbitmq_info_host = self.config.get("rabbitmq_info_host")
-        rabbitmq_info_port = self.config.get("rabbitmq_info_port")
+        self.rabbitmq_info_host = self.config.get("rabbitmq_info_host")
+        self.rabbitmq_info_port = self.config.get("rabbitmq_info_port")
         rabbitmq_info_password = self.config.get("rabbitmq_info_password")
         self.rabbitmq_info_exchange = self.config.get("rabbitmq_info_exchange")
-        rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
+        self.rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
         self.rabbitmq_info_routing_key = self.config.get("rabbitmq_info_routing_key")
         rabbitmq_info_username = self.config.get("rabbitmq_info_username")
 
-        rabbitmq_failure_host = self.config.get("rabbitmq_failure_host")
-        rabbitmq_failure_port = self.config.get("rabbitmq_failure_port")
+        self.rabbitmq_failure_host = self.config.get("rabbitmq_failure_host")
+        self.rabbitmq_failure_port = self.config.get("rabbitmq_failure_port")
         rabbitmq_failure_password = self.config.get("rabbitmq_failure_password")
         self.rabbitmq_failure_exchange = self.config.get("rabbitmq_failure_exchange")
-        rabbitmq_failure_queue = self.config.get("rabbitmq_failure_queue")
+        self.rabbitmq_failure_queue = self.config.get("rabbitmq_failure_queue")
         self.rabbitmq_failure_routing_key = self.config.get("rabbitmq_failure_routing_key")
         rabbitmq_failure_username = self.config.get("rabbitmq_failure_username")
 
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
-        rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
+        self.rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
 
         # Create RabbitMQ channel to publish "info".
-
-        try:
-            info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
-            info_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_info_host, port=rabbitmq_info_port, credentials=info_credentials, heartbeat=rabbitmq_heartbeat))
-            self.info_channel = info_connection.channel()
-            self.info_channel.exchange_declare(exchange=self.rabbitmq_info_exchange, passive=rabbitmq_passive_declare)
-            info_queue = self.info_channel.queue_declare(queue=rabbitmq_info_queue, passive=rabbitmq_passive_declare)
-
-            # if we are actively declaring, then we need to bind. If passive declare, we assume it is already set up
-            if not rabbitmq_passive_declare:
-                self.info_channel.queue_bind(exchange=self.rabbitmq_info_exchange, routing_key=self.rabbitmq_info_routing_key, queue=info_queue.method.queue)
-        except (pika.exceptions.AMQPConnectionError) as err:
-            exit_error(412, self.rabbitmq_info_exchange, rabbitmq_info_queue, self.rabbitmq_info_routing_key, err, rabbitmq_info_host)
-        except Exception as err:
-            exit_error(880, err, "creating RabbitMQ info channel")
-        except BaseException as err:
-            exit_error(410, self.rabbitmq_info_exchange, rabbitmq_info_queue, self.rabbitmq_info_routing_key, err)
+        self.info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
+        self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
 
         # Create RabbitMQ channel to publish "failure".
 
-        try:
-            failure_credentials = pika.PlainCredentials(rabbitmq_failure_username, rabbitmq_failure_password)
-            failure_connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_failure_host, port=rabbitmq_failure_port, credentials=failure_credentials, heartbeat=rabbitmq_heartbeat))
-            self.failure_channel = failure_connection.channel()
-            self.failure_channel.exchange_declare(exchange=self.rabbitmq_failure_exchange, passive=rabbitmq_passive_declare)
-            failure_queue = self.failure_channel.queue_declare(queue=rabbitmq_failure_queue, passive=rabbitmq_passive_declare)
-
-            # if we are actively declaring, then we need to bind. If passive declare, we assume it is already set up
-            if not rabbitmq_passive_declare:
-                self.failure_channel.queue_bind(exchange=self.rabbitmq_failure_exchange, routing_key=self.rabbitmq_failure_routing_key, queue=failure_queue.method.queue)
-        except (pika.exceptions.AMQPConnectionError) as err:
-            exit_error(412, self.rabbitmq_failure_exchange, rabbitmq_failure_queue, self.rabbitmq_failure_routing_key, err, rabbitmq_failure_host)
-        except Exception as err:
-            exit_error(880, err, "creating RabbitMQ failure channel")
-        except BaseException as err:
-            exit_error(410, self.rabbitmq_failure_exchange, rabbitmq_failure_queue, self.rabbitmq_failure_routing_key, err)
+        self.failure_credentials = pika.PlainCredentials(rabbitmq_failure_username, rabbitmq_failure_password)
+        self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)
 
         # Create RabbitMQ channel to subscribe to records.
-
-        try:
-            credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=credentials, heartbeat=rabbitmq_heartbeat))
-            channel = connection.channel()
-            channel.queue_declare(queue=rabbitmq_queue, passive=rabbitmq_passive_declare)
-            channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
-            channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
-        except pika.exceptions.AMQPConnectionError as err:
-            exit_error(562, err, rabbitmq_host)
-        except Exception as err:
-            exit_error(880, err, "creating RabbitMQ channel")
-        except BaseException as err:
-            exit_error(561, err)
+        self.credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
+        channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, self.rabbitmq_heartbeat)
+        channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
+        channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
 
         # Start consuming.
 
@@ -1966,6 +1983,29 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             logging.info(message_info(130, threading.current_thread().name), err)
         except Exception as err:
             exit_error(880, err, "channel.start_consuming()")
+
+    def connect(self, credentials, host_name, port, queue_name, heartbeat, exchange = None, routing_key = None):
+        rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
+
+        try:
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=host_name, port=port, credentials=credentials, heartbeat=heartbeat))
+            channel = connection.channel()
+            if exchange is not None:
+                channel.exchange_declare(exchange=exchange, passive=rabbitmq_passive_declare)
+            queue = channel.queue_declare(queue=queue_name, passive=rabbitmq_passive_declare)
+
+            # if we are actively declaring, then we need to bind. If passive declare, we assume it is already set up
+            if not rabbitmq_passive_declare and routing_key is not None:
+                channel.queue_bind(exchange=exchange, routing_key=routing_key, queue=queue.method.queue)
+        except (pika.exceptions.AMQPConnectionError) as err:
+            exit_error(412, str(exchange), queue_name, str(routing_key), err, host_name)
+        except Exception as err:
+            exit_error(880, err, "creating RabbitMQ info channel")
+        except BaseException as err:
+            exit_error(410, exchange, queue, routing_key, err)
+
+        return channel
+
 
 # -----------------------------------------------------------------------------
 # Class: ReadSqsWriteG2Thread

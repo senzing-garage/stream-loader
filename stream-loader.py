@@ -1715,39 +1715,49 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
         self.config['counter_queued_records'] += 1
+        load_successful = True
 
         # Invoke Governor.
 
         self.govern()
 
         # Verify that message is valid JSON.
+#        logging.info('!!!!Recieved message, starts on next line.')
+#        logging.info(body)
+#        logging.info('!!!! End of message')
+        records = body.decode("utf-8").split("\n")
+#        logging.info('!!!! Number of records in message: ' + str(len(records)))
 
-        try:
-            rabbitmq_message_dictionary = json.loads(body)
-        except Exception as err:
-            logging.info(message_debug(557, body, err))
-            if self.add_to_failure_queue(str(body)):
-                channel.basic_ack(delivery_tag=method.delivery_tag)
-            return
+        for record in records:
+            try:
+                rabbitmq_message_dictionary = json.loads(record)
+            except Exception as err:
+                logging.info(message_debug(557, record, err))
+                if not self.add_to_failure_queue(str(record)):
+                    load_successful = False
+                continue
 
-        # If needed, modify JSON message.
+            # If needed, modify JSON message.
 
-        if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
-            rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
-        if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
-            rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
-        rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
+            if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
+                rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
+            if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
+                rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
+            rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
 
-        # Send valid JSON to Senzing.
+            # Send valid JSON to Senzing.
 
-        if self.send_jsonline_to_g2_engine(rabbitmq_message_string):
+            if self.send_jsonline_to_g2_engine(rabbitmq_message_string):
 
-            # Record successful transfer to Senzing.
+                # Record successful transfer to Senzing.
 
-            self.config['counter_processed_records'] += 1
+                self.config['counter_processed_records'] += 1
+            else:
+                load_successful = False
 
-            # After successful import into Senzing, tell RabbitMQ we're done with message.
+        # After successful import into Senzing, tell RabbitMQ we're done with message.
 
+        if load_successful:
             channel.basic_ack(delivery_tag=method.delivery_tag)
 
     def run(self):

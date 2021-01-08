@@ -815,6 +815,7 @@ message_dictionary = {
     "564": "Database performance of {0:.2f}ms per insert is slower than the recommended minimum performance of {1:.2f}ms per insert",
     "565": "System has {0} cores which is less than the recommended minimum of {1} cores for this configuration.",
     "566": "System has {0:.1f} GB memory which is less than the recommended minimum of {1:.1f} GB memory",
+    "567": "Postgresql database connection detected but no governor installed. Please install governor or run the senzing-init-container container. Connection strings: {0}",
     "695": "Unknown database scheme '{0}' in database url '{1}'",
     "696": "Bad SENZING_SUBCOMMAND: {0}.",
     "697": "No processing done.",
@@ -2694,13 +2695,34 @@ def delay(config, thread_name=""):
             time.sleep(delay_in_seconds)
 
 
-def import_plugins():
+def import_plugins(config):
     try:
         global Governor
         senzing_governor = importlib.import_module("senzing_governor")
         Governor = senzing_governor.Governor
         logging.info(message_info(180, senzing_governor.__file__))
     except ImportError:
+        database_urls = []
+        engine_configuration_json = config.get('engine_configuration_json', {})
+        if engine_configuration_json:
+            engine_configuration_dict = json.loads(engine_configuration_json)
+            hybrid = engine_configuration_dict.get('HYBRID', {})
+            database_keys = set(hybrid.values())
+
+            # Create list of database URLs.
+
+            database_urls = [engine_configuration_dict["SQL"]["CONNECTION"]]
+            for database_key in database_keys:
+                database_url = engine_configuration_dict.get(database_key, {}).get("DB_1", None)
+                if database_url:
+                    database_urls.append(database_url)
+
+        database_urls.append(config.get("g2_database_url_generic"))
+
+        for database_url in database_urls:
+            if database_url.startswith("postgresql://"):
+                message_error(567, database_urls)
+                exit_error(567, database_urls)   
         pass
 
     try:
@@ -3022,7 +3044,7 @@ def common_prolog(config):
 
     # Import plugins
 
-    import_plugins()
+    import_plugins(config)
 
     # Write license information to log.
 

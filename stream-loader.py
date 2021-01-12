@@ -1714,8 +1714,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
 
     def callback(self, channel, method, header, body):
-        logging.debug(message_debug(903, threading.current_thread().name, body))
-        self.config['counter_queued_records'] += 1
+        logging.debug(message_debug(903, threading.current_thread().name, body))        
         load_successful = True
 
         # Invoke Governor.
@@ -1723,28 +1722,28 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         self.govern()
 
         # Verify that message is valid JSON.
-#        logging.info('!!!!Recieved message, starts on next line.')
-#        logging.info(body)
-#        logging.info('!!!! End of message')
-        records = body.decode("utf-8").split("\n")
-#        logging.info('!!!! Number of records in message: ' + str(len(records)))
+
+        message_str = body.decode("utf-8")
+        try:
+            records = json.loads(message_str)
+        except Exception as err:
+            logging.info(message_debug(557, record, err))
+            self.add_to_failure_queue(message_str)
+            return
+
+        # if this is a dict, it's a single record. Throw it in an array so it works the the code below
+        if isinstance(records, dict):
+             records = [records]
 
         for record in records:
-            try:
-                rabbitmq_message_dictionary = json.loads(record)
-            except Exception as err:
-                logging.info(message_debug(557, record, err))
-                if not self.add_to_failure_queue(str(record)):
-                    load_successful = False
-                continue
-
+            self.config['counter_queued_records'] += 1
             # If needed, modify JSON message.
 
-            if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
-                rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
-            if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
-                rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
-            rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
+            if 'DATA_SOURCE' not in record:
+                record['DATA_SOURCE'] = self.data_source
+            if 'ENTITY_TYPE' not in record:
+                record['ENTITY_TYPE'] = self.entity_type
+            rabbitmq_message_string = json.dumps(record, sort_keys=True)
 
             # Send valid JSON to Senzing.
 
@@ -1755,6 +1754,8 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
                 self.config['counter_processed_records'] += 1
             else:
                 load_successful = False
+                self.add_to_failure_queue(rabbitmq_message_string)
+                continue
 
         # After successful import into Senzing, tell RabbitMQ we're done with message.
 

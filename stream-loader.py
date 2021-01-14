@@ -1468,6 +1468,8 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
         while True:
 
+            load_successful = True
+
             # Invoke Governor.
 
             self.govern()
@@ -1494,12 +1496,11 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
             if not kafka_message_string:
                 continue
             logging.debug(message_debug(903, threading.current_thread().name, kafka_message_string))
-            self.config['counter_queued_records'] += 1
 
             # Verify that message is valid JSON.
 
             try:
-                kafka_message_dictionary = json.loads(kafka_message_string)
+                kafka_message_list = json.loads(kafka_message_string)
             except Exception as err:
                 logging.info(message_debug(557, kafka_message_string, err))
                 if self.add_to_failure_queue(str(kafka_message_string)):
@@ -1509,24 +1510,35 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
                         logging.error(message_error(722, kafka_message_string, err))
                 continue
 
-            # If needed, modify JSON message.
+            # if this is a dict, it's a single record. Throw it in an array so it works the the code below
 
-            if 'DATA_SOURCE' not in kafka_message_dictionary:
-                kafka_message_dictionary['DATA_SOURCE'] = data_source
-            if 'ENTITY_TYPE' not in kafka_message_dictionary:
-                kafka_message_dictionary['ENTITY_TYPE'] = entity_type
-            kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
+            if isinstance(kafka_message_list, dict):
+                kafka_message_list = [kafka_message_list]
 
-            # Send valid JSON to Senzing.
+            for kafka_message_dictionary in kafka_message_list:
+                self.config['counter_queued_records'] += 1
 
-            if self.send_jsonline_to_g2_engine(kafka_message_string):
+                # If needed, modify JSON message.
 
-                # Record successful transfer to Senzing.
+                if 'DATA_SOURCE' not in kafka_message_dictionary:
+                    kafka_message_dictionary['DATA_SOURCE'] = data_source
+                if 'ENTITY_TYPE' not in kafka_message_dictionary:
+                    kafka_message_dictionary['ENTITY_TYPE'] = entity_type
+                kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
 
-                self.config['counter_processed_records'] += 1
+                # Send valid JSON to Senzing.
+
+                if self.send_jsonline_to_g2_engine(kafka_message_string):
+
+                    # Record successful transfer to Senzing.
+
+                    self.config['counter_processed_records'] += 1
+                else:
+                    load_successful = False
 
                 # After successful import into Senzing, tell Kafka we're done with message.
 
+            if load_successful:
                 try:
                     consumer.commit()
                 except Exception as err:
@@ -1637,6 +1649,8 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
         while True:
 
+            load_successful = True
+
             # Invoke Governor.
 
             self.govern()
@@ -1663,12 +1677,11 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             if not kafka_message_string:
                 continue
             logging.debug(message_debug(903, threading.current_thread().name, kafka_message_string))
-            self.config['counter_queued_records'] += 1
 
             # Verify that message is valid JSON.
 
             try:
-                kafka_message_dictionary = json.loads(kafka_message_string)
+                kafka_message_list = json.loads(kafka_message_string)
             except Exception as err:
                 logging.info(message_debug(557, kafka_message_string, err))
                 if self.add_to_failure_queue(str(kafka_message_string)):
@@ -1678,24 +1691,35 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
                         logging.error(message_error(722, kafka_message_string, err))
                 continue
 
-            # If needed, modify JSON message.
+            # if this is a dict, it's a single record. Throw it in an array so it works the the code below
 
-            if 'DATA_SOURCE' not in kafka_message_dictionary:
-                kafka_message_dictionary['DATA_SOURCE'] = data_source
-            if 'ENTITY_TYPE' not in kafka_message_dictionary:
-                kafka_message_dictionary['ENTITY_TYPE'] = entity_type
-            kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
+            if isinstance(kafka_message_list, dict):
+                kafka_message_list = [kafka_message_list]
 
-            # Send valid JSON to Senzing.
+            for kafka_message_dictionary in kafka_message_list:
+                self.config['counter_queued_records'] += 1
 
-            if self.send_jsonline_to_g2_engine_withinfo(kafka_message_string):
+                # If needed, modify JSON message.
 
-                # Record successful transfer to Senzing.
+                if 'DATA_SOURCE' not in kafka_message_dictionary:
+                    kafka_message_dictionary['DATA_SOURCE'] = data_source
+                if 'ENTITY_TYPE' not in kafka_message_dictionary:
+                    kafka_message_dictionary['ENTITY_TYPE'] = entity_type
+                kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
 
-                self.config['counter_processed_records'] += 1
+                # Send valid JSON to Senzing.
+
+                if self.send_jsonline_to_g2_engine_withinfo(kafka_message_string):
+
+                    # Record successful transfer to Senzing.
+
+                    self.config['counter_processed_records'] += 1
+                else:
+                    load_successful = False
 
                 # After successful import into Senzing, tell Kafka we're done with message.
 
+            if load_successful:
                 try:
                     consumer.commit()
                 except Exception as err:
@@ -1727,13 +1751,14 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         try:
             records = json.loads(message_str)
         except Exception as err:
-            logging.info(message_debug(557, record, err))
+            logging.info(message_debug(557, message_str, err))
             self.add_to_failure_queue(message_str)
             return
 
         # if this is a dict, it's a single record. Throw it in an array so it works the the code below
+
         if isinstance(records, dict):
-             records = [records]
+            records = [records]
 
         for record in records:
             self.config['counter_queued_records'] += 1

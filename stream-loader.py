@@ -1532,7 +1532,7 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
                     self.config['counter_processed_records'] += 1
 
-                # After successful import into Senzing, tell Kafka we're done with message.
+            # After importing into Senzing, tell Kafka we're done with message. All the records are loaded or moved to the failure queue
 
             try:
                 consumer.commit()
@@ -1708,7 +1708,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
                     self.config['counter_processed_records'] += 1
 
-            # After successful import into Senzing, tell Kafka we're done with message.
+            # After importing into Senzing, tell Kafka we're done with message. All the records are loaded or moved to the failure queue
 
             try:
                 consumer.commit()
@@ -1752,6 +1752,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
         for record in records:
             self.config['counter_queued_records'] += 1
+
             # If needed, modify JSON message.
 
             if 'DATA_SOURCE' not in record:
@@ -1768,7 +1769,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
                 self.config['counter_processed_records'] += 1
 
-        # After successful import into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
+        # After importing into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
 
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -1936,6 +1937,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         for rabbitmq_message_dictionary in rabbitmq_message_list:
             self.config['counter_queued_records'] += 1
+
             # If needed, modify JSON message.
 
             if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
@@ -1952,7 +1954,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
                 self.config['counter_processed_records'] += 1
 
-        # After successful import into Senzing, tell RabbitMQ we're done with message.
+        # After importing into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
 
         channel.basic_ack(delivery_tag=method.delivery_tag)
 

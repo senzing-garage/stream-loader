@@ -1468,8 +1468,6 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
         while True:
 
-            load_successful = True
-
             # Invoke Governor.
 
             self.govern()
@@ -1533,16 +1531,13 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
                     # Record successful transfer to Senzing.
 
                     self.config['counter_processed_records'] += 1
-                else:
-                    load_successful = False
 
                 # After successful import into Senzing, tell Kafka we're done with message.
 
-            if load_successful:
-                try:
-                    consumer.commit()
-                except Exception as err:
-                    logging.error(message_error(722, kafka_message_string, err))
+            try:
+                consumer.commit()
+            except Exception as err:
+                logging.error(message_error(722, kafka_message_string, err))
 
         consumer.close()
 
@@ -1649,8 +1644,6 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
         while True:
 
-            load_successful = True
-
             # Invoke Governor.
 
             self.govern()
@@ -1714,16 +1707,13 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
                     # Record successful transfer to Senzing.
 
                     self.config['counter_processed_records'] += 1
-                else:
-                    load_successful = False
 
-                # After successful import into Senzing, tell Kafka we're done with message.
+            # After successful import into Senzing, tell Kafka we're done with message.
 
-            if load_successful:
-                try:
-                    consumer.commit()
-                except Exception as err:
-                    logging.error(message_error(722, kafka_message_string, err))
+            try:
+                consumer.commit()
+            except Exception as err:
+                logging.error(message_error(722, kafka_message_string, err))
 
         consumer.close()
 
@@ -1738,8 +1728,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
 
     def callback(self, channel, method, header, body):
-        logging.debug(message_debug(903, threading.current_thread().name, body))        
-        load_successful = True
+        logging.debug(message_debug(903, threading.current_thread().name, body))
 
         # Invoke Governor.
 
@@ -1752,7 +1741,8 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             records = json.loads(message_str)
         except Exception as err:
             logging.info(message_debug(557, message_str, err))
-            self.add_to_failure_queue(message_str)
+            if self.add_to_failure_queue(message_str):
+                channel.basic_ack(delivery_tag=method.delivery_tag)
             return
 
         # if this is a dict, it's a single record. Throw it in an array so it works the the code below
@@ -1777,15 +1767,10 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
                 # Record successful transfer to Senzing.
 
                 self.config['counter_processed_records'] += 1
-            else:
-                load_successful = False
-                self.add_to_failure_queue(rabbitmq_message_string)
-                continue
 
-        # After successful import into Senzing, tell RabbitMQ we're done with message.
+        # After successful import into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
 
-        if load_successful:
-            channel.basic_ack(delivery_tag=method.delivery_tag)
+        channel.basic_ack(delivery_tag=method.delivery_tag)
 
     def run(self):
         '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''
@@ -1928,7 +1913,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
-        self.config['counter_queued_records'] += 1
 
         # Invoke Governor.
 
@@ -1936,33 +1920,41 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         # Verify that message is valid JSON.
 
+        message_str = body.decode("utf-8")
         try:
-            rabbitmq_message_dictionary = json.loads(body)
+            rabbitmq_message_list = json.loads(message_str)
         except Exception as err:
-            logging.info(message_debug(557, body, err))
-            if self.add_to_failure_queue(str(body)):
+            logging.info(message_debug(557, message_str, err))
+            if self.add_to_failure_queue(str(message_str)):
                 channel.basic_ack(delivery_tag=method.delivery_tag)
             return
 
-        # If needed, modify JSON message.
+        # if this is a dict, it's a single record. Throw it in an array so it works the the code below
 
-        if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
-            rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
-        if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
-            rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
-        rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
+        if isinstance(rabbitmq_message_list, dict):
+            rabbitmq_message_list = [rabbitmq_message_list]
 
-        # Send valid JSON to Senzing.
+        for rabbitmq_message_dictionary in rabbitmq_message_list:
+            self.config['counter_queued_records'] += 1
+            # If needed, modify JSON message.
 
-        if self.send_jsonline_to_g2_engine_withinfo(rabbitmq_message_string):
+            if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
+                rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
+            if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
+                rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
+            rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
 
-            # Record successful transfer to Senzing.
+            # Send valid JSON to Senzing.
 
-            self.config['counter_processed_records'] += 1
+            if self.send_jsonline_to_g2_engine_withinfo(rabbitmq_message_string):
 
-            # After successful import into Senzing, tell RabbitMQ we're done with message.
+                # Record successful transfer to Senzing.
 
-            channel.basic_ack(delivery_tag=method.delivery_tag)
+                self.config['counter_processed_records'] += 1
+
+        # After successful import into Senzing, tell RabbitMQ we're done with message.
+
+        channel.basic_ack(delivery_tag=method.delivery_tag)
 
     def run(self):
         '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''

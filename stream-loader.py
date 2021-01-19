@@ -1508,7 +1508,7 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
                         logging.error(message_error(722, kafka_message_string, err))
                 continue
 
-            # if this is a dict, it's a single record. Throw it in an array so it works the the code below
+            # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
             if isinstance(kafka_message_list, dict):
                 kafka_message_list = [kafka_message_list]
@@ -1684,7 +1684,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
                         logging.error(message_error(722, kafka_message_string, err))
                 continue
 
-            # if this is a dict, it's a single record. Throw it in an array so it works the the code below
+            # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
             if isinstance(kafka_message_list, dict):
                 kafka_message_list = [kafka_message_list]
@@ -1745,7 +1745,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
                 channel.basic_ack(delivery_tag=method.delivery_tag)
             return
 
-        # if this is a dict, it's a single record. Throw it in an array so it works the the code below
+        # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
         if isinstance(records, dict):
             records = [records]
@@ -1930,7 +1930,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 channel.basic_ack(delivery_tag=method.delivery_tag)
             return
 
-        # if this is a dict, it's a single record. Throw it in an array so it works the the code below
+        # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
         if isinstance(rabbitmq_message_list, dict):
             rabbitmq_message_list = [rabbitmq_message_list]
@@ -2143,7 +2143,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                     )
                 continue
 
-            # if this is a dict, it's a single record. Throw it in an array so it works the the code below
+            # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
             if isinstance(sqs_message_list, dict):
                 sqs_message_list = [sqs_message_list]
@@ -2282,12 +2282,11 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             sqs_message_body = sqs_message.get("Body")
             sqs_message_receipt_handle = sqs_message.get("ReceiptHandle")
             logging.debug(message_debug(903, threading.current_thread().name, sqs_message_body))
-            self.config['counter_queued_records'] += 1
 
             # Verify that message is valid JSON.
 
             try:
-                sqs_message_dictionary = json.loads(sqs_message_body)
+                sqs_message_list = json.loads(sqs_message_body)
             except Exception as err:
                 logging.info(message_debug(557, sqs_message_body, err))
                 if self.add_to_failure_queue(str(sqs_message_body)):
@@ -2297,23 +2296,31 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                     )
                 continue
 
-            # If needed, modify JSON message.
+            # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
-            if 'DATA_SOURCE' not in sqs_message_dictionary:
-                sqs_message_dictionary['DATA_SOURCE'] = self.data_source
-            if 'ENTITY_TYPE' not in sqs_message_dictionary:
-                sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
-            sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
+            if isinstance(sqs_message_list, dict):
+                sqs_message_list = [sqs_message_list]
 
-            # Send valid JSON to Senzing.
+            for sqs_message_dictionary in sqs_message_list:
+                self.config['counter_queued_records'] += 1
 
-            if self.send_jsonline_to_g2_engine_withinfo(sqs_message_string):
+                # If needed, modify JSON message.
 
-                # Record successful transfer to Senzing.
+                if 'DATA_SOURCE' not in sqs_message_dictionary:
+                    sqs_message_dictionary['DATA_SOURCE'] = self.data_source
+                if 'ENTITY_TYPE' not in sqs_message_dictionary:
+                    sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
+                sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
 
-                self.config['counter_processed_records'] += 1
+                # Send valid JSON to Senzing.
 
-                # After successful import into Senzing, tell AWS SQS we're done with message.
+                if self.send_jsonline_to_g2_engine_withinfo(sqs_message_string):
+
+                    # Record successful transfer to Senzing.
+
+                    self.config['counter_processed_records'] += 1
+
+            # After importing into Senzing, tell SQS we're done with message. All the records are loaded or moved to the failure queue
 
                 self.sqs.delete_message(
                     QueueUrl=self.queue_url,

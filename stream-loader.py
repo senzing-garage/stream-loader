@@ -1494,12 +1494,11 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
             if not kafka_message_string:
                 continue
             logging.debug(message_debug(903, threading.current_thread().name, kafka_message_string))
-            self.config['counter_queued_records'] += 1
 
             # Verify that message is valid JSON.
 
             try:
-                kafka_message_dictionary = json.loads(kafka_message_string)
+                kafka_message_list = json.loads(kafka_message_string)
             except Exception as err:
                 logging.info(message_debug(557, kafka_message_string, err))
                 if self.add_to_failure_queue(str(kafka_message_string)):
@@ -1509,28 +1508,36 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
                         logging.error(message_error(722, kafka_message_string, err))
                 continue
 
-            # If needed, modify JSON message.
+            # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
-            if 'DATA_SOURCE' not in kafka_message_dictionary:
-                kafka_message_dictionary['DATA_SOURCE'] = data_source
-            if 'ENTITY_TYPE' not in kafka_message_dictionary:
-                kafka_message_dictionary['ENTITY_TYPE'] = entity_type
-            kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
+            if isinstance(kafka_message_list, dict):
+                kafka_message_list = [kafka_message_list]
 
-            # Send valid JSON to Senzing.
+            for kafka_message_dictionary in kafka_message_list:
+                self.config['counter_queued_records'] += 1
 
-            if self.send_jsonline_to_g2_engine(kafka_message_string):
+                # If needed, modify JSON message.
 
-                # Record successful transfer to Senzing.
+                if 'DATA_SOURCE' not in kafka_message_dictionary:
+                    kafka_message_dictionary['DATA_SOURCE'] = data_source
+                if 'ENTITY_TYPE' not in kafka_message_dictionary:
+                    kafka_message_dictionary['ENTITY_TYPE'] = entity_type
+                kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
 
-                self.config['counter_processed_records'] += 1
+                # Send valid JSON to Senzing.
 
-                # After successful import into Senzing, tell Kafka we're done with message.
+                if self.send_jsonline_to_g2_engine(kafka_message_string):
 
-                try:
-                    consumer.commit()
-                except Exception as err:
-                    logging.error(message_error(722, kafka_message_string, err))
+                    # Record successful transfer to Senzing.
+
+                    self.config['counter_processed_records'] += 1
+
+            # After importing into Senzing, tell Kafka we're done with message. All the records are loaded or moved to the failure queue
+
+            try:
+                consumer.commit()
+            except Exception as err:
+                logging.error(message_error(722, kafka_message_string, err))
 
         consumer.close()
 
@@ -1663,12 +1670,11 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             if not kafka_message_string:
                 continue
             logging.debug(message_debug(903, threading.current_thread().name, kafka_message_string))
-            self.config['counter_queued_records'] += 1
 
             # Verify that message is valid JSON.
 
             try:
-                kafka_message_dictionary = json.loads(kafka_message_string)
+                kafka_message_list = json.loads(kafka_message_string)
             except Exception as err:
                 logging.info(message_debug(557, kafka_message_string, err))
                 if self.add_to_failure_queue(str(kafka_message_string)):
@@ -1678,28 +1684,36 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
                         logging.error(message_error(722, kafka_message_string, err))
                 continue
 
-            # If needed, modify JSON message.
+            # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
-            if 'DATA_SOURCE' not in kafka_message_dictionary:
-                kafka_message_dictionary['DATA_SOURCE'] = data_source
-            if 'ENTITY_TYPE' not in kafka_message_dictionary:
-                kafka_message_dictionary['ENTITY_TYPE'] = entity_type
-            kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
+            if isinstance(kafka_message_list, dict):
+                kafka_message_list = [kafka_message_list]
 
-            # Send valid JSON to Senzing.
+            for kafka_message_dictionary in kafka_message_list:
+                self.config['counter_queued_records'] += 1
 
-            if self.send_jsonline_to_g2_engine_withinfo(kafka_message_string):
+                # If needed, modify JSON message.
 
-                # Record successful transfer to Senzing.
+                if 'DATA_SOURCE' not in kafka_message_dictionary:
+                    kafka_message_dictionary['DATA_SOURCE'] = data_source
+                if 'ENTITY_TYPE' not in kafka_message_dictionary:
+                    kafka_message_dictionary['ENTITY_TYPE'] = entity_type
+                kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
 
-                self.config['counter_processed_records'] += 1
+                # Send valid JSON to Senzing.
 
-                # After successful import into Senzing, tell Kafka we're done with message.
+                if self.send_jsonline_to_g2_engine_withinfo(kafka_message_string):
 
-                try:
-                    consumer.commit()
-                except Exception as err:
-                    logging.error(message_error(722, kafka_message_string, err))
+                    # Record successful transfer to Senzing.
+
+                    self.config['counter_processed_records'] += 1
+
+            # After importing into Senzing, tell Kafka we're done with message. All the records are loaded or moved to the failure queue
+
+            try:
+                consumer.commit()
+            except Exception as err:
+                logging.error(message_error(722, kafka_message_string, err))
 
         consumer.close()
 
@@ -1715,7 +1729,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
-        self.config['counter_queued_records'] += 1
 
         # Invoke Governor.
 
@@ -1723,33 +1736,42 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
         # Verify that message is valid JSON.
 
+        message_str = body.decode("utf-8")
         try:
-            rabbitmq_message_dictionary = json.loads(body)
+            rabbitmq_message_list = json.loads(message_str)
         except Exception as err:
-            logging.info(message_debug(557, body, err))
-            if self.add_to_failure_queue(str(body)):
+            logging.info(message_debug(557, message_str, err))
+            if self.add_to_failure_queue(message_str):
                 channel.basic_ack(delivery_tag=method.delivery_tag)
             return
 
-        # If needed, modify JSON message.
+        # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
-        if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
-            rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
-        if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
-            rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
-        rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
+        if isinstance(rabbitmq_message_list, dict):
+            rabbitmq_message_list = [rabbitmq_message_list]
 
-        # Send valid JSON to Senzing.
+        for rabbitmq_message_dictionary in rabbitmq_message_list:
+            self.config['counter_queued_records'] += 1
 
-        if self.send_jsonline_to_g2_engine(rabbitmq_message_string):
+            # If needed, modify JSON message.
 
-            # Record successful transfer to Senzing.
+            if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
+                rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
+            if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
+                rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
+            rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
 
-            self.config['counter_processed_records'] += 1
+            # Send valid JSON to Senzing.
 
-            # After successful import into Senzing, tell RabbitMQ we're done with message.
+            if self.send_jsonline_to_g2_engine(rabbitmq_message_string):
 
-            channel.basic_ack(delivery_tag=method.delivery_tag)
+                # Record successful transfer to Senzing.
+
+                self.config['counter_processed_records'] += 1
+
+        # After importing into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
+
+        channel.basic_ack(delivery_tag=method.delivery_tag)
 
     def run(self):
         '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''
@@ -1892,7 +1914,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
-        self.config['counter_queued_records'] += 1
 
         # Invoke Governor.
 
@@ -1900,33 +1921,42 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         # Verify that message is valid JSON.
 
+        message_str = body.decode("utf-8")
         try:
-            rabbitmq_message_dictionary = json.loads(body)
+            rabbitmq_message_list = json.loads(message_str)
         except Exception as err:
-            logging.info(message_debug(557, body, err))
-            if self.add_to_failure_queue(str(body)):
+            logging.info(message_debug(557, message_str, err))
+            if self.add_to_failure_queue(str(message_str)):
                 channel.basic_ack(delivery_tag=method.delivery_tag)
             return
 
-        # If needed, modify JSON message.
+        # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
-        if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
-            rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
-        if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
-            rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
-        rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
+        if isinstance(rabbitmq_message_list, dict):
+            rabbitmq_message_list = [rabbitmq_message_list]
 
-        # Send valid JSON to Senzing.
+        for rabbitmq_message_dictionary in rabbitmq_message_list:
+            self.config['counter_queued_records'] += 1
 
-        if self.send_jsonline_to_g2_engine_withinfo(rabbitmq_message_string):
+            # If needed, modify JSON message.
 
-            # Record successful transfer to Senzing.
+            if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
+                rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
+            if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
+                rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
+            rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
 
-            self.config['counter_processed_records'] += 1
+            # Send valid JSON to Senzing.
 
-            # After successful import into Senzing, tell RabbitMQ we're done with message.
+            if self.send_jsonline_to_g2_engine_withinfo(rabbitmq_message_string):
 
-            channel.basic_ack(delivery_tag=method.delivery_tag)
+                # Record successful transfer to Senzing.
+
+                self.config['counter_processed_records'] += 1
+
+        # After importing into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
+
+        channel.basic_ack(delivery_tag=method.delivery_tag)
 
     def run(self):
         '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''
@@ -2099,12 +2129,11 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
             sqs_message_body = sqs_message.get("Body")
             sqs_message_receipt_handle = sqs_message.get("ReceiptHandle")
             logging.debug(message_debug(903, threading.current_thread().name, sqs_message_body))
-            self.config['counter_queued_records'] += 1
 
             # Verify that message is valid JSON.
 
             try:
-                sqs_message_dictionary = json.loads(sqs_message_body)
+                sqs_message_list = json.loads(sqs_message_body)
             except Exception as err:
                 logging.info(message_debug(557, sqs_message_body, err))
                 if self.add_to_failure_queue(str(sqs_message_body)):
@@ -2114,28 +2143,36 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                     )
                 continue
 
-            # If needed, modify JSON message.
+            # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
-            if 'DATA_SOURCE' not in sqs_message_dictionary:
-                sqs_message_dictionary['DATA_SOURCE'] = self.data_source
-            if 'ENTITY_TYPE' not in sqs_message_dictionary:
-                sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
-            sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
+            if isinstance(sqs_message_list, dict):
+                sqs_message_list = [sqs_message_list]
 
-            # Send valid JSON to Senzing.
+            for sqs_message_dictionary in sqs_message_list:
+                self.config['counter_queued_records'] += 1
 
-            if self.send_jsonline_to_g2_engine(sqs_message_string):
+                # If needed, modify JSON message.
 
-                # Record successful transfer to Senzing.
+                if 'DATA_SOURCE' not in sqs_message_dictionary:
+                    sqs_message_dictionary['DATA_SOURCE'] = self.data_source
+                if 'ENTITY_TYPE' not in sqs_message_dictionary:
+                    sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
+                sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
 
-                self.config['counter_processed_records'] += 1
+                # Send valid JSON to Senzing.
 
-                # After successful import into Senzing, tell AWS SQS we're done with message.
+                if self.send_jsonline_to_g2_engine(sqs_message_string):
 
-                self.sqs.delete_message(
-                    QueueUrl=self.queue_url,
-                    ReceiptHandle=sqs_message_receipt_handle
-                )
+                    # Record successful transfer to Senzing.
+
+                    self.config['counter_processed_records'] += 1
+
+            # After importing into Senzing, tell SQS we're done with message. All the records are loaded or moved to the failure queue
+
+            self.sqs.delete_message(
+                QueueUrl=self.queue_url,
+                ReceiptHandle=sqs_message_receipt_handle
+            )
 
 # -----------------------------------------------------------------------------
 # Class: ReadSqsWriteG2WithInfoThread
@@ -2245,12 +2282,11 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             sqs_message_body = sqs_message.get("Body")
             sqs_message_receipt_handle = sqs_message.get("ReceiptHandle")
             logging.debug(message_debug(903, threading.current_thread().name, sqs_message_body))
-            self.config['counter_queued_records'] += 1
 
             # Verify that message is valid JSON.
 
             try:
-                sqs_message_dictionary = json.loads(sqs_message_body)
+                sqs_message_list = json.loads(sqs_message_body)
             except Exception as err:
                 logging.info(message_debug(557, sqs_message_body, err))
                 if self.add_to_failure_queue(str(sqs_message_body)):
@@ -2260,23 +2296,31 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                     )
                 continue
 
-            # If needed, modify JSON message.
+            # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
-            if 'DATA_SOURCE' not in sqs_message_dictionary:
-                sqs_message_dictionary['DATA_SOURCE'] = self.data_source
-            if 'ENTITY_TYPE' not in sqs_message_dictionary:
-                sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
-            sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
+            if isinstance(sqs_message_list, dict):
+                sqs_message_list = [sqs_message_list]
 
-            # Send valid JSON to Senzing.
+            for sqs_message_dictionary in sqs_message_list:
+                self.config['counter_queued_records'] += 1
 
-            if self.send_jsonline_to_g2_engine_withinfo(sqs_message_string):
+                # If needed, modify JSON message.
 
-                # Record successful transfer to Senzing.
+                if 'DATA_SOURCE' not in sqs_message_dictionary:
+                    sqs_message_dictionary['DATA_SOURCE'] = self.data_source
+                if 'ENTITY_TYPE' not in sqs_message_dictionary:
+                    sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
+                sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
 
-                self.config['counter_processed_records'] += 1
+                # Send valid JSON to Senzing.
 
-                # After successful import into Senzing, tell AWS SQS we're done with message.
+                if self.send_jsonline_to_g2_engine_withinfo(sqs_message_string):
+
+                    # Record successful transfer to Senzing.
+
+                    self.config['counter_processed_records'] += 1
+
+            # After importing into Senzing, tell SQS we're done with message. All the records are loaded or moved to the failure queue
 
                 self.sqs.delete_message(
                     QueueUrl=self.queue_url,

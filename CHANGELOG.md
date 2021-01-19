@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2021-01-19
+
+### Added in 1.7.0
+
+- RabbitMQ, Kafka, and SQS loading subcommands (including withinfo variations) now support multiple records per message when formated as a json array.
+
 ## [1.6.5] - 2020-11-05
 
 ### Added in 1.6.5

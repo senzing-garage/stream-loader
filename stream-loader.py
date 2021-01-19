@@ -1738,7 +1738,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
         message_str = body.decode("utf-8")
         try:
-            records = json.loads(message_str)
+            rabbitmq_message_list = json.loads(message_str)
         except Exception as err:
             logging.info(message_debug(557, message_str, err))
             if self.add_to_failure_queue(message_str):
@@ -1747,19 +1747,19 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
         # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
-        if isinstance(records, dict):
-            records = [records]
+        if isinstance(rabbitmq_message_list, dict):
+            rabbitmq_message_list = [rabbitmq_message_list]
 
-        for record in records:
+        for rabbitmq_message_dictionary in rabbitmq_message_list:
             self.config['counter_queued_records'] += 1
 
             # If needed, modify JSON message.
 
-            if 'DATA_SOURCE' not in record:
-                record['DATA_SOURCE'] = self.data_source
-            if 'ENTITY_TYPE' not in record:
-                record['ENTITY_TYPE'] = self.entity_type
-            rabbitmq_message_string = json.dumps(record, sort_keys=True)
+            if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
+                rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
+            if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
+                rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
+            rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
 
             # Send valid JSON to Senzing.
 

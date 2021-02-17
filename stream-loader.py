@@ -2045,6 +2045,8 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
 class ReadSqsWriteG2Thread(WriteG2Thread):
 
+    PATTERN = "^([^/]+://[^/]+)/"
+
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
         self.data_source = self.config.get('data_source')
@@ -2052,7 +2054,14 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.queue_url = config.get("sqs_queue_url")
-        self.sqs = boto3.client("sqs")
+
+        pat = re.compile(self.PATTERN)
+        m = pat.match(self.queue_url)
+        if m is None:
+          raise RuntimeError("Invalid SQS URL config for {}".format(self.queue_url))
+        self.endpoint = m.group(1)
+        self.sqs = boto3.client("sqs", endpoint_url = self.endpoint)
+
         self.sqs_dead_letter_queue_enabled = config.get('sqs_dead_letter_queue_enabled')
         self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
 
@@ -2180,6 +2189,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
 
 class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
+    PATTERN = "^([^/]+://[^/]+)/"
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
@@ -2189,7 +2199,14 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.info_queue_url = config.get("sqs_info_queue_url")
         self.queue_url = config.get("sqs_queue_url")
-        self.sqs = boto3.client("sqs")
+
+        pat = re.compile(self.PATTERN)
+        m = pat.match(self.queue_url)
+        if m is None:
+          raise RuntimeError("Invalid SQS URL config for {}".format(self.queue_url))
+        self.endpoint = m.group(1)
+        self.sqs = boto3.client("sqs", endpoint_url = self.endpoint)
+
         self.sqs_dead_letter_queue_enabled = config.get('sqs_dead_letter_queue_enabled')
         self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
 

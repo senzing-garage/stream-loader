@@ -2208,9 +2208,9 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
         regular_expression = "^([^/]+://[^/]+)/"
         regex = re.compile(regular_expression)
-        match = regex.match(self.info_queue_url)
+        match = regex.match(self.queue_url)
         if not match:
-            exit_error(750, self.info_queue_url)
+            exit_error(750, self.queue_url)
         endpoint_url = match.group(1)
         self.sqs = boto3.client("sqs", endpoint_url=endpoint_url)
 

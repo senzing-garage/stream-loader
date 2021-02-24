@@ -353,6 +353,11 @@ configuration_locator = {
         "env": "SENZING_SQS_INFO_QUEUE_URL",
         "cli": "sqs-info-queue-url"
     },
+    "sqs_info_queue_delay_seconds": {
+        "default": 10,
+        "env": "SENZING_SQS_INFO_QUEUE_DELAY_SECONDS",
+        "cli": "sqs-info-queue-delay-seconds"
+    },
     "sqs_queue_url": {
         "default": None,
         "env": "SENZING_SQS_QUEUE_URL",
@@ -542,6 +547,11 @@ def get_parser():
                     "dest": "sqs_info_queue_url",
                     "metavar": "SENZING_SQS_INFO_QUEUE_URL",
                     "help": "AWS SQS URL for info. Default: none"
+                },
+                "--sqs-info-queue-delay-seconds": {
+                    "dest": "sqs_info_queue_delay_seconds",
+                    "metavar": "SENZING_SQS_INFO_QUEUE_DELAY_SECONDS",
+                    "help": "AWS SQS delivery delay in seconds for info. Default: 10"
                 },
             },
         },
@@ -1115,6 +1125,7 @@ def get_configuration(args):
         'rabbitmq_reconnect_number_of_retries',
         'rabbitmq_reconnect_delay_in_seconds',
         'sleep_time_in_seconds',
+        'sqs_info_queue_delay_seconds',
         'sqs_wait_time_seconds',
         'threads_per_process',
     ]
@@ -2198,6 +2209,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.info_queue_url = config.get("sqs_info_queue_url")
+        self.info_queue_delay_seconds = config.get("sqs_info_queue_delay_seconds")
         self.queue_url = config.get("sqs_queue_url")
         self.sqs_dead_letter_queue_enabled = config.get('sqs_dead_letter_queue_enabled')
         self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
@@ -2251,7 +2263,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         try:
             response = self.sqs.send_message(
                 QueueUrl=self.info_queue_url,
-                DelaySeconds=10,
+                DelaySeconds=self.info_queue_delay_seconds,
                 MessageAttributes={},
                 MessageBody=(jsonline),
             )

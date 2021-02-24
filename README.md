@@ -182,6 +182,7 @@ Configuration values specified by environment variable or command line parameter
 - **[SENZING_SLEEP_TIME_IN_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sleep_time_in_seconds)**
 - **[SENZING_SQS_DEAD_LETTER_QUEUE_ENABLED](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_dead_letter_queue_enabled)**
 - **[SENZING_SQS_FAILURE_QUEUE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_failure_queue_url)**
+- **[SENZING_SQS_INFO_QUEUE_DELAY_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_info_queue_delay_seconds)**
 - **[SENZING_SQS_INFO_QUEUE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_info_queue_url)**
 - **[SENZING_SQS_QUEUE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_queue_url)**
 - **[SENZING_SQS_WAIT_TIME_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_wait_time_seconds)**

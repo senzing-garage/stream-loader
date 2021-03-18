@@ -28,6 +28,7 @@ import subprocess
 import sys
 import threading
 import time
+import functools
 
 # Import Senzing libraries.
 
@@ -1745,45 +1746,58 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         # Invoke Governor.
 
         self.govern()
+        self.record_queue.put((method.delivery_tag, body))
 
-        # Verify that message is valid JSON.
+    def worker(self, connection, channel):
+        while True:
+            delivery_tag, body = self.record_queue.get()
 
-        message_str = body.decode("utf-8")
-        try:
-            rabbitmq_message_list = json.loads(message_str)
-        except Exception as err:
-            logging.info(message_debug(557, message_str, err))
-            if self.add_to_failure_queue(message_str):
-                channel.basic_ack(delivery_tag=method.delivery_tag)
-            return
+            # Verify that message is valid JSON.
 
-        # if this is a dict, it's a single record. Throw it in an array so it works with the code below
+            message_str = body.decode("utf-8")
+            try:
+                rabbitmq_message_list = json.loads(message_str)
+            except Exception as err:
+                logging.info(message_debug(557, message_str, err))
+                if self.add_to_failure_queue(message_str):
+                    cb = functools.partial(self.ack_message, channel, delivery_tag)
+                    connection.add_callback_threadsafe(cb)
+                return
 
-        if isinstance(rabbitmq_message_list, dict):
-            rabbitmq_message_list = [rabbitmq_message_list]
+            # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
-        for rabbitmq_message_dictionary in rabbitmq_message_list:
-            self.config['counter_queued_records'] += 1
+            if isinstance(rabbitmq_message_list, dict):
+                rabbitmq_message_list = [rabbitmq_message_list]
 
-            # If needed, modify JSON message.
+            for rabbitmq_message_dictionary in rabbitmq_message_list:
+                self.config['counter_queued_records'] += 1
 
-            if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
-                rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
-            if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
-                rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
-            rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
+                # If needed, modify JSON message.
 
-            # Send valid JSON to Senzing.
+                if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
+                    rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
+                if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
+                    rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
+                rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
 
-            if self.send_jsonline_to_g2_engine(rabbitmq_message_string):
+                if self.send_jsonline_to_g2_engine(rabbitmq_message_string):
 
-                # Record successful transfer to Senzing.
+                    # Record successful transfer to Senzing.
 
-                self.config['counter_processed_records'] += 1
+                    self.config['counter_processed_records'] += 1
 
-        # After importing into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
+            # After importing into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
 
-        channel.basic_ack(delivery_tag=method.delivery_tag)
+            cb = functools.partial(self.ack_message, channel, delivery_tag)
+            connection.add_callback_threadsafe(cb)
+
+    def ack_message(self, channel, delivery_tag):
+        if channel.is_open:
+            channel.basic_ack(delivery_tag)
+        else:
+            # Channel is already closed, so we can't ACK this message;
+            # log and/or do something that makes sense for your app in this case.
+            pass
 
     def run(self):
         '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''
@@ -1803,8 +1817,10 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         self.data_source = self.config.get("data_source")
         self.entity_type = self.config.get("entity_type")
 
-        # Connect to RabbitMQ queue.
+        # create record_queue
+        self.record_queue = queue.Queue()
 
+        # Connect to RabbitMQ queue.
         try:
             credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=credentials, heartbeat=rabbitmq_heartbeat))
@@ -1819,8 +1835,11 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         except BaseException as err:
             exit_error(561, err)
 
-        # Start consuming.
+        # Start worker thread
+        worker_thread = threading.Thread(target=self.worker, args=(connection, channel))
+        worker_thread.start()
 
+        # Start consuming.
         try:
             channel.start_consuming()
         except pika.exceptions.ChannelClosed as err:
@@ -1966,7 +1985,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 self.config['counter_processed_records'] += 1
 
         # After importing into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
-
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
     def run(self):

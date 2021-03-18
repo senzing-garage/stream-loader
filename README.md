@@ -155,7 +155,6 @@ Configuration values specified by environment variable or command line parameter
 - **[SENZING_MONITORING_PERIOD_IN_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_monitoring_period_in_seconds)**
 - **[SENZING_NETWORK](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_network)**
 - **[SENZING_PRIME_ENGINE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_prime_engine)**
-- **[SENZING_PROCESSES](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_processes)**
 - **[SENZING_QUEUE_MAX](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_queue_max)**
 - **[SENZING_RABBITMQ_EXCHANGE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_exchange)**
 - **[SENZING_RABBITMQ_FAILURE_EXCHANGE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_failure_exchange)**

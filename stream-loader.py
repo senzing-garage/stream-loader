@@ -1796,7 +1796,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             channel.basic_ack(delivery_tag)
         else:
             # Channel is already closed, so we can't ACK this message;
-            # log and/or do something that makes sense for your app in this case.
             pass
 
     def run(self):

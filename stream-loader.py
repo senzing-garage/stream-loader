@@ -1841,13 +1841,8 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         self.record_queue = queue.Queue()
 
         # Connect to RabbitMQ queue.
+        credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
         try:
-            credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
-            # connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=credentials, heartbeat=rabbitmq_heartbeat))
-            #channel = connection.channel()
-            #channel.queue_declare(queue=rabbitmq_queue, passive=rabbitmq_passive_declare)
-            #channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
-            #channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
             connection, channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
         except pika.exceptions.AMQPConnectionError as err:
             exit_error(412, "No exchange, consumer", rabbitmq_queue, "No routing key, consumer", err, rabbitmq_host)
@@ -1875,7 +1870,21 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             logging.info("!!!!!!!!!!!!!!!!!!!!!! RabbitMQ Connection/Channel closed on start_consuming(), sleeping for 30s then trying to reconnect")
             time.sleep(30)
 
-            connection, channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
+            while True:
+                try:
+                    connection, channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
+                except pika.exceptions.AMQPConnectionError as err:
+                    logging.info(message_info(412, "No exchange, consumer", rabbitmq_queue, "No routing key, consumer", err, rabbitmq_host))
+                except Exception as err:
+                    logging.info(message_info(880, err, "creating RabbitMQ channel"))
+                    logging.info("Unknown exception when connecting of type " + type(err).__name__)
+                except BaseException as err:
+                    logging.info(message_info(561, err))
+                    logging.info("Unknown exception when connecting of type " + type(err).__name__)
+                else:
+                    break
+                logging.info("!!!!!!!!!!!!!!!!!!!!!! RabbitMQ failed to reconnect, sleeping for 30s then trying to reconnect")
+                time.sleep(30)
 
     def connect(self, credentials, host_name, port, queue_name, heartbeat, prefetch_count):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")

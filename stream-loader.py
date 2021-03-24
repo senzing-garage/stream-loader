@@ -1800,7 +1800,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
                     time.sleep(60)
                 except pika.exceptions.ConnectionClosed as err:
                     logging.info(message_info(131, threading.current_thread().name), err)
-                    logging.info("!!!!!!!!!!!!!!!!!!!!!! RabbitMQ Channel closed on add_callback_threadsafe(), sleeping for 60s then trying to reconnect")
+                    logging.info("!!!!!!!!!!!!!!!!!!!!!! RabbitMQ Connection closed on add_callback_threadsafe(), sleeping for 60s then trying to reconnect")
                     time.sleep(60)
                 except Exception as err:
                     logging.info(message_info(880, err, "channel.start_consuming()"))

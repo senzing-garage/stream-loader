@@ -1841,25 +1841,26 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         self.record_queue = queue.Queue()
 
         # Connect to RabbitMQ queue.
+        try:
+            credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
+            # connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=credentials, heartbeat=rabbitmq_heartbeat))
+            #channel = connection.channel()
+            #channel.queue_declare(queue=rabbitmq_queue, passive=rabbitmq_passive_declare)
+            #channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
+            #channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
+            connection, channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
+        except pika.exceptions.AMQPConnectionError as err:
+            exit_error(412, "No exchange, consumer", rabbitmq_queue, "No routing key, consumer", err, rabbitmq_host)
+        except Exception as err:
+            exit_error(880, err, "creating RabbitMQ channel")
+        except BaseException as err:
+            exit_error(561, err)
+
+        # Start worker thread
+        worker_thread = threading.Thread(target=self.worker, args=(connection, channel))
+        worker_thread.start()
+
         while True:
-            try:
-                credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
-                connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=credentials, heartbeat=rabbitmq_heartbeat))
-                channel = connection.channel()
-                channel.queue_declare(queue=rabbitmq_queue, passive=rabbitmq_passive_declare)
-                channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
-                channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
-            except pika.exceptions.AMQPConnectionError as err:
-                exit_error(412, "No exchange, consumer", rabbitmq_queue, "No routing key, consumer", err, rabbitmq_host)
-            except Exception as err:
-                exit_error(880, err, "creating RabbitMQ channel")
-            except BaseException as err:
-                exit_error(561, err)
-
-            # Start worker thread
-            worker_thread = threading.Thread(target=self.worker, args=(connection, channel))
-            worker_thread.start()
-
             # Start consuming.
             try:
                 channel.start_consuming()
@@ -1873,6 +1874,18 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
                 #exit_error(880, err, "channel.start_consuming()")
             logging.info("!!!!!!!!!!!!!!!!!!!!!! RabbitMQ Connection/Channel closed on start_consuming(), sleeping for 30s then trying to reconnect")
             time.sleep(30)
+
+            connection, channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
+
+    def connect(self, credentials, host_name, port, queue_name, heartbeat, prefetch_count):
+        rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
+
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host=host_name, port=port, credentials=credentials, heartbeat=heartbeat))
+        channel = connection.channel()
+        channel.queue_declare(queue=queue_name, passive=rabbitmq_passive_declare)
+        channel.basic_qos(prefetch_count=prefetch_count)
+        channel.basic_consume(on_message_callback=self.callback, queue=queue_name)
+        return connection, channel
             
 
 # -----------------------------------------------------------------------------

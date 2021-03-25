@@ -753,6 +753,7 @@ message_dictionary = {
     "129": "{0} is running.",
     "130": "RabbitMQ channel closed by the broker. Thread {0}. Error: {1}",
     "131": "RabbitMQ connection closed by the broker. Thread {0}. Error: {1}",
+    "132": "Could not ACK a RabbitMQ message. Thread {0}. Error: {1}",
     "140": "System Resources:",
     "141": "    Physical cores: {0}",
     "142": "     Logical cores: {0}",
@@ -1749,7 +1750,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         self.govern()
         self.record_queue.put((method.delivery_tag, body))
 
-    def worker(self, connection, channel):
+    def worker(self):
         while True:
             delivery_tag, body = self.record_queue.get()
 
@@ -1761,9 +1762,8 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             except Exception as err:
                 logging.info(message_debug(557, message_str, err))
                 if self.add_to_failure_queue(message_str):
-                    cb = functools.partial(self.ack_message, channel, delivery_tag)
-                    connection.add_callback_threadsafe(cb)
-                return
+                    self.setup_ack(delivery_tag)
+                continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
@@ -1789,35 +1789,22 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
             # After importing into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
 
-            # we may not need to do this, rabbit mq might have to resend the message anyway when the connection fails?
-            while True:
-                try:
-                    cb = functools.partial(self.ack_message, channel, delivery_tag)
-                    connection.add_callback_threadsafe(cb)
-                except pika.exceptions.ChannelClosed as err:
-                    logging.info(message_info(130, threading.current_thread().name), err)
-                    logging.info("!!!!!!!!!!!!!!!!!!!!!! RabbitMQ Channel closed on add_callback_threadsafe(), sleeping for 60s then trying to reconnect")
-                    time.sleep(60)
-                except pika.exceptions.ConnectionClosed as err:
-                    logging.info(message_info(131, threading.current_thread().name), err)
-                    logging.info("!!!!!!!!!!!!!!!!!!!!!! RabbitMQ Connection closed on add_callback_threadsafe(), sleeping for 60s then trying to reconnect")
-                    time.sleep(60)
-                except Exception as err:
-                    logging.info(message_info(880, err, "channel.start_consuming()"))
-                    logging.info("Unknown exception on add_callback_threadsafe() of type " + type(err).__name__)
-                    logging.info("!!!!!!!!!!!!!!!!!!!!!! RabbitMQ Connection/Channel closed on add_callback_threadsafe(), sleeping for 60s then trying to reconnect")
-                    time.sleep(60)
-                    #exit_error(880, err, "channel.start_consuming()")
-                break
-                
+            self.setup_ack(delivery_tag)
 
-    def ack_message(self, channel, delivery_tag):
-        if channel.is_open:
-            channel.basic_ack(delivery_tag)
-        else:
-            # Channel is already closed, so we can't ACK this message;
-            # log and/or do something that makes sense for your app in this case.
-            pass
+    def setup_ack(self, delivery_tag):
+        try:
+            cb = functools.partial(self.ack_message, delivery_tag)
+            self.connection.add_callback_threadsafe(cb)
+        except pika.exceptions.ConnectionClosed as err:
+            logging.info(message_info(131, threading.current_thread().name, err))
+        except Exception as err:
+            logging.info(message_info(880, err, "connection.add_callback_threadsafe()"))
+
+    def ack_message(self, delivery_tag):
+        try:
+            self.channel.basic_ack(delivery_tag)
+        except BaseException as err:
+            logging.info(message_info(132, threading.current_thread().name, err))
 
     def run(self):
         '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''
@@ -1840,10 +1827,11 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         # create record_queue
         self.record_queue = queue.Queue()
 
-        # Connect to RabbitMQ queue.
         credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
+
+        # Connect to RabbitMQ queue.
         try:
-            connection, channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
+           self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
         except pika.exceptions.AMQPConnectionError as err:
             exit_error(412, "No exchange, consumer", rabbitmq_queue, "No routing key, consumer", err, rabbitmq_host)
         except Exception as err:
@@ -1852,39 +1840,31 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             exit_error(561, err)
 
         # Start worker thread
-        worker_thread = threading.Thread(target=self.worker, args=(connection, channel))
+        #worker_thread = threading.Thread(target=self.worker, args=(connection, channel))
+        worker_thread = threading.Thread(target=self.worker)
         worker_thread.start()
 
         while True:
             # Start consuming.
             try:
-                channel.start_consuming()
+                self.channel.start_consuming()
             except pika.exceptions.ChannelClosed as err:
-                logging.info(message_info(130, threading.current_thread().name), err)
-            except pika.exceptions.ConnectionClosed as err:
-                logging.info(message_info(131, threading.current_thread().name), err)
+                logging.info(message_info(130, threading.current_thread().name, err))
             except Exception as err:
                 logging.info(message_info(880, err, "channel.start_consuming()"))
                 logging.info("Unknown exception on start_consuming() of type " + type(err).__name__)
-                #exit_error(880, err, "channel.start_consuming()")
             logging.info("!!!!!!!!!!!!!!!!!!!!!! RabbitMQ Connection/Channel closed on start_consuming(), sleeping for 30s then trying to reconnect")
             time.sleep(30)
 
-            while True:
-                try:
-                    connection, channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
-                except pika.exceptions.AMQPConnectionError as err:
-                    logging.info(message_info(412, "No exchange, consumer", rabbitmq_queue, "No routing key, consumer", err, rabbitmq_host))
-                except Exception as err:
-                    logging.info(message_info(880, err, "creating RabbitMQ channel"))
-                    logging.info("Unknown exception when connecting of type " + type(err).__name__)
-                except BaseException as err:
-                    logging.info(message_info(561, err))
-                    logging.info("Unknown exception when connecting of type " + type(err).__name__)
-                else:
-                    break
-                logging.info("!!!!!!!!!!!!!!!!!!!!!! RabbitMQ failed to reconnect, sleeping for 30s then trying to reconnect")
-                time.sleep(30)
+            # Reconnect to RabbitMQ queue.
+            try:
+               self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
+            except pika.exceptions.AMQPConnectionError as err:
+                logging.info(message_info(412, "No exchange, consumer", rabbitmq_queue, "No routing key, consumer", err, rabbitmq_host))
+            except Exception as err:
+                logging.info(message_info(880, err, "creating RabbitMQ channel"))
+            except BaseException as err:
+                logging.info(message_info(561, err))
 
     def connect(self, credentials, host_name, port, queue_name, heartbeat, prefetch_count):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
@@ -2090,7 +2070,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         try:
             channel.start_consuming()
         except pika.exceptions.ChannelClosed as err:
-            logging.info(message_info(130, threading.current_thread().name), err)
+            logging.info(message_info(130, threading.current_thread().name, err))
         except Exception as err:
             exit_error(880, err, "channel.start_consuming()")
 

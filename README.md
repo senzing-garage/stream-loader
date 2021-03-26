@@ -378,11 +378,11 @@ Unset `*_PARAMETER` environment variables have no effect on the
    Example:
 
     ```console
-    export SENZING_SUBCOMMAND=kafka
     export SENZING_DATA_SOURCE=TEST
     export SENZING_KAFKA_BOOTSTRAP_SERVER=senzing-kafka:9092
     export SENZING_KAFKA_TOPIC=senzing-kafka-topic
     export SENZING_MONITORING_PERIOD=60
+    export SENZING_SUBCOMMAND=kafka
     ```
 
 1. Run Docker container.
@@ -390,11 +390,11 @@ Unset `*_PARAMETER` environment variables have no effect on the
 
     ```console
     sudo docker run \
-      --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
       --env SENZING_DATA_SOURCE="${SENZING_DATA_SOURCE}" \
       --env SENZING_KAFKA_BOOTSTRAP_SERVER="${SENZING_KAFKA_BOOTSTRAP_SERVER}" \
       --env SENZING_KAFKA_TOPIC="${SENZING_KAFKA_TOPIC}" \
       --env SENZING_MONITORING_PERIOD="${SENZING_MONITORING_PERIOD}" \
+      --env SENZING_SUBCOMMAND="${SENZING_SUBCOMMAND}" \
       --interactive \
       --rm \
       --tty \

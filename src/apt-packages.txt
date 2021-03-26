@@ -1,3 +1,2 @@
 curl
-python-dev
-python-pip
+librdkafka-dev

@@ -140,7 +140,7 @@ These are "one-time tasks" which may already have been completed.
        Example:
 
         ```console
-        export SENZING_DOWNLOAD_FILE=~/template-python.py
+        export SENZING_DOWNLOAD_FILE=~/stream-loader.py
         ```
 
     1. Download file.
@@ -149,7 +149,7 @@ These are "one-time tasks" which may already have been completed.
         ```console
         curl -X GET \
           --output ${SENZING_DOWNLOAD_FILE} \
-          https://raw.githubusercontent.com/Senzing/template-python/master/template-python.py
+          https://raw.githubusercontent.com/Senzing/stream-loader/master/stream-loader.py
         ```
 
     1. Make file executable.

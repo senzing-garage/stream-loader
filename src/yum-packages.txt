@@ -1,3 +1,1 @@
 curl
-python-devel
-python-pip

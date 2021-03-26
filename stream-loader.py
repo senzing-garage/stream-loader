@@ -42,9 +42,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.7.2"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.7.3"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2021-02-24'
+__updated__ = '2021-03-26'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -332,6 +332,16 @@ configuration_locator = {
         "default": False,
         "env": "SENZING_SKIP_DATABASE_PERFORMANCE_TEST",
         "cli": "skip-database-performance-test"
+    },
+    "skip_governor": {
+        "default": False,
+        "env": "SENZING_SKIP_GOVERNOR",
+        "cli": "skip-governor"
+    },
+    "skip_info_filter": {
+        "default": False,
+        "env": "SENZING_SKIP_INFO_FILTER",
+        "cli": "skip-info-filter"
     },
     "sleep_time_in_seconds": {
         "default": 0,
@@ -866,6 +876,8 @@ message_dictionary = {
     "911": "Adding JSON to failure queue: {0}",
     "920": "gdb STDOUT: {0}",
     "921": "gdb STDERR: {0}",
+    "950": "Enter function: {0}",
+    "951": "Exit  function: {0}",
     "998": "Debugging enabled.",
     "999": "{0}",
 }
@@ -1100,6 +1112,8 @@ def get_configuration(args):
         'prime_engine',
         'rabbitmq_use_existing_entities',
         'skip_database_performance_test',
+        'skip_governor',
+        'skip_info_filter',
         'sqs_dead_letter_queue_enabled',
     ]
     for boolean in booleans:
@@ -1290,6 +1304,7 @@ class WriteG2Thread(threading.Thread):
         return now > next_check_time
 
     def is_g2_default_configuration_changed(self):
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
 
         # Update early to avoid "thundering heard problem".
 
@@ -1311,9 +1326,11 @@ class WriteG2Thread(threading.Thread):
         if result:
             logging.info(message_info(292, active_config_id.decode(), default_config_id.decode()))
 
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
         return result
 
     def update_active_g2_configuration(self):
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
 
         # Get most current Configuration ID from G2 database.
 
@@ -1323,9 +1340,11 @@ class WriteG2Thread(threading.Thread):
         # Apply new configuration to g2_engine.
 
         self.g2_engine.reinitV2(default_config_id)
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def add_record(self, jsonline):
         ''' Send a record to Senzing. '''
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
         assert type(jsonline) == str
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
@@ -1344,10 +1363,12 @@ class WriteG2Thread(threading.Thread):
                     raise err
             else:
                 raise err
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
         return
 
     def add_record_withinfo(self, jsonline):
         ''' Send a record to Senzing and return the "info" returned by Senzing. '''
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
         assert type(jsonline) == str
         json_dictionary = json.loads(jsonline)
         data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
@@ -1366,6 +1387,7 @@ class WriteG2Thread(threading.Thread):
                     raise err
             else:
                 raise err
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
         return response_bytearray.decode()
 
     def send_jsonline_to_g2_engine(self, jsonline):
@@ -2763,42 +2785,46 @@ def delay(config, thread_name=""):
 
 
 def import_plugins(config):
-    try:
-        global Governor
-        senzing_governor = importlib.import_module("senzing_governor")
-        Governor = senzing_governor.Governor
-        logging.info(message_info(180, senzing_governor.__file__))
-    except ImportError:
-        database_urls = []
-        engine_configuration_json = config.get('engine_configuration_json', {})
-        if engine_configuration_json:
-            engine_configuration_dict = json.loads(engine_configuration_json)
-            hybrid = engine_configuration_dict.get('HYBRID', {})
-            database_keys = set(hybrid.values())
 
-            # Create list of database URLs.
+    skip_governor = config.get('skip_governor', False)
+    skip_info_filter = config.get('skip_info_filter', False)
 
-            database_urls = [engine_configuration_dict["SQL"]["CONNECTION"]]
-            for database_key in database_keys:
-                database_url = engine_configuration_dict.get(database_key, {}).get("DB_1", None)
-                if database_url:
-                    database_urls.append(database_url)
+    if not skip_governor:
+        try:
+            global Governor
+            senzing_governor = importlib.import_module("senzing_governor")
+            Governor = senzing_governor.Governor
+            logging.info(message_info(180, senzing_governor.__file__))
+        except ImportError:
+            database_urls = []
+            engine_configuration_json = config.get('engine_configuration_json', {})
+            if engine_configuration_json:
+                engine_configuration_dict = json.loads(engine_configuration_json)
+                hybrid = engine_configuration_dict.get('HYBRID', {})
+                database_keys = set(hybrid.values())
 
-        database_urls.append(config.get("g2_database_url_generic"))
+                # Create list of database URLs.
 
-        for database_url in database_urls:
-            if database_url.startswith("postgresql://"):
-                message_error(567, database_urls)
-                exit_error(567, database_urls)
-        pass
+                database_urls = [engine_configuration_dict["SQL"]["CONNECTION"]]
+                for database_key in database_keys:
+                    database_url = engine_configuration_dict.get(database_key, {}).get("DB_1", None)
+                    if database_url:
+                        database_urls.append(database_url)
 
-    try:
-        global InfoFilter
-        senzing_info_filter = importlib.import_module("senzing_info_filter")
-        InfoFilter = senzing_info_filter.InfoFilter
-        logging.info(message_info(181, senzing_info_filter.__file__))
-    except ImportError:
-        pass
+            database_urls.append(config.get("g2_database_url_generic"))
+
+            for database_url in database_urls:
+                if database_url.startswith("postgresql://"):
+                    message_error(567, database_urls)
+                    exit_error(567, database_urls)
+    if not skip_info_filter:
+        try:
+            global InfoFilter
+            senzing_info_filter = importlib.import_module("senzing_info_filter")
+            InfoFilter = senzing_info_filter.InfoFilter
+            logging.info(message_info(181, senzing_info_filter.__file__))
+        except ImportError:
+            pass
 
 
 def entry_template(config):
@@ -2880,43 +2906,50 @@ def get_g2_configuration_json(config):
 
 def get_g2_config(config, g2_config_name="loader-G2-config"):
     '''Get the G2Config resource.'''
+    logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Config()
-        result.initV2(g2_config_name, g2_configuration_json, config.get('debug', False))
+        result.initV2(g2_config_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(897, g2_configuration_json, err)
+    logging.debug(message_debug(951, sys._getframe().f_code.co_name))
     return result
 
 
 def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G2-configuration-manager"):
     '''Get the G2Config resource.'''
+    logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2ConfigMgr()
-        result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug', False))
+        result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(896, g2_configuration_json, err)
+    logging.debug(message_debug(951, sys._getframe().f_code.co_name))
     return result
 
 
 def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
     '''Get the G2Diagnostic resource.'''
+    logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Diagnostic()
-        result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug', False))
+        result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(894, g2_configuration_json, err)
+    logging.debug(message_debug(951, sys._getframe().f_code.co_name))
     return result
 
 
 def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
     '''Get the G2Engine resource.'''
+    logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Engine()
-        result.initV2(g2_engine_name, g2_configuration_json, config.get('debug', False))
+        result.initV2(g2_engine_name, g2_configuration_json, config.get('debug'))
         config['last_configuration_check'] = time.time()
     except G2Exception.G2ModuleException as err:
         exit_error(898, g2_configuration_json, err)
@@ -2926,17 +2959,20 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
             result.primeEngine()
         except G2Exception.G2ModuleGenericException as err:
             exit_error(881, g2_configuration_json, err)
+    logging.debug(message_debug(951, sys._getframe().f_code.co_name))
     return result
 
 
 def get_g2_product(config, g2_product_name="loader-G2-product"):
     '''Get the G2Product resource.'''
+    logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Product()
         result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(892, config.get('g2project_ini'), err)
+    logging.debug(message_debug(951, sys._getframe().f_code.co_name))
     return result
 
 # -----------------------------------------------------------------------------
@@ -2994,7 +3030,7 @@ def log_license(config):
 
 def log_performance(config):
     '''Log performance estimates.'''
-
+    logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
 
         # Initialized G2Diagnostic object.
@@ -3066,6 +3102,7 @@ def log_performance(config):
         logging.warning(message_warning(728, err))
     except Exception as err:
         logging.warning(message_warning(729, err))
+    logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
 
 def log_memory():

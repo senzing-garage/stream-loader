@@ -3,3 +3,4 @@ configparser
 confluent-kafka
 pika
 psutil
+psycopg2-binary

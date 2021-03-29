@@ -29,6 +29,7 @@ import sys
 import threading
 import time
 import functools
+import socket
 
 # Import Senzing libraries.
 
@@ -754,6 +755,8 @@ message_dictionary = {
     "130": "RabbitMQ channel closed by the broker. Thread {0}. Error: {1}",
     "131": "RabbitMQ connection closed by the broker. Thread {0}. Error: {1}",
     "132": "Could not ACK a RabbitMQ message. Thread {0}. Error: {1}",
+    "133": "Sleeping {0} seconds before attempting to reconnect to RabbitMQ",
+    "134": "RabbitMQ connection is not open. Did opening the connection succeed? Thread {0}",
     "140": "System Resources:",
     "141": "    Physical cores: {0}",
     "142": "     Logical cores: {0}",
@@ -802,10 +805,10 @@ message_dictionary = {
     "405": "Kafka topic: {0} KafkaException: {1} Message: {2}",
     "406": "Kafka topic: {0} NotImplemented: {1} Message: {2}",
     "407": "Kafka topic: {0} Unknown error: {1} Message: {2}",
-    "408": "Kafka topic: {0}; message: {1}; error: {2}; error: {3}",
-    "410": "RabbitMQ exchange: {0} queue: {1} routing key: {2} Unknown RabbitMQ error when connecting and declaring RabbitMQ entities: {3}.",
-    "411": "RabbitMQ exchange: {0} routing key {1} Unknown RabbitMQ error: {2} Message: {3}",
-    "412": "RabbitMQ exchange: {0} queue: {1} routing key: {2} AMQPConnectionError: {3} Could not connect to RabbitMQ host at {4}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
+    "408": "Kafka topic: {0}; Message: {1}; Error: {2}; Error: {3}",
+    "410": "RabbitMQ exchange: {0} Queue: {1} Routing key: {2} Unknown RabbitMQ error when connecting and declaring RabbitMQ entities: {3}.",
+    "411": "RabbitMQ exchange: {0} Routing key {1} Unknown RabbitMQ error: {2} Message: {3}",
+    "412": "RabbitMQ exchange: {0} Queue: {1} Routing key: {2} Error: '{3}'. Could not connect to RabbitMQ host at {4}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
     "413": "SQS queue: {0} Unknown SQS error: {1} Message: {2}",
     "414": "The exchange {0} and/or the queue {1} exist but are configured with different parameters. Set rabbitmq-use-existing-entities to True to connect to the preconfigured exchange and queue, or delete the existing exchange and queue and try again.",
     "415": "The exchange {0} and/or the queue {1} do not exist. Create them, or set rabbitmq-use-existing-entities to False to have stream-loader create them.",
@@ -1823,44 +1826,55 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
         self.data_source = self.config.get("data_source")
         self.entity_type = self.config.get("entity_type")
+        reconnect_delay = self.config.get("rabbitmq_reconnect_delay_in_seconds")
 
-        # create record_queue
+        # create record_queue.
+
         self.record_queue = queue.Queue()
 
         credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
 
         # Connect to RabbitMQ queue.
+
         try:
            self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
         except pika.exceptions.AMQPConnectionError as err:
-            exit_error(412, "No exchange, consumer", rabbitmq_queue, "No routing key, consumer", err, rabbitmq_host)
+            exit_error(412, "N/A (consumer)", rabbitmq_queue, "N/A (consumer)", err, rabbitmq_host)
         except Exception as err:
             exit_error(880, err, "creating RabbitMQ channel")
         except BaseException as err:
             exit_error(561, err)
 
-        # Start worker thread
-        #worker_thread = threading.Thread(target=self.worker, args=(connection, channel))
+        # Start worker thread.
+
         worker_thread = threading.Thread(target=self.worker)
         worker_thread.start()
 
+
+        # Start consuming.
+
         while True:
-            # Start consuming.
             try:
-                self.channel.start_consuming()
+                if self.channel.is_open:
+                    self.channel.start_consuming()
+                else:
+                    logging.info(message_info(134, threading.current_thread().name))
             except pika.exceptions.ChannelClosed as err:
                 logging.info(message_info(130, threading.current_thread().name, err))
+            except pika.exceptions.ConnectionClosed as err:
+                logging.info(message_info(131, threading.current_thread().name, err))
             except Exception as err:
                 logging.info(message_info(880, err, "channel.start_consuming()"))
-                logging.info("Unknown exception on start_consuming() of type " + type(err).__name__)
-            logging.info("!!!!!!!!!!!!!!!!!!!!!! RabbitMQ Connection/Channel closed on start_consuming(), sleeping for 30s then trying to reconnect")
-            time.sleep(30)
+
+            logging.info(message_info(133, reconnect_delay))
+            time.sleep(reconnect_delay)
 
             # Reconnect to RabbitMQ queue.
+
             try:
                self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
-            except pika.exceptions.AMQPConnectionError as err:
-                logging.info(message_info(412, "No exchange, consumer", rabbitmq_queue, "No routing key, consumer", err, rabbitmq_host))
+            except (pika.exceptions.AMQPConnectionError, socket.gaierror) as err:
+                logging.info(message_info(412, "N/A (consumer)", rabbitmq_queue, "N/A (consumer)", err, rabbitmq_host))
             except Exception as err:
                 logging.info(message_info(880, err, "creating RabbitMQ channel"))
             except BaseException as err:

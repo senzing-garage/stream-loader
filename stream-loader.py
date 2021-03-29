@@ -1850,7 +1850,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         worker_thread = threading.Thread(target=self.worker)
         worker_thread.start()
 
-
         # Start consuming.
 
         while True:

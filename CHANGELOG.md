@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add logging messages around `g2_engine.initV2` and `g2_engine.primeEngine()`
 
+## [1.7.3] - 2021-03-26
+
+### Added in 1.7.3
+
+- Additional debug logging for performance issues
+- Support for `SENZING_SKIP_GOVERNOR` and `SENZING_SKIP_INFO_FILTER`
+
+### Changed in 1.7.3
+
+- Updated Dockerfile base to senzing/senzing-base:1.5.5
+
 ## [1.7.2] - 2021-02-22
 
 ### Added in 1.7.2

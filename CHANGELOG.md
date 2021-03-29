@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.4] - 2021-03-29
+
+### Changed in 1.7.4
+
+- Add logging messages around `g2_engine.initV2` and `g2_engine.primeEngine()`
+
 ## [1.7.3] - 2021-03-26
 
 ### Added in 1.7.3

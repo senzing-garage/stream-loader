@@ -42,9 +42,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.7.3"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.7.4"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2021-03-26'
+__updated__ = '2021-03-29'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -2949,14 +2949,18 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Engine()
+        logging.debug(message_debug(950, "g2_engine.initV2()"))
         result.initV2(g2_engine_name, g2_configuration_json, config.get('debug'))
+        logging.debug(message_debug(951, "g2_engine.initV2()"))
         config['last_configuration_check'] = time.time()
     except G2Exception.G2ModuleException as err:
         exit_error(898, g2_configuration_json, err)
 
     if config.get('prime_engine'):
         try:
+            logging.debug(message_debug(950, "g2_engine.primeEngine()"))
             result.primeEngine()
+            logging.debug(message_debug(951, "g2_engine.primeEngine()"))
         except G2Exception.G2ModuleGenericException as err:
             exit_error(881, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))

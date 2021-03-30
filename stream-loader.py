@@ -1806,7 +1806,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
     def ack_message(self, delivery_tag):
         try:
             self.channel.basic_ack(delivery_tag)
-        except BaseException as err:
+        except Exception as err:
             logging.info(message_info(132, threading.current_thread().name, err))
 
     def run(self):
@@ -1842,8 +1842,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             exit_error(412, "N/A (consumer)", rabbitmq_queue, "N/A (consumer)", err, rabbitmq_host)
         except Exception as err:
             exit_error(880, err, "creating RabbitMQ channel")
-        except BaseException as err:
-            exit_error(561, err)
 
         # Start worker thread.
 
@@ -1876,8 +1874,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
                 logging.info(message_info(412, "N/A (consumer)", rabbitmq_queue, "N/A (consumer)", err, rabbitmq_host))
             except Exception as err:
                 logging.info(message_info(880, err, "creating RabbitMQ channel"))
-            except BaseException as err:
-                logging.info(message_info(561, err))
 
     def connect(self, credentials, host_name, port, queue_name, heartbeat, prefetch_count):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
@@ -2104,8 +2100,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             exit_error(412, str(exchange), queue_name, str(routing_key), err, host_name)
         except Exception as err:
             exit_error(880, err, "creating RabbitMQ info channel")
-        except BaseException as err:
-            exit_error(410, exchange, queue, routing_key, err)
 
         return channel
 

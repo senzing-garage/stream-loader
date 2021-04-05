@@ -1836,12 +1836,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
         # Connect to RabbitMQ queue.
 
-        try:
-           self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
-        except pika.exceptions.AMQPConnectionError as err:
-            exit_error(412, "N/A (consumer)", rabbitmq_queue, "N/A (consumer)", err, rabbitmq_host)
-        except Exception as err:
-            exit_error(880, err, "creating RabbitMQ channel")
+        self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
 
         # Start worker thread.
 
@@ -1868,21 +1863,30 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
             # Reconnect to RabbitMQ queue.
 
-            try:
-               self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
-            except (pika.exceptions.AMQPConnectionError, socket.gaierror) as err:
-                logging.info(message_info(412, "N/A (consumer)", rabbitmq_queue, "N/A (consumer)", err, rabbitmq_host))
-            except Exception as err:
-                logging.info(message_info(880, err, "creating RabbitMQ channel"))
-
-    def connect(self, credentials, host_name, port, queue_name, heartbeat, prefetch_count):
+            self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count, exit_on_exception=False)
+ 
+    def connect(self, credentials, host_name, port, queue_name, heartbeat, prefetch_count, exit_on_exception=True):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
 
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=host_name, port=port, credentials=credentials, heartbeat=heartbeat))
-        channel = connection.channel()
-        channel.queue_declare(queue=queue_name, passive=rabbitmq_passive_declare)
-        channel.basic_qos(prefetch_count=prefetch_count)
-        channel.basic_consume(on_message_callback=self.callback, queue=queue_name)
+        connection = None
+        channel = None
+        try:
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=host_name, port=port, credentials=credentials, heartbeat=heartbeat))
+            channel = connection.channel()
+            channel.queue_declare(queue=queue_name, passive=rabbitmq_passive_declare)
+            channel.basic_qos(prefetch_count=prefetch_count)
+            channel.basic_consume(on_message_callback=self.callback, queue=queue_name)
+        except (pika.exceptions.AMQPConnectionError, socket.gaierror) as err:
+            if exit_on_exception:
+                exit_error(412, "N/A (consumer)", queue_name, "N/A (consumer)", err, host_name)
+            else:
+                logging.info(message_info(412, "N/A (consumer)", queue_name, "N/A (consumer)", err, host_name))
+        except Exception as err:
+            if exit_on_exception:
+                exit_error(880, err, "creating RabbitMQ channel")
+            else:
+                logging.info(message_info(880, err, "creating RabbitMQ channel"))
+
         return connection, channel
             
 

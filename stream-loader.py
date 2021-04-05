@@ -1988,43 +1988,68 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         self.govern()
 
-        # Verify that message is valid JSON.
+        # Put record in queue to be processed later. This allows this thread to return to the RabbitMQ IOLoop and prevents heartbeat timeouts
+        self.record_queue.put((method.delivery_tag, body))
 
-        message_str = body.decode("utf-8")
+
+    def worker(self):
+        while True:
+            delivery_tag, body = self.record_queue.get()
+
+            # Verify that message is valid JSON.
+
+            message_str = body.decode("utf-8")
+            try:
+                rabbitmq_message_list = json.loads(message_str)
+            except Exception as err:
+                logging.info(message_debug(557, message_str, err))
+                if self.add_to_failure_queue(str(message_str)):
+#                    channel.basic_ack(delivery_tag=method.delivery_tag)
+                    self.setup_ack(delivery_tag)
+                return
+
+            # if this is a dict, it's a single record. Throw it in an array so it works with the code below
+
+            if isinstance(rabbitmq_message_list, dict):
+                rabbitmq_message_list = [rabbitmq_message_list]
+
+            for rabbitmq_message_dictionary in rabbitmq_message_list:
+                self.config['counter_queued_records'] += 1
+
+                # If needed, modify JSON message.
+
+                if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
+                    rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
+                if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
+                    rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
+                rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
+
+                # Send valid JSON to Senzing.
+
+                if self.send_jsonline_to_g2_engine_withinfo(rabbitmq_message_string):
+
+                    # Record successful transfer to Senzing.
+
+                    self.config['counter_processed_records'] += 1
+
+            # After importing into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
+#            channel.basic_ack(delivery_tag=method.delivery_tag)
+            self.setup_ack(delivery_tag)
+
+    def setup_ack(self, delivery_tag):
         try:
-            rabbitmq_message_list = json.loads(message_str)
+            cb = functools.partial(self.ack_message, delivery_tag)
+            self.connection.add_callback_threadsafe(cb)
+        except pika.exceptions.ConnectionClosed as err:
+            logging.info(message_info(131, threading.current_thread().name, err))
         except Exception as err:
-            logging.info(message_debug(557, message_str, err))
-            if self.add_to_failure_queue(str(message_str)):
-                channel.basic_ack(delivery_tag=method.delivery_tag)
-            return
+            logging.info(message_info(880, err, "connection.add_callback_threadsafe()"))
 
-        # if this is a dict, it's a single record. Throw it in an array so it works with the code below
-
-        if isinstance(rabbitmq_message_list, dict):
-            rabbitmq_message_list = [rabbitmq_message_list]
-
-        for rabbitmq_message_dictionary in rabbitmq_message_list:
-            self.config['counter_queued_records'] += 1
-
-            # If needed, modify JSON message.
-
-            if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
-                rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
-            if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
-                rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
-            rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
-
-            # Send valid JSON to Senzing.
-
-            if self.send_jsonline_to_g2_engine_withinfo(rabbitmq_message_string):
-
-                # Record successful transfer to Senzing.
-
-                self.config['counter_processed_records'] += 1
-
-        # After importing into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
-        channel.basic_ack(delivery_tag=method.delivery_tag)
+    def ack_message(self, delivery_tag):
+        try:
+            self.channel.basic_ack(delivery_tag)
+        except Exception as err:
+            logging.info(message_info(132, threading.current_thread().name, err))
 
     def run(self):
         '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''
@@ -2038,6 +2063,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         rabbitmq_password = self.config.get("rabbitmq_password")
         rabbitmq_queue = self.config.get("rabbitmq_queue")
         rabbitmq_username = self.config.get("rabbitmq_username")
+        reconnect_delay = self.config.get("rabbitmq_reconnect_delay_in_seconds")
 
         self.rabbitmq_info_host = self.config.get("rabbitmq_info_host")
         self.rabbitmq_info_port = self.config.get("rabbitmq_info_port")
@@ -2059,33 +2085,60 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
         self.rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
 
-        # Create RabbitMQ channel to publish "info".
-        self.info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
-        self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
+        # Create RabbitMQ channel to publish "info". Ignore the connection returned from connect() since we don't use it.
 
-        # Create RabbitMQ channel to publish "failure".
+        self.info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
+        self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)[1]
+
+        # Create RabbitMQ channel to publish "failure". Ignore the connection returned from connect() since we don't use it.
 
         self.failure_credentials = pika.PlainCredentials(rabbitmq_failure_username, rabbitmq_failure_password)
-        self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)
+        self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)[1]
+
+        # create record_queue to put the records in from RabbitMQ.
+
+        self.record_queue = queue.Queue()
 
         # Create RabbitMQ channel to subscribe to records.
         self.credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
-        channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, self.rabbitmq_heartbeat)
-        channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
-        channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
+
+        self.connection, self.channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, self.rabbitmq_heartbeat)
+        self.channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
+        self.channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
+
+        # Start worker thread.
+
+        worker_thread = threading.Thread(target=self.worker)
+        worker_thread.start()
 
         # Start consuming.
 
-        try:
-            channel.start_consuming()
-        except pika.exceptions.ChannelClosed as err:
-            logging.info(message_info(130, threading.current_thread().name, err))
-        except Exception as err:
-            exit_error(880, err, "channel.start_consuming()")
+        while True:
+            try:
+                if self.channel is not None and self.channel.is_open:
+                    self.channel.start_consuming()
+            except pika.exceptions.ChannelClosed as err:
+                logging.info(message_info(130, threading.current_thread().name, err))
+            except pika.exceptions.ConnectionClosed as err:
+                logging.info(message_info(131, threading.current_thread().name, err))
+            except Exception as err:
+                logging.info(message_info(880, err, "channel.start_consuming()"))
 
-    def connect(self, credentials, host_name, port, queue_name, heartbeat, exchange=None, routing_key=None):
+            logging.info(message_info(133, reconnect_delay))
+            time.sleep(reconnect_delay)
+
+            # Reconnect to RabbitMQ queue.
+
+            self.connection, self.channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, self.rabbitmq_heartbeat, exit_on_exception=False)
+            if self.channel is not None and self.channel.is_open:
+                self.channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
+                self.channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
+
+    def connect(self, credentials, host_name, port, queue_name, heartbeat, exchange=None, routing_key=None, exit_on_exception=True):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
 
+        connection = None
+        channel = None
         try:
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=host_name, port=port, credentials=credentials, heartbeat=heartbeat))
             channel = connection.channel()
@@ -2097,11 +2150,17 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             if not rabbitmq_passive_declare and routing_key is not None:
                 channel.queue_bind(exchange=exchange, routing_key=routing_key, queue=queue.method.queue)
         except (pika.exceptions.AMQPConnectionError) as err:
-            exit_error(412, str(exchange), queue_name, str(routing_key), err, host_name)
+            if exit_on_exception:
+                exit_error(412, str(exchange), queue_name, str(routing_key), err, host_name)
+            else:
+                logging.info(message_info(412, str(exchange), queue_name, str(routing_key), err, host_name))
         except Exception as err:
-            exit_error(880, err, "creating RabbitMQ info channel")
+            if exit_on_exception:
+                exit_error(880, err, "creating RabbitMQ info channel")
+            else:
+                logging.info(message_info(880, err, "creating RabbitMQ channel"))
 
-        return channel
+        return connection, channel
 
 # -----------------------------------------------------------------------------
 # Class: ReadSqsWriteG2Thread

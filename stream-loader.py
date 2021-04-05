@@ -2004,7 +2004,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             except Exception as err:
                 logging.info(message_debug(557, message_str, err))
                 if self.add_to_failure_queue(str(message_str)):
-#                    channel.basic_ack(delivery_tag=method.delivery_tag)
                     self.setup_ack(delivery_tag)
                 return
 
@@ -2033,7 +2032,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                     self.config['counter_processed_records'] += 1
 
             # After importing into Senzing, tell RabbitMQ we're done with message. All the records are loaded or moved to the failure queue
-#            channel.basic_ack(delivery_tag=method.delivery_tag)
+
             self.setup_ack(delivery_tag)
 
     def setup_ack(self, delivery_tag):

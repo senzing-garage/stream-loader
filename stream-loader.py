@@ -402,6 +402,7 @@ keys_to_redact = [
     "counter_bad_records",
     "counter_processed_records",
     "counter_queued_records",
+    "engine_configuration_json",
     "g2_database_url_generic",
     "g2_database_url_specific",
     "kafka_ack_elapsed",

@@ -48,3 +48,23 @@
 1. Solution
     1. Debian: See [Set Environment variables](debian-based-installation.md#set-environment-variables)
     1. RPM: See [Set Environment variables](rpm-based-installation.md#set-environment-variables)
+
+## senzing-50010567E
+
+1. Error
+    1. When using a PostgreSQL database, `senzing_governor.py` is not found anywhere in `PYTHONPATH`.
+1. Problem
+    1. The `senzing_governor.py` script was not downloaded from [Senzing/governor-postgresql-transaction-id](https://github.com/Senzing/governor-postgresql-transaction-id) and placed somewhere in the `PYTHONPATH`.
+    1. This is done automatically by [init-container.py](https://github.com/Senzing/docker-init-container).
+    1. In an air-gapped environment, the downloading of `senzing_governor.py` is blocked.
+1. Solution
+    1. Download `senzing_governor.py` locally.
+       Example:
+
+        ```console
+        curl -X GET \
+            --output /path/on/local/system/senzing_governor.py \
+             https://raw.githubusercontent.com/Senzing/governor-postgresql-transaction-id/master/senzing_governor.py
+        ```
+
+    1. Copy the downloaded `senzing_governor.py` file to a directory listed in the `PYTHONPATH` environment variable on the machine running Senzing.

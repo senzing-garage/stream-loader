@@ -240,6 +240,11 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_FAILURE_USERNAME",
         "cli": "rabbitmq-failure-username",
     },
+    "rabbitmq_failure_virtual_host": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_FAILURE_VIRTUAL_HOST",
+        "cli": "rabbitmq-failure-virtual-host",
+    },
     "rabbitmq_heartbeat_in_seconds": {
         "default": "60",
         "env": "SENZING_RABBITMQ_HEARTBEAT_IN_SECONDS",
@@ -285,6 +290,11 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_INFO_USERNAME",
         "cli": "rabbitmq-info-username",
     },
+    "rabbitmq_info_virtual_host": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_INFO_VIRTUAL_HOST",
+        "cli": "rabbitmq-info-virtual-host",
+    },
     "rabbitmq_password": {
         "default": "bitnami",
         "env": "SENZING_RABBITMQ_PASSWORD",
@@ -324,6 +334,11 @@ configuration_locator = {
         "default": "user",
         "env": "SENZING_RABBITMQ_USERNAME",
         "cli": "rabbitmq-username",
+    },
+    "rabbitmq_virtual_host": {
+        "default": pika.ConnectionParameters.DEFAULT_VIRTUAL_HOST,
+        "env": "SENZING_RABBITMQ_VIRTUAL_HOST",
+        "cli": "rabbitmq-virtual-host",
     },
     "resource_path": {
         "default": "/opt/senzing/g2/resources",
@@ -496,6 +511,11 @@ def get_parser():
                     "metavar": "SENZING_RABBITMQ_INFO_USERNAME",
                     "help": "RabbitMQ username. Default: SENZING_RABBITMQ_USERNAME"
                 },
+                "--rabbitmq-info-virtual-host": {
+                    "dest": "rabbitmq_info_virtual_host",
+                    "metavar": "SENZING_RABBITMQ_INFO_VIRTUAL_HOST",
+                    "help": "RabbitMQ virtual host. Default: SENZING_RABBITMQ_VIRTUAL_HOST"
+                },
                 "--rabbitmq-failure-host": {
                     "dest": "rabbitmq_failure_host",
                     "metavar": "SENZING_RABBITMQ_FAILURE_HOST",
@@ -530,6 +550,11 @@ def get_parser():
                     "dest": "rabbitmq_failure_username",
                     "metavar": "SENZING_RABBITMQ_FAILURE_USERNAME",
                     "help": "RabbitMQ username. Default: SENZING_RABBITMQ_USERNAME"
+                },
+                "--rabbitmq-failure-virtual-host": {
+                   "dest": "rabbitmq_failure_virtual_host",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_VIRTUAL_HOST",
+                    "help": "RabbitMQ virtual host. Default: SENZING_RABBITMQ_VIRTUAL_HOST"
                 },
             },
         },
@@ -699,6 +724,11 @@ def get_parser():
                 "dest": "rabbitmq_prefetch_count",
                 "metavar": "SENZING_RABBITMQ_PREFETCH_COUNT",
                 "help": "RabbitMQ prefetch-count. Default: 50"
+            },
+            "--rabbitmq-virtual-host": {
+                "dest": "rabbitmq_virtual_host",
+                "metavar": "SENZING_RABBITMQ_VIRTUAL_HOST",
+                "help": "RabbitMQ virtual host. Default: None, which will use the RabbitMQ defined default virtual host"
             }
         },
         "sqs_base": {
@@ -1843,6 +1873,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_username = self.config.get("rabbitmq_username")
         rabbitmq_password = self.config.get("rabbitmq_password")
         rabbitmq_host = self.config.get("rabbitmq_host")
+        rabbitmq_virtual_host = self.config.get("rabbitmq_virtual_host")
         rabbitmq_port = self.config.get("rabbitmq_port")
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
@@ -1859,7 +1890,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
         # Connect to RabbitMQ queue.
 
-        self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
+        self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
 
         # Start worker thread.
 
@@ -1886,15 +1917,15 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
             # Reconnect to RabbitMQ queue.
 
-            self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count, exit_on_exception=False)
+            self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count, exit_on_exception=False)
  
-    def connect(self, credentials, host_name, port, queue_name, heartbeat, prefetch_count, exit_on_exception=True):
+    def connect(self, credentials, host_name, port, virtual_host, queue_name, heartbeat, prefetch_count, exit_on_exception=True):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
 
         connection = None
         channel = None
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=host_name, port=port, credentials=credentials, heartbeat=heartbeat))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=host_name, port=port, virtual_host=virtual_host, credentials=credentials, heartbeat=heartbeat))
             channel = connection.channel()
             channel.queue_declare(queue=queue_name, passive=rabbitmq_passive_declare)
             channel.basic_qos(prefetch_count=prefetch_count)
@@ -1968,7 +1999,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
-            self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)
+            self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)
 
         return result
 
@@ -2006,7 +2037,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
-            self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
+            self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
 
     def callback(self, channel, method, header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -2086,6 +2117,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         rabbitmq_host = self.config.get("rabbitmq_host")
         rabbitmq_port = self.config.get("rabbitmq_port")
+        rabbitmq_virtual_host = self.config.get("rabbitmq_virtual_host")
         rabbitmq_password = self.config.get("rabbitmq_password")
         rabbitmq_queue = self.config.get("rabbitmq_queue")
         rabbitmq_username = self.config.get("rabbitmq_username")
@@ -2093,6 +2125,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         self.rabbitmq_info_host = self.config.get("rabbitmq_info_host")
         self.rabbitmq_info_port = self.config.get("rabbitmq_info_port")
+        self.rabbitmq_info_virtual_host = self.config.get("rabbitmq_info_virtual_host")
         rabbitmq_info_password = self.config.get("rabbitmq_info_password")
         self.rabbitmq_info_exchange = self.config.get("rabbitmq_info_exchange")
         self.rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
@@ -2101,6 +2134,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         self.rabbitmq_failure_host = self.config.get("rabbitmq_failure_host")
         self.rabbitmq_failure_port = self.config.get("rabbitmq_failure_port")
+        self.rabbitmq_failure_virtual_host = self.config.get("rabbitmq_failure_virtual_host")
         rabbitmq_failure_password = self.config.get("rabbitmq_failure_password")
         self.rabbitmq_failure_exchange = self.config.get("rabbitmq_failure_exchange")
         self.rabbitmq_failure_queue = self.config.get("rabbitmq_failure_queue")
@@ -2114,12 +2148,12 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         # Create RabbitMQ channel to publish "info". Ignore the connection returned from connect() since we don't use it.
 
         self.info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
-        self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)[1]
+        self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)[1]
 
         # Create RabbitMQ channel to publish "failure". Ignore the connection returned from connect() since we don't use it.
 
         self.failure_credentials = pika.PlainCredentials(rabbitmq_failure_username, rabbitmq_failure_password)
-        self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)[1]
+        self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)[1]
 
         # create record_queue to put the records in from RabbitMQ.
 
@@ -2128,7 +2162,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         # Create RabbitMQ channel to subscribe to records.
         self.credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
 
-        self.connection, self.channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, self.rabbitmq_heartbeat)
+        self.connection, self.channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, self.rabbitmq_heartbeat)
         self.channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
         self.channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
 
@@ -2155,18 +2189,18 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
             # Reconnect to RabbitMQ queue.
 
-            self.connection, self.channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_queue, self.rabbitmq_heartbeat, exit_on_exception=False)
+            self.connection, self.channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, self.rabbitmq_heartbeat, exit_on_exception=False)
             if self.channel is not None and self.channel.is_open:
                 self.channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
                 self.channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
 
-    def connect(self, credentials, host_name, port, queue_name, heartbeat, exchange=None, routing_key=None, exit_on_exception=True):
+    def connect(self, credentials, host_name, port, virtual_host, queue_name, heartbeat, exchange=None, routing_key=None, exit_on_exception=True):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
 
         connection = None
         channel = None
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=host_name, port=port, credentials=credentials, heartbeat=heartbeat))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=host_name, port=port, virtual_host=virtual_host, credentials=credentials, heartbeat=heartbeat))
             channel = connection.channel()
             if exchange is not None:
                 channel.exchange_declare(exchange=exchange, passive=rabbitmq_passive_declare)
@@ -2182,7 +2216,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 logging.info(message_info(412, str(exchange), queue_name, str(routing_key), err, host_name))
         except Exception as err:
             if exit_on_exception:
-                exit_error(880, err, "creating RabbitMQ info channel")
+                exit_error(880, err, "creating RabbitMQ channel")
             else:
                 logging.info(message_info(880, err, "creating RabbitMQ channel"))
 
@@ -3616,11 +3650,13 @@ def do_rabbitmq_withinfo(args):
         "rabbitmq_failure_port": "rabbitmq_port",
         "rabbitmq_failure_password": "rabbitmq_password",
         "rabbitmq_failure_username": "rabbitmq_username",
+        "rabbitmq_failure_virtual_host": "rabbitmq_virtual_host",
         "rabbitmq_info_exchange": "rabbitmq_exchange",
         "rabbitmq_info_host": "rabbitmq_host",
         "rabbitmq_info_port": "rabbitmq_port",
         "rabbitmq_info_password": "rabbitmq_password",
         "rabbitmq_info_username": "rabbitmq_username",
+        "rabbitmq_info_virtual_host": "rabbitmq_virtual_host",
     }
 
     for key, value in options_to_defaults_map.items():

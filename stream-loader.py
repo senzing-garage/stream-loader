@@ -365,11 +365,6 @@ configuration_locator = {
         "env": "SENZING_SLEEP_TIME_IN_SECONDS",
         "cli": "sleep-time-in-seconds"
     },
-    "sqs_dead_letter_queue_enabled": {
-        "default": False,
-        "env": "SENZING_SQS_DEAD_LETTER_QUEUE_ENABLED",
-        "cli": "sqs-dead-letter-queue-enabled"
-    },
     "sqs_failure_queue_url": {
         "default": None,
         "env": "SENZING_SQS_FAILURE_QUEUE_URL",
@@ -1151,7 +1146,6 @@ def get_configuration(args):
         'skip_database_performance_test',
         'skip_governor',
         'skip_info_filter',
-        'sqs_dead_letter_queue_enabled',
     ]
     for boolean in booleans:
         boolean_value = result.get(boolean)
@@ -2236,7 +2230,6 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.queue_url = config.get("sqs_queue_url")
-        self.sqs_dead_letter_queue_enabled = config.get('sqs_dead_letter_queue_enabled')
         self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
 
         # Create sqs object.
@@ -2250,6 +2243,13 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
             exit_error(750, self.queue_url)
         endpoint_url = match.group(1)
         self.sqs = boto3.client("sqs", endpoint_url=endpoint_url)
+
+        # See if there is a dead letter queue and set sqs_dead_letter_queue_enabled accordingly
+
+        response = self.sqs.get_queue_attributes(QueueUrl=self.queue_url, AttributeNames=['RedrivePolicy'])
+        self.sqs_dead_letter_queue_enabled = 'Attributes' in response.keys() and 'RedrivePolicy' in response['Attributes'].keys()
+        if self.sqs_dead_letter_queue_enabled:
+            logging.info(message_info(221, response['Attributes']['RedrivePolicy']))
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -2276,7 +2276,6 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
             result = False
             logging.warning(message_warning(416, jsonline))
         else:
-            result = False
             logging.info(message_info(221, jsonline))
         return result
 
@@ -2362,12 +2361,12 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
                     self.config['counter_processed_records'] += 1
 
-            # After importing into Senzing, tell SQS we're done with message. All the records are loaded or moved to the failure queue
+                    # After importing into Senzing, tell SQS we're done with message. All the records are loaded or moved to the failure queue
 
-            self.sqs.delete_message(
-                QueueUrl=self.queue_url,
-                ReceiptHandle=sqs_message_receipt_handle
-            )
+                    self.sqs.delete_message(
+                        QueueUrl=self.queue_url,
+                        ReceiptHandle=sqs_message_receipt_handle
+                    )
 
 # -----------------------------------------------------------------------------
 # Class: ReadSqsWriteG2WithInfoThread
@@ -2385,7 +2384,6 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         self.info_queue_url = config.get("sqs_info_queue_url")
         self.info_queue_delay_seconds = config.get("sqs_info_queue_delay_seconds")
         self.queue_url = config.get("sqs_queue_url")
-        self.sqs_dead_letter_queue_enabled = config.get('sqs_dead_letter_queue_enabled')
         self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
 
         # Create sqs object.
@@ -2399,6 +2397,13 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             exit_error(750, self.queue_url)
         endpoint_url = match.group(1)
         self.sqs = boto3.client("sqs", endpoint_url=endpoint_url)
+
+        # See if there is a dead letter queue and set sqs_dead_letter_queue_enabled accordingly
+
+        response = self.sqs.get_queue_attributes(QueueUrl=self.queue_url, AttributeNames=['RedrivePolicy'])
+        self.sqs_dead_letter_queue_enabled = 'Attributes' in response.keys() and 'RedrivePolicy' in response['Attributes'].keys()
+        if self.sqs_dead_letter_queue_enabled:
+            logging.info(message_info(221, response['Attributes']['RedrivePolicy']))
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -2527,12 +2532,12 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
                     self.config['counter_processed_records'] += 1
 
-            # After importing into Senzing, tell SQS we're done with message. All the records are loaded or moved to the failure queue
+                    # After importing into Senzing, tell SQS we're done with message. All the records are loaded or moved to the failure queue
 
-                self.sqs.delete_message(
-                    QueueUrl=self.queue_url,
-                    ReceiptHandle=sqs_message_receipt_handle
-                )
+                    self.sqs.delete_message(
+                        QueueUrl=self.queue_url,
+                        ReceiptHandle=sqs_message_receipt_handle
+                    )
 
 # -----------------------------------------------------------------------------
 # Class: UrlProcess

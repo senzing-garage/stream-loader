@@ -6,10 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.7.6] - TBD
+## [1.7.6] - 2021-05-26
 
 ### Changed in 1.7.6
 
+- SQS based loads now only remove the record from the queue if it was successfully loaded to Senzing, permitting failed records to go to the dead letter queue, if configured.
 - RabbitMQ virtual host is now a settable parameter.
 
 ## [1.7.5] - 2021-04-05

@@ -1911,7 +1911,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             # Reconnect to RabbitMQ queue.
 
             self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count, exit_on_exception=False)
- 
+
     def connect(self, credentials, host_name, port, virtual_host, queue_name, heartbeat, prefetch_count, exit_on_exception=True):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
 
@@ -1935,7 +1935,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
                 logging.info(message_info(880, err, "creating RabbitMQ channel"))
 
         return connection, channel
-            
+
 
 # -----------------------------------------------------------------------------
 # Class: ReadRabbitMQWriteG2WithInfoThread

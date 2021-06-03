@@ -921,7 +921,6 @@ def message(index, *args):
 
 
 def message_generic(generic_index, index, *args):
-    index_string = str(index)
     return "{0} {1}".format(message(generic_index, index), message(index, *args))
 
 
@@ -1869,7 +1868,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_virtual_host = self.config.get("rabbitmq_virtual_host")
         rabbitmq_port = self.config.get("rabbitmq_port")
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
-        rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
         rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
         self.data_source = self.config.get("data_source")
         self.entity_type = self.config.get("entity_type")
@@ -2130,7 +2128,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         rabbitmq_failure_username = self.config.get("rabbitmq_failure_username")
 
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
-        rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
         self.rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
 
         # Create RabbitMQ channel to publish "info". Ignore the connection returned from connect() since we don't use it.
@@ -2256,7 +2253,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
         assert type(jsonline) == str
         if self.failure_queue_url:
             try:
-                response = self.sqs.send_message(
+                self.sqs.send_message(
                     QueueUrl=self.failure_queue_url,
                     DelaySeconds=10,
                     MessageAttributes={},
@@ -2411,7 +2408,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         assert type(jsonline) == str
         if self.failure_queue_url:
             try:
-                response = self.sqs.send_message(
+                self.sqs.send_message(
                     QueueUrl=self.failure_queue_url,
                     DelaySeconds=10,
                     MessageAttributes={},
@@ -2434,7 +2431,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         '''Overwrite superclass method.'''
         assert type(jsonline) == str
         try:
-            response = self.sqs.send_message(
+            self.sqs.send_message(
                 QueueUrl=self.info_queue_url,
                 DelaySeconds=self.info_queue_delay_seconds,
                 MessageAttributes={},
@@ -3788,7 +3785,7 @@ def do_url(args):
     # Start processes.
 
     processes = []
-    for i in range(0, 1):
+    for __ in range(0, 1):
         process = UrlProcess(config, work_queue)
         process.start()
         processes.append(process)

@@ -7,9 +7,6 @@
 from urllib.parse import urlparse, urlunparse
 from urllib.request import urlopen
 import argparse
-import boto3
-import configparser
-import confluent_kafka
 import datetime
 import importlib
 import json
@@ -18,7 +15,6 @@ import logging
 import math
 import multiprocessing
 import os
-import pika
 import queue
 import random
 import re
@@ -30,6 +26,9 @@ import threading
 import time
 import functools
 import socket
+import boto3
+import confluent_kafka
+import pika
 
 # Import Senzing libraries.
 

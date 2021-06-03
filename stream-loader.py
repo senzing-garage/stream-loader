@@ -7,9 +7,6 @@
 from urllib.parse import urlparse, urlunparse
 from urllib.request import urlopen
 import argparse
-import boto3
-import configparser
-import confluent_kafka
 import datetime
 import importlib
 import json
@@ -18,7 +15,6 @@ import logging
 import math
 import multiprocessing
 import os
-import pika
 import queue
 import random
 import re
@@ -30,6 +26,9 @@ import threading
 import time
 import functools
 import socket
+import boto3
+import confluent_kafka
+import pika
 
 # Import Senzing libraries.
 
@@ -922,7 +921,6 @@ def message(index, *args):
 
 
 def message_generic(generic_index, index, *args):
-    index_string = str(index)
     return "{0} {1}".format(message(generic_index, index), message(index, *args))
 
 
@@ -1645,7 +1643,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         except KafkaException as err:
             result = False
             logging.warning(message_warning(405, self.failure_topic, err, jsonline))
-        except NotImplemented as err:
+        except NotImplementedError as err:
             result = False
             logging.warning(message_warning(406, self.failure_topic, err, jsonline))
         except Exception as err:
@@ -1665,7 +1663,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             logging.warning(message_warning(404, self.info_topic, err, jsonline))
         except KafkaException as err:
             logging.warning(message_warning(405, self.info_topic, err, jsonline))
-        except NotImplemented as err:
+        except NotImplementedError as err:
             logging.warning(message_warning(406, self.info_topic, err, jsonline))
         except Exception as err:
             logging.warning(message_warning(407, self.info_topic, err, jsonline))
@@ -1792,7 +1790,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
 
-    def callback(self, channel, method, header, body):
+    def callback(self, _channel, method, _header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
 
         # Invoke Governor.
@@ -1870,7 +1868,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_virtual_host = self.config.get("rabbitmq_virtual_host")
         rabbitmq_port = self.config.get("rabbitmq_port")
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
-        rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
         rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
         self.data_source = self.config.get("data_source")
         self.entity_type = self.config.get("entity_type")
@@ -1912,7 +1909,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             # Reconnect to RabbitMQ queue.
 
             self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count, exit_on_exception=False)
- 
+
     def connect(self, credentials, host_name, port, virtual_host, queue_name, heartbeat, prefetch_count, exit_on_exception=True):
         rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
 
@@ -1936,7 +1933,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
                 logging.info(message_info(880, err, "creating RabbitMQ channel"))
 
         return connection, channel
-            
+
 
 # -----------------------------------------------------------------------------
 # Class: ReadRabbitMQWriteG2WithInfoThread
@@ -1987,9 +1984,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 retries_remaining = retries_remaining - 1
             except Exception as err:
                 exit_error(880, err, "failure_channel.basic_publish().")
-            except BaseException as err:
-                result = False
-                logging.warning(message_warning(411, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key, err, jsonline))
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
@@ -2026,14 +2020,12 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 retries_remaining = retries_remaining - 1
             except Exception as err:
                 exit_error(880, err, "info_channel.basic_publish().")
-            except BaseException as err:
-                logging.warning(message_warning(411, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, err, jsonline))
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
             self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
 
-    def callback(self, channel, method, header, body):
+    def callback(self, _channel, method, _header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
 
         # Invoke Governor.
@@ -2136,7 +2128,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         rabbitmq_failure_username = self.config.get("rabbitmq_failure_username")
 
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
-        rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
         self.rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
 
         # Create RabbitMQ channel to publish "info". Ignore the connection returned from connect() since we don't use it.
@@ -2262,7 +2253,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
         assert type(jsonline) == str
         if self.failure_queue_url:
             try:
-                response = self.sqs.send_message(
+                self.sqs.send_message(
                     QueueUrl=self.failure_queue_url,
                     DelaySeconds=10,
                     MessageAttributes={},
@@ -2417,7 +2408,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         assert type(jsonline) == str
         if self.failure_queue_url:
             try:
-                response = self.sqs.send_message(
+                self.sqs.send_message(
                     QueueUrl=self.failure_queue_url,
                     DelaySeconds=10,
                     MessageAttributes={},
@@ -2440,7 +2431,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         '''Overwrite superclass method.'''
         assert type(jsonline) == str
         try:
-            response = self.sqs.send_message(
+            self.sqs.send_message(
                 QueueUrl=self.info_queue_url,
                 DelaySeconds=self.info_queue_delay_seconds,
                 MessageAttributes={},
@@ -2910,7 +2901,7 @@ class MonitorThread(threading.Thread):
 # -----------------------------------------------------------------------------
 
 
-def bootstrap_signal_handler(signal, frame):
+def bootstrap_signal_handler(_signal_number, _frame):
     sys.exit(0)
 
 
@@ -2919,7 +2910,7 @@ def create_signal_handler_function(args):
         that knows about "args".
     '''
 
-    def result_function(signal_number, frame):
+    def result_function(_signal_number, _frame):
         logging.info(message_info(298, args))
         sys.exit(0)
 
@@ -3367,10 +3358,10 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     # Create monitor thread for master process.
 
-    adminThreads = []
+    admin_threads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "{0}-0-thread-monitor".format(threadClass.__name__)
-    adminThreads.append(thread)
+    admin_threads.append(thread)
 
     # Sleep, if requested.
 
@@ -3385,7 +3376,7 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.start()
 
     # Collect inactive threads from master process.
@@ -3395,7 +3386,7 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.join()
 
     # Cleanup.
@@ -3460,10 +3451,10 @@ def do_kafka(args):
 
     # Create monitor thread for master process.
 
-    adminThreads = []
+    admin_threads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "KafkaProcess-0-thread-monitor"
-    adminThreads.append(thread)
+    admin_threads.append(thread)
 
     # Start threads for master process.
 
@@ -3478,7 +3469,7 @@ def do_kafka(args):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.start()
 
     # Collect inactive threads from master process.
@@ -3538,10 +3529,10 @@ def do_kafka_withinfo(args):
 
     # Create monitor thread for master process.
 
-    adminThreads = []
+    admin_threads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "KafkaProcess-0-thread-monitor"
-    adminThreads.append(thread)
+    admin_threads.append(thread)
 
     # Start threads for master process.
 
@@ -3556,7 +3547,7 @@ def do_kafka_withinfo(args):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.start()
 
     # Collect inactive threads from master process.
@@ -3605,10 +3596,10 @@ def do_rabbitmq(args):
 
     # Create monitor thread for master process.
 
-    adminThreads = []
+    admin_threads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "RabbitMQProcess-0-thread-monitor"
-    adminThreads.append(thread)
+    admin_threads.append(thread)
 
     # Start threads for master process.
 
@@ -3623,7 +3614,7 @@ def do_rabbitmq(args):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.start()
 
     # Collect inactive threads from master process.
@@ -3693,10 +3684,10 @@ def do_rabbitmq_withinfo(args):
 
     # Create monitor thread for master process.
 
-    adminThreads = []
+    admin_threads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "RabbitMQProcess-0-thread-monitor"
-    adminThreads.append(thread)
+    admin_threads.append(thread)
 
     # Start threads for master process.
 
@@ -3711,7 +3702,7 @@ def do_rabbitmq_withinfo(args):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.start()
 
     # Collect inactive threads from master process.
@@ -3794,7 +3785,7 @@ def do_url(args):
     # Start processes.
 
     processes = []
-    for i in range(0, 1):
+    for __ in range(0, 1):
         process = UrlProcess(config, work_queue)
         process.start()
         processes.append(process)

@@ -1645,7 +1645,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         except KafkaException as err:
             result = False
             logging.warning(message_warning(405, self.failure_topic, err, jsonline))
-        except NotImplemented as err:
+        except NotImplementedError as err:
             result = False
             logging.warning(message_warning(406, self.failure_topic, err, jsonline))
         except Exception as err:
@@ -1665,7 +1665,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             logging.warning(message_warning(404, self.info_topic, err, jsonline))
         except KafkaException as err:
             logging.warning(message_warning(405, self.info_topic, err, jsonline))
-        except NotImplemented as err:
+        except NotImplementedError as err:
             logging.warning(message_warning(406, self.info_topic, err, jsonline))
         except Exception as err:
             logging.warning(message_warning(407, self.info_topic, err, jsonline))

@@ -1987,9 +1987,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 retries_remaining = retries_remaining - 1
             except Exception as err:
                 exit_error(880, err, "failure_channel.basic_publish().")
-            except BaseException as err:
-                result = False
-                logging.warning(message_warning(411, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key, err, jsonline))
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
@@ -2026,8 +2023,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 retries_remaining = retries_remaining - 1
             except Exception as err:
                 exit_error(880, err, "info_channel.basic_publish().")
-            except BaseException as err:
-                logging.warning(message_warning(411, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, err, jsonline))
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)

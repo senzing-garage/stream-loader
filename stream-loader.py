@@ -1790,7 +1790,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
 
-    def callback(self, channel, method, header, body):
+    def callback(self, _channel, method, _header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
 
         # Invoke Governor.
@@ -2025,7 +2025,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             time.sleep(retry_delay)
             self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
 
-    def callback(self, channel, method, header, body):
+    def callback(self, _channel, method, _header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
 
         # Invoke Governor.
@@ -2901,7 +2901,7 @@ class MonitorThread(threading.Thread):
 # -----------------------------------------------------------------------------
 
 
-def bootstrap_signal_handler(signal, frame):
+def bootstrap_signal_handler(_signal_number, _frame):
     sys.exit(0)
 
 
@@ -2910,7 +2910,7 @@ def create_signal_handler_function(args):
         that knows about "args".
     '''
 
-    def result_function(signal_number, frame):
+    def result_function(_signal_number, _frame):
         logging.info(message_info(298, args))
         sys.exit(0)
 
@@ -3358,10 +3358,10 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     # Create monitor thread for master process.
 
-    adminThreads = []
+    admin_threads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "{0}-0-thread-monitor".format(threadClass.__name__)
-    adminThreads.append(thread)
+    admin_threads.append(thread)
 
     # Sleep, if requested.
 
@@ -3376,7 +3376,7 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.start()
 
     # Collect inactive threads from master process.
@@ -3386,7 +3386,7 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.join()
 
     # Cleanup.
@@ -3451,10 +3451,10 @@ def do_kafka(args):
 
     # Create monitor thread for master process.
 
-    adminThreads = []
+    admin_threads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "KafkaProcess-0-thread-monitor"
-    adminThreads.append(thread)
+    admin_threads.append(thread)
 
     # Start threads for master process.
 
@@ -3469,7 +3469,7 @@ def do_kafka(args):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.start()
 
     # Collect inactive threads from master process.
@@ -3529,10 +3529,10 @@ def do_kafka_withinfo(args):
 
     # Create monitor thread for master process.
 
-    adminThreads = []
+    admin_threads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "KafkaProcess-0-thread-monitor"
-    adminThreads.append(thread)
+    admin_threads.append(thread)
 
     # Start threads for master process.
 
@@ -3547,7 +3547,7 @@ def do_kafka_withinfo(args):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.start()
 
     # Collect inactive threads from master process.
@@ -3596,10 +3596,10 @@ def do_rabbitmq(args):
 
     # Create monitor thread for master process.
 
-    adminThreads = []
+    admin_threads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "RabbitMQProcess-0-thread-monitor"
-    adminThreads.append(thread)
+    admin_threads.append(thread)
 
     # Start threads for master process.
 
@@ -3614,7 +3614,7 @@ def do_rabbitmq(args):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.start()
 
     # Collect inactive threads from master process.
@@ -3684,10 +3684,10 @@ def do_rabbitmq_withinfo(args):
 
     # Create monitor thread for master process.
 
-    adminThreads = []
+    admin_threads = []
     thread = MonitorThread(config, g2_engine, threads)
     thread.name = "RabbitMQProcess-0-thread-monitor"
-    adminThreads.append(thread)
+    admin_threads.append(thread)
 
     # Start threads for master process.
 
@@ -3702,7 +3702,7 @@ def do_rabbitmq_withinfo(args):
 
     # Start administrative threads for master process.
 
-    for thread in adminThreads:
+    for thread in admin_threads:
         thread.start()
 
     # Collect inactive threads from master process.

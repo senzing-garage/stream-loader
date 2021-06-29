@@ -1325,6 +1325,14 @@ class WriteG2Thread(threading.Thread):
         logging.info(message_info(128, jsonline))
         return True
 
+    def extract_primary_key(self, message_dict):
+        '''Extract compound primary key.'''
+        data_source = str(message_dict.get('DATA_SOURCE', self.config.get("data_source")))
+        record_id = message_dict.get('RECORD_ID')
+        if record_id is not None:
+            record_id = str(record_id)
+        return data_source, record_id
+
     def filter_info_message(self, message=None):
         assert type(message) == str
         return self.info_filter.filter(message=message)
@@ -1377,16 +1385,13 @@ class WriteG2Thread(threading.Thread):
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_addRecord(self, message_metadata, message_dict):
-        ''' Send a record to Senzing. '''
+        ''' Add a record to the Senzing model. '''
         logging.debug(message_debug(950, sys._getframe().f_code.co_name))
 
         # Get metadata.
 
         jsonline = json.dumps(message_dict)
-        data_source = str(message_dict.get('DATA_SOURCE', self.config.get("data_source")))
-        record_id = message_dict.get('RECORD_ID')
-        if record_id is not None:
-            record_id = str(record_id)
+        data_source, record_id = self.extract_primary_key(message_dict)
 
         # Call Senzing's G2Engine.
 
@@ -1398,22 +1403,120 @@ class WriteG2Thread(threading.Thread):
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_addRecordWithInfo(self, message_metadata, message_dict):
-        ''' Send a record to Senzing and return the "info" returned by Senzing. '''
+        ''' Add a record to the Senzing model and return the "info" returned by Senzing. '''
         logging.debug(message_debug(950, sys._getframe().f_code.co_name))
 
-        # Get metadaa.
+        # Get metadata.
 
         jsonline = json.dumps(message_dict)
-        data_source = str(message_dict.get('DATA_SOURCE', self.config.get("data_source")))
-        record_id = message_dict.get('RECORD_ID')
-        if record_id is not None:
-            record_id = str(record_id)
+        data_source, record_id = self.extract_primary_key(message_dict)
         response_bytearray = bytearray()
 
         # Call Senzing's G2Engine.
 
         try:
             self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
+        except Exception as err:
+            raise err
+        response_json = response_bytearray.decode()
+
+        # If successful, send "withInfo" information to queue.
+
+        if response_json:
+
+            # Allow user to manipulate the Info message.
+
+            filtered_response_json = self.filter_info_message(message=response_json)
+
+            # Put "info" on info queue.
+
+            if filtered_response_json:
+                self.add_to_info_queue(filtered_response_json)
+                logging.debug(message_debug(904, threading.current_thread().name, filtered_response_json))
+
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
+
+    def process_deleteRecord(self, message_metadata, message_dict):
+        ''' Delete a record from Senzing model. '''
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
+
+        # Get metadata.
+
+        data_source, record_id = self.extract_primary_key(message_dict)
+
+        # Call Senzing's G2Engine.
+
+        try:
+            self.g2_engine.deleteRecord(data_source, record_id)
+        except Exception as err:
+            raise err
+
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
+
+    def process_deleteRecordWithInfo(self, message_metadata, message_dict):
+        ''' Delete a record from Senzing model and return the "info" returned by Senzing. '''
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
+
+        # Get metadata.
+
+        data_source, record_id = self.extract_primary_key(message_dict)
+        response_bytearray = bytearray()
+
+        # Call Senzing's G2Engine.
+
+        try:
+            self.g2_engine.deleteRecordWithInfo(data_source, record_id, response_bytearray)
+        except Exception as err:
+            raise err
+        response_json = response_bytearray.decode()
+
+        # If successful, send "withInfo" information to queue.
+
+        if response_json:
+
+            # Allow user to manipulate the Info message.
+
+            filtered_response_json = self.filter_info_message(message=response_json)
+
+            # Put "info" on info queue.
+
+            if filtered_response_json:
+                self.add_to_info_queue(filtered_response_json)
+                logging.debug(message_debug(904, threading.current_thread().name, filtered_response_json))
+
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
+
+    def process_reevaluateRecord(self, message_metadata, message_dict):
+        ''' Re-evaluate a record in the Senzing model. '''
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
+
+        # Get metadata.
+
+        data_source, record_id = self.extract_primary_key(message_dict)
+
+        # Call Senzing's G2Engine.
+
+        flags = 0
+        try:
+            self.g2_engine.reevaluateRecord(data_source, record_id, flags)
+        except Exception as err:
+            raise err
+
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
+
+    def process_reevaluateRecordWithInfo(self, message_metadata, message_dict):
+        ''' Re-evaluate a record in the Senzing model and return the "info" returned by Senzing. '''
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
+
+        # Get metadata.
+
+        data_source, record_id = self.extract_primary_key(message_dict)
+        response_bytearray = bytearray()
+
+        # Call Senzing's G2Engine.
+
+        try:
+            self.g2_engine.reevaluateRecordWithInfo(data_source, record_id, response_bytearray)
         except Exception as err:
             raise err
         response_json = response_bytearray.decode()

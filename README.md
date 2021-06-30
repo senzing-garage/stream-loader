@@ -418,11 +418,11 @@ Unset `*_PARAMETER` environment variables have no effect on the
 The stream loader will inspect each incoming JSON message for a "senzingStreamLoader" JSON property name
 (unless altered by `SENZING_STREAM_LOADER_DIRECTIVE`).
 The "senzingStreamLoader" property value is used to direct the actions of the stream loader.
-The "senzingStreamLoader" property will be removed from the JSON message before it is sent to the Senzing Engine.
+The "senzingStreamLoader" property will be removed from the JSON message before the message is sent to the Senzing Engine.
 
 1. The format of the stream-loader directive is:
 
-    ```json
+    ```javascript
     {
         "action": "<action-identifier>"
     }
@@ -438,7 +438,7 @@ The "senzingStreamLoader" property will be removed from the JSON message before 
 
 1. In a message, it looks like this example:
 
-    ```json
+    ```javascript
     {"senzingStreamLoader": {"action": "deleteRecordWithInfo"}, "DATA_SOURCE": "TEST", "RECORD_ID": "242131119", ...}
     ```
 

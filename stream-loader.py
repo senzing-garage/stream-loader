@@ -389,10 +389,10 @@ configuration_locator = {
         "env": "SENZING_SQS_WAIT_TIME_SECONDS",
         "cli": "sqs-wait-time-seconds"
     },
-    "stream_loader_directive": {
+    "stream_loader_directive_name": {
         "default": "senzingStreamLoader",
-        "env": "SENZING_STREAM_LOADER_DIRECTIVE",
-        "cli": "stream-loader-directive"
+        "env": "SENZING_STREAM_LOADER_DIRECTIVE_NAME",
+        "cli": "stream-loader-directive-name"
     },
     "subcommand": {
         "default": None,
@@ -645,9 +645,9 @@ def get_parser():
                 "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
                 "help": "Period, in seconds, between monitoring reports. Default: 600"
             },
-            "--stream-loader-directive": {
-                "dest": "stream_loader_directive",
-                "metavar": "SENZING_STREAM_LOADER_DIRECTIVE",
+            "--stream-loader-directive-name": {
+                "dest": "stream_loader_directive_name",
+                "metavar": "SENZING_STREAM_LOADER_DIRECTIVE_NAME",
                 "help": "Advanced: The JSON key in messages that direct stream-loader behavior. Default: senzingStreamLoader"
             },
             "--threads-per-process": {
@@ -1318,7 +1318,7 @@ class WriteG2Thread(threading.Thread):
         self.g2_configuration_manager = g2_configuration_manager
         self.governor = governor
         self.info_filter = InfoFilter(g2_engine=g2_engine)
-        self.stream_loader_directive = config.get('stream_loader_directive')
+        self.stream_loader_directive_name = config.get('stream_loader_directive_name')
 
     def add_to_failure_queue(self, jsonline):
         '''Default behavior. This may be implemented in the subclass.'''
@@ -1402,11 +1402,7 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        try:
-            self.g2_engine.addRecord(data_source, record_id, jsonline)
-        except Exception as err:
-            raise err
-
+        self.g2_engine.addRecord(data_source, record_id, jsonline)
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_addRecordWithInfo(self, message_metadata, message_dict):
@@ -1421,10 +1417,7 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        try:
-            self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
-        except Exception as err:
-            raise err
+        self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
         response_json = response_bytearray.decode()
 
         # If successful, send "withInfo" information to queue.
@@ -1453,11 +1446,7 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        try:
-            self.g2_engine.deleteRecord(data_source, record_id)
-        except Exception as err:
-            raise err
-
+        self.g2_engine.deleteRecord(data_source, record_id)
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_deleteRecordWithInfo(self, message_metadata, message_dict):
@@ -1471,10 +1460,7 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        try:
-            self.g2_engine.deleteRecordWithInfo(data_source, record_id, response_bytearray)
-        except Exception as err:
-            raise err
+        self.g2_engine.deleteRecordWithInfo(data_source, record_id, response_bytearray)
         response_json = response_bytearray.decode()
 
         # If successful, send "withInfo" information to queue.
@@ -1504,11 +1490,7 @@ class WriteG2Thread(threading.Thread):
         # Call Senzing's G2Engine.
 
         flags = 0
-        try:
-            self.g2_engine.reevaluateRecord(data_source, record_id, flags)
-        except Exception as err:
-            raise err
-
+        self.g2_engine.reevaluateRecord(data_source, record_id, flags)
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_reevaluateRecordWithInfo(self, message_metadata, message_dict):
@@ -1522,10 +1504,7 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        try:
-            self.g2_engine.reevaluateRecordWithInfo(data_source, record_id, response_bytearray)
-        except Exception as err:
-            raise err
+        self.g2_engine.reevaluateRecordWithInfo(data_source, record_id, response_bytearray)
         response_json = response_bytearray.decode()
 
         # If successful, send "withInfo" information to queue.
@@ -1561,7 +1540,7 @@ class WriteG2Thread(threading.Thread):
         # Determine senzingStreamLoader action.
 
         json_dictionary = json.loads(jsonline)
-        senzing_stream_loader_value = json_dictionary.pop(self.stream_loader_directive, senzing_stream_loader_value_default)
+        senzing_stream_loader_value = json_dictionary.pop(self.stream_loader_directive_name, senzing_stream_loader_value_default)
         stream_loader_action = senzing_stream_loader_value.get('action', senzing_stream_loader_value_default.get('action'))
 
         # Transform stream loader action into method name string.

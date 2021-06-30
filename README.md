@@ -415,8 +415,7 @@ Unset `*_PARAMETER` environment variables have no effect on the
 
 ## Directives
 
-The stream loader will inspect each incoming JSON message for a "senzingStreamLoader" JSON property name
-(unless altered by `SENZING_STREAM_LOADER_DIRECTIVE`).
+The stream loader will inspect each incoming JSON message for a "senzingStreamLoader" JSON property name.
 The "senzingStreamLoader" property value is used to direct the actions of the stream loader.
 The "senzingStreamLoader" property will be removed from the JSON message before the message is sent to the Senzing Engine.
 
@@ -528,11 +527,11 @@ Configuration values specified by environment variable or command line parameter
 - **[AWS_DEFAULT_REGION](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#aws_default_region)**
 - **[AWS_SECRET_ACCESS_KEY](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#aws_secret_access_key)**
 - **[PYTHONPATH](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#python_path)**
-- **[SENZING_CONFIGURATION_CHECK_FREQUENCY](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_configuration_check_frequency)**
 - **[SENZING_CONFIG_PATH](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_config_path)**
-- **[SENZING_DATABASE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_database_url)**
+- **[SENZING_CONFIGURATION_CHECK_FREQUENCY](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_configuration_check_frequency)**
 - **[SENZING_DATA_SOURCE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_data_source)**
 - **[SENZING_DATA_VERSION_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_data_version_dir)**
+- **[SENZING_DATABASE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_database_url)**
 - **[SENZING_DEBUG](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_debug)**
 - **[SENZING_DELAY_IN_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_delay_in_seconds)**
 - **[SENZING_DELAY_RANDOMIZED](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_delay_randomized)**
@@ -540,7 +539,6 @@ Configuration values specified by environment variable or command line parameter
 - **[SENZING_ENTITY_TYPE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_entity_type)**
 - **[SENZING_ETC_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_etc_dir)**
 - **[SENZING_EXIT_ON_EMPTY_QUEUE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_exit_on_empty_queue)**
-- **[SENZING_EXIT_SLEEP_TIME_IN_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_exit_sleep_time_in_seconds)**
 - **[SENZING_EXPIRATION_WARNING_IN_DAYS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_expiration_warning_in_days)**
 - **[SENZING_G2_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_g2_dir)**
 - **[SENZING_INPUT_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_input_url)**
@@ -566,6 +564,7 @@ Configuration values specified by environment variable or command line parameter
 - **[SENZING_RABBITMQ_FAILURE_QUEUE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_failure_queue)**
 - **[SENZING_RABBITMQ_FAILURE_ROUTING_KEY](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_failure_routing_key)**
 - **[SENZING_RABBITMQ_FAILURE_USERNAME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_failure_username)**
+- **[SENZING_RABBITMQ_FAILURE_VIRTUAL_HOST](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_failure_virtual_host)**
 - **[SENZING_RABBITMQ_HEARTBEAT_IN_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_heartbeat_in_seconds)**
 - **[SENZING_RABBITMQ_HOST](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_host)**
 - **[SENZING_RABBITMQ_INFO_EXCHANGE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_info_exchange)**
@@ -575,26 +574,28 @@ Configuration values specified by environment variable or command line parameter
 - **[SENZING_RABBITMQ_INFO_QUEUE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_info_queue)**
 - **[SENZING_RABBITMQ_INFO_ROUTING_KEY](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_info_routing_key)**
 - **[SENZING_RABBITMQ_INFO_USERNAME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_info_username)**
+- **[SENZING_RABBITMQ_INFO_VIRTUAL_HOST](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_info_virtual_host)**
 - **[SENZING_RABBITMQ_PASSWORD](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_password)**
 - **[SENZING_RABBITMQ_PORT](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_port)**
 - **[SENZING_RABBITMQ_PREFETCH_COUNT](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_prefetch_count)**
 - **[SENZING_RABBITMQ_QUEUE](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_queue)**
 - **[SENZING_RABBITMQ_RECONNECT_DELAY_IN_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_reconnect_delay_in_seconds)**
 - **[SENZING_RABBITMQ_RECONNECT_NUMBER_OF_RETRIES](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabiitmq_reconnect_number_of_retries)**
-- **[SENZING_RABBITMQ_USERNAME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_username)**
 - **[SENZING_RABBITMQ_USE_EXISTING_ENTITIES](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_use_existing_entities)**
+- **[SENZING_RABBITMQ_USERNAME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_username)**
+- **[SENZING_RABBITMQ_VIRTUAL_HOST](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_rabbitmq_virtual_host)**
 - **[SENZING_RESOURCE_PATH](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_resource_path)**
 - **[SENZING_RUNAS_USER](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_runas_user)**
 - **[SENZING_SKIP_DATABASE_PERFORMANCE_TEST](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_skip_database_performance_test)**
 - **[SENZING_SKIP_GOVERNOR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_skip_governor)**
 - **[SENZING_SKIP_INFO_FILTER](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_skip_info_filter)**
 - **[SENZING_SLEEP_TIME_IN_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sleep_time_in_seconds)**
-- **[SENZING_SQS_DEAD_LETTER_QUEUE_ENABLED](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_dead_letter_queue_enabled)**
 - **[SENZING_SQS_FAILURE_QUEUE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_failure_queue_url)**
 - **[SENZING_SQS_INFO_QUEUE_DELAY_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_info_queue_delay_seconds)**
 - **[SENZING_SQS_INFO_QUEUE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_info_queue_url)**
 - **[SENZING_SQS_QUEUE_URL](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_queue_url)**
 - **[SENZING_SQS_WAIT_TIME_SECONDS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_sqs_wait_time_seconds)**
+- **[SENZING_STREAM_LOADER_DIRECTIVE_NAME](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_stream_loader_directive_name)**
 - **[SENZING_SUBCOMMAND](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_subcommand)**
 - **[SENZING_SUPPORT_PATH](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_support_path)**
 - **[SENZING_THREADS_PER_PROCESS](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_threads_per_process)**

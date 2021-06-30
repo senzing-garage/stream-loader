@@ -84,6 +84,11 @@ configuration_locator = {
         "env": "SENZING_DATA_SOURCE",
         "cli": "data-source"
     },
+    "g2_database_url_generic": {
+        "default": "sqlite3://na:na@/var/opt/senzing/sqlite/G2C.db",
+        "env": "SENZING_DATABASE_URL",
+        "cli": "database-url"
+    },
     "debug": {
         "default": False,
         "env": "SENZING_DEBUG",
@@ -118,11 +123,6 @@ configuration_locator = {
         "default": 30,
         "env": "SENZING_EXPIRATION_WARNING_IN_DAYS",
         "cli": "expiration-warning-in-days"
-    },
-    "g2_database_url_generic": {
-        "default": "sqlite3://na:na@/var/opt/senzing/sqlite/G2C.db",
-        "env": "SENZING_DATABASE_URL",
-        "cli": "database-url"
     },
     "input_url": {
         "default": None,
@@ -264,15 +264,15 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_INFO_HOST",
         "cli": "rabbitmq-info-host",
     },
-    "rabbitmq_info_port": {
-        "default": None,
-        "env": "SENZING_RABBITMQ_INFO_PORT",
-        "cli": "rabbitmq-info-port",
-    },
     "rabbitmq_info_password": {
         "default": None,
         "env": "SENZING_RABBITMQ_INFO_PASSWORD",
         "cli": "rabbitmq-info-password",
+    },
+    "rabbitmq_info_port": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_INFO_PORT",
+        "cli": "rabbitmq-info-port",
     },
     "rabbitmq_info_queue": {
         "default": "senzing-rabbitmq-info-queue",
@@ -314,15 +314,15 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_QUEUE",
         "cli": "rabbitmq-queue",
     },
-    "rabbitmq_reconnect_number_of_retries": {
-        "default": "10",
-        "env": "SENZING_RABBITMQ_RECONNECT_NUMBER_OF_RETRIES",
-        "cli": "rabbitmq-reconnect-number-of-retries",
-    },
     "rabbitmq_reconnect_delay_in_seconds": {
         "default": "60",
         "env": "SENZING_RABBITMQ_RECONNECT_DELAY_IN_SECONDS",
         "cli": "rabbitmq-reconnect-wait-time-in-seconds",
+    },
+    "rabbitmq_reconnect_number_of_retries": {
+        "default": "10",
+        "env": "SENZING_RABBITMQ_RECONNECT_NUMBER_OF_RETRIES",
+        "cli": "rabbitmq-reconnect-number-of-retries",
     },
     "rabbitmq_use_existing_entities": {
         "default": True,
@@ -369,15 +369,15 @@ configuration_locator = {
         "env": "SENZING_SQS_FAILURE_QUEUE_URL",
         "cli": "sqs-failure-queue-url"
     },
-    "sqs_info_queue_url": {
-        "default": None,
-        "env": "SENZING_SQS_INFO_QUEUE_URL",
-        "cli": "sqs-info-queue-url"
-    },
     "sqs_info_queue_delay_seconds": {
         "default": 10,
         "env": "SENZING_SQS_INFO_QUEUE_DELAY_SECONDS",
         "cli": "sqs-info-queue-delay-seconds"
+    },
+    "sqs_info_queue_url": {
+        "default": None,
+        "env": "SENZING_SQS_INFO_QUEUE_URL",
+        "cli": "sqs-info-queue-url"
     },
     "sqs_queue_url": {
         "default": None,

@@ -420,7 +420,7 @@ The stream loader will inspect each incoming JSON message for a "senzingStreamLo
 The "senzingStreamLoader" property value is used to direct the actions of the stream loader.
 The "senzingStreamLoader" property will be removed from the JSON message before the message is sent to the Senzing Engine.
 
-1. The format of the stream-loader property value is:
+1. The format of the "senzingStreamLoader" property value is:
 
     ```javascript
     {

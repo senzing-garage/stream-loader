@@ -58,6 +58,7 @@ optional arguments:
     1. [Database support](#database-support)
     1. [External database](#external-database)
     1. [Run Docker container](#run-docker-container)
+1. [Directives](#directives)
 1. [Develop](#develop)
     1. [Prerequisites for development](#prerequisites-for-development)
     1. [Clone repository](#clone-repository)

@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added in 1.8.0
 
-- [Directives](https://github.com/Senzing/stream-loader/tree/master#directives)
+- [Directives](README.md#directives)
 
 ## [1.7.6] - 2021-05-26
 

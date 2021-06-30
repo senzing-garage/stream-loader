@@ -412,6 +412,38 @@ Unset `*_PARAMETER` environment variables have no effect on the
 
 1. For more examples of use, see [Examples of Docker](#examples-of-docker).
 
+## Directives
+
+The stream loader will inspect each incoming JSON message for a "senzingStreamLoader" JSON property name
+(unless altered by `SENZING_STREAM_LOADER_DIRECTIVE`).
+The "senzingStreamLoader" property value is used to direct the actions of the stream loader.
+The "senzingStreamLoader" property will be removed from the JSON message before it is sent to the Senzing Engine.
+
+1. The format of the stream-loader directive is:
+
+    ```json
+    {
+        "action": "<action-identifier>"
+    }
+    ```
+
+1. The supported "action-identifiers" are:
+    1. [addRecord](https://docs.senzing.com/python/senzing-G2Engine-reference.html#addRecord)
+    1. [addRecordWithInfo](https://docs.senzing.com/python/senzing-G2Engine-reference.html#addRecordWithInfo)
+    1. [reevaluateRecord](https://docs.senzing.com/python/senzing-G2Engine-reference.html#reevaluateRecord)
+    1. [reevaluateRecordWithInfo](https://docs.senzing.com/python/senzing-G2Engine-reference.html#reevaluateRecordWithInfo)
+    1. [deleteRecord](https://docs.senzing.com/python/senzing-G2Engine-reference.html#deleteRecord)
+    1. [deleteRecordWithInfo](https://docs.senzing.com/python/senzing-G2Engine-reference.html#deleteRecordWithInfo)
+
+1. In a message, it looks like this example:
+
+    ```json
+    {"senzingStreamLoader": {"action": "deleteRecordWithInfo"}, "DATA_SOURCE": "TEST", "RECORD_ID": "242131119", ...}
+    ```
+
+1. If no directive exists, the action taken by the stream-loader will be `addRecord` or `addRecordWithInfo`,
+   depending on the stream-loader.py subcommand.  For subcommands, see [Overview](#overview).
+
 ## Develop
 
 The following instructions are used when modifying and building the Docker image.

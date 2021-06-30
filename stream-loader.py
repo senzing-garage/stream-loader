@@ -65,10 +65,6 @@ safe_character_list = ['$', '-', '_', '.', '+', '!', '*', '(', ')', ',', '"'] + 
 unsafe_character_list = ['"', '<', '>', '#', '%', '{', '}', '|', '\\', '^', '~', '[', ']', '`']
 reserved_character_list = [';', ',', '/', '?', ':', '@', '=', '&']
 
-# Message keys
-
-senzing_stream_loader_key = 'senzingStreamLoader'
-
 # The "configuration_locator" describes where configuration variables are in:
 # 1) Command line options, 2) Environment variables, 3) Configuration files, 4) Default values
 
@@ -393,6 +389,11 @@ configuration_locator = {
         "env": "SENZING_SQS_WAIT_TIME_SECONDS",
         "cli": "sqs-wait-time-seconds"
     },
+    "stream_loader_directive": {
+        "default": "senzingStreamLoader",
+        "env": "SENZING_STREAM_LOADER_DIRECTIVE",
+        "cli": "stream-loader-directive"
+    },
     "subcommand": {
         "default": None,
         "env": "SENZING_SUBCOMMAND",
@@ -643,6 +644,11 @@ def get_parser():
                 "dest": "monitoring_period_in_seconds",
                 "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
                 "help": "Period, in seconds, between monitoring reports. Default: 600"
+            },
+            "--stream-loader-directive": {
+                "dest": "stream_loader_directive",
+                "metavar": "SENZING_STREAM_LOADER_DIRECTIVE",
+                "help": "Advanced: The JSON key in messages that direct stream-loader behavior. Default: senzingStreamLoader"
             },
             "--threads-per-process": {
                 "dest": "threads_per_process",
@@ -1312,6 +1318,7 @@ class WriteG2Thread(threading.Thread):
         self.g2_configuration_manager = g2_configuration_manager
         self.governor = governor
         self.info_filter = InfoFilter(g2_engine=g2_engine)
+        self.stream_loader_directive = config.get('stream_loader_directive')
 
     def add_to_failure_queue(self, jsonline):
         '''Default behavior. This may be implemented in the subclass.'''
@@ -1554,7 +1561,7 @@ class WriteG2Thread(threading.Thread):
         # Determine senzingStreamLoader action.
 
         json_dictionary = json.loads(jsonline)
-        senzing_stream_loader_value = json_dictionary.pop(senzing_stream_loader_key, senzing_stream_loader_value_default)
+        senzing_stream_loader_value = json_dictionary.pop(self.stream_loader_directive, senzing_stream_loader_value_default)
         stream_loader_action = senzing_stream_loader_value.get('action', senzing_stream_loader_value_default.get('action'))
 
         # Transform stream loader action into method name string.

@@ -43,9 +43,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.7.4"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.8.0"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2021-03-29'
+__updated__ = '2021-06-30'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -84,6 +84,11 @@ configuration_locator = {
         "env": "SENZING_DATA_SOURCE",
         "cli": "data-source"
     },
+    "g2_database_url_generic": {
+        "default": "sqlite3://na:na@/var/opt/senzing/sqlite/G2C.db",
+        "env": "SENZING_DATABASE_URL",
+        "cli": "database-url"
+    },
     "debug": {
         "default": False,
         "env": "SENZING_DEBUG",
@@ -118,11 +123,6 @@ configuration_locator = {
         "default": 30,
         "env": "SENZING_EXPIRATION_WARNING_IN_DAYS",
         "cli": "expiration-warning-in-days"
-    },
-    "g2_database_url_generic": {
-        "default": "sqlite3://na:na@/var/opt/senzing/sqlite/G2C.db",
-        "env": "SENZING_DATABASE_URL",
-        "cli": "database-url"
     },
     "input_url": {
         "default": None,
@@ -264,15 +264,15 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_INFO_HOST",
         "cli": "rabbitmq-info-host",
     },
-    "rabbitmq_info_port": {
-        "default": None,
-        "env": "SENZING_RABBITMQ_INFO_PORT",
-        "cli": "rabbitmq-info-port",
-    },
     "rabbitmq_info_password": {
         "default": None,
         "env": "SENZING_RABBITMQ_INFO_PASSWORD",
         "cli": "rabbitmq-info-password",
+    },
+    "rabbitmq_info_port": {
+        "default": None,
+        "env": "SENZING_RABBITMQ_INFO_PORT",
+        "cli": "rabbitmq-info-port",
     },
     "rabbitmq_info_queue": {
         "default": "senzing-rabbitmq-info-queue",
@@ -314,15 +314,15 @@ configuration_locator = {
         "env": "SENZING_RABBITMQ_QUEUE",
         "cli": "rabbitmq-queue",
     },
-    "rabbitmq_reconnect_number_of_retries": {
-        "default": "10",
-        "env": "SENZING_RABBITMQ_RECONNECT_NUMBER_OF_RETRIES",
-        "cli": "rabbitmq-reconnect-number-of-retries",
-    },
     "rabbitmq_reconnect_delay_in_seconds": {
         "default": "60",
         "env": "SENZING_RABBITMQ_RECONNECT_DELAY_IN_SECONDS",
         "cli": "rabbitmq-reconnect-wait-time-in-seconds",
+    },
+    "rabbitmq_reconnect_number_of_retries": {
+        "default": "10",
+        "env": "SENZING_RABBITMQ_RECONNECT_NUMBER_OF_RETRIES",
+        "cli": "rabbitmq-reconnect-number-of-retries",
     },
     "rabbitmq_use_existing_entities": {
         "default": True,
@@ -369,15 +369,15 @@ configuration_locator = {
         "env": "SENZING_SQS_FAILURE_QUEUE_URL",
         "cli": "sqs-failure-queue-url"
     },
-    "sqs_info_queue_url": {
-        "default": None,
-        "env": "SENZING_SQS_INFO_QUEUE_URL",
-        "cli": "sqs-info-queue-url"
-    },
     "sqs_info_queue_delay_seconds": {
         "default": 10,
         "env": "SENZING_SQS_INFO_QUEUE_DELAY_SECONDS",
         "cli": "sqs-info-queue-delay-seconds"
+    },
+    "sqs_info_queue_url": {
+        "default": None,
+        "env": "SENZING_SQS_INFO_QUEUE_URL",
+        "cli": "sqs-info-queue-url"
     },
     "sqs_queue_url": {
         "default": None,
@@ -388,6 +388,11 @@ configuration_locator = {
         "default": 20,
         "env": "SENZING_SQS_WAIT_TIME_SECONDS",
         "cli": "sqs-wait-time-seconds"
+    },
+    "stream_loader_directive_name": {
+        "default": "senzingStreamLoader",
+        "env": "SENZING_STREAM_LOADER_DIRECTIVE_NAME",
+        "cli": "stream-loader-directive-name"
     },
     "subcommand": {
         "default": None,
@@ -639,6 +644,11 @@ def get_parser():
                 "dest": "monitoring_period_in_seconds",
                 "metavar": "SENZING_MONITORING_PERIOD_IN_SECONDS",
                 "help": "Period, in seconds, between monitoring reports. Default: 600"
+            },
+            "--stream-loader-directive-name": {
+                "dest": "stream_loader_directive_name",
+                "metavar": "SENZING_STREAM_LOADER_DIRECTIVE_NAME",
+                "help": "Advanced: The JSON key in messages that direct stream-loader behavior. Default: senzingStreamLoader"
             },
             "--threads-per-process": {
                 "dest": "threads_per_process",
@@ -1308,6 +1318,7 @@ class WriteG2Thread(threading.Thread):
         self.g2_configuration_manager = g2_configuration_manager
         self.governor = governor
         self.info_filter = InfoFilter(g2_engine=g2_engine)
+        self.stream_loader_directive_name = config.get('stream_loader_directive_name')
 
     def add_to_failure_queue(self, jsonline):
         '''Default behavior. This may be implemented in the subclass.'''
@@ -1319,6 +1330,15 @@ class WriteG2Thread(threading.Thread):
         '''Default behavior. This may be implemented in the subclass.'''
         assert type(jsonline) == str
         logging.info(message_info(128, jsonline))
+        return True
+
+    def extract_primary_key(self, message_dict):
+        '''Extract compound primary key.'''
+        data_source = str(message_dict.get('DATA_SOURCE', self.config.get("data_source")))
+        record_id = message_dict.get('RECORD_ID')
+        if record_id is not None:
+            record_id = str(record_id)
+        return data_source, record_id
 
     def filter_info_message(self, message=None):
         assert type(message) == str
@@ -1371,55 +1391,139 @@ class WriteG2Thread(threading.Thread):
         self.g2_engine.reinitV2(default_config_id)
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
-    def add_record(self, jsonline):
-        ''' Send a record to Senzing. '''
+    def process_addRecord(self, message_metadata, message_dict):
+        ''' Add a record to the Senzing model. '''
         logging.debug(message_debug(950, sys._getframe().f_code.co_name))
-        assert type(jsonline) == str
-        json_dictionary = json.loads(jsonline)
-        data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
-        record_id = json_dictionary.get('RECORD_ID')
-        if record_id is not None:
-            record_id = str(record_id)
 
-        try:
-            self.g2_engine.addRecord(data_source, record_id, jsonline)
-        except Exception as err:
-            if self.is_g2_default_configuration_changed():
-                self.update_active_g2_configuration()
-                try:
-                    self.g2_engine.addRecord(data_source, record_id, jsonline)
-                except Exception as err:
-                    raise err
-            else:
-                raise err
+        # Get metadata.
+
+        jsonline = json.dumps(message_dict)
+        data_source, record_id = self.extract_primary_key(message_dict)
+
+        # Call Senzing's G2Engine.
+
+        self.g2_engine.addRecord(data_source, record_id, jsonline)
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
-        return
 
-    def add_record_withinfo(self, jsonline):
-        ''' Send a record to Senzing and return the "info" returned by Senzing. '''
+    def process_addRecordWithInfo(self, message_metadata, message_dict):
+        ''' Add a record to the Senzing model and return the "info" returned by Senzing. '''
         logging.debug(message_debug(950, sys._getframe().f_code.co_name))
-        assert type(jsonline) == str
-        json_dictionary = json.loads(jsonline)
-        data_source = str(json_dictionary.get('DATA_SOURCE', self.config.get("data_source")))
-        record_id = json_dictionary.get('RECORD_ID')
-        if record_id is not None:
-            record_id = str(record_id)
+
+        # Get metadata.
+
+        jsonline = json.dumps(message_dict)
+        data_source, record_id = self.extract_primary_key(message_dict)
         response_bytearray = bytearray()
-        try:
-            self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
-        except Exception as err:
-            if self.is_g2_default_configuration_changed():
-                self.update_active_g2_configuration()
-                try:
-                    self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
-                except Exception as err:
-                    raise err
-            else:
-                raise err
-        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
-        return response_bytearray.decode()
 
-    def send_jsonline_to_g2_engine(self, jsonline):
+        # Call Senzing's G2Engine.
+
+        self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
+        response_json = response_bytearray.decode()
+
+        # If successful, send "withInfo" information to queue.
+
+        if response_json:
+
+            # Allow user to manipulate the Info message.
+
+            filtered_response_json = self.filter_info_message(message=response_json)
+
+            # Put "info" on info queue.
+
+            if filtered_response_json:
+                self.add_to_info_queue(filtered_response_json)
+                logging.debug(message_debug(904, threading.current_thread().name, filtered_response_json))
+
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
+
+    def process_deleteRecord(self, message_metadata, message_dict):
+        ''' Delete a record from Senzing model. '''
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
+
+        # Get metadata.
+
+        data_source, record_id = self.extract_primary_key(message_dict)
+
+        # Call Senzing's G2Engine.
+
+        self.g2_engine.deleteRecord(data_source, record_id)
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
+
+    def process_deleteRecordWithInfo(self, message_metadata, message_dict):
+        ''' Delete a record from Senzing model and return the "info" returned by Senzing. '''
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
+
+        # Get metadata.
+
+        data_source, record_id = self.extract_primary_key(message_dict)
+        response_bytearray = bytearray()
+
+        # Call Senzing's G2Engine.
+
+        self.g2_engine.deleteRecordWithInfo(data_source, record_id, response_bytearray)
+        response_json = response_bytearray.decode()
+
+        # If successful, send "withInfo" information to queue.
+
+        if response_json:
+
+            # Allow user to manipulate the Info message.
+
+            filtered_response_json = self.filter_info_message(message=response_json)
+
+            # Put "info" on info queue.
+
+            if filtered_response_json:
+                self.add_to_info_queue(filtered_response_json)
+                logging.debug(message_debug(904, threading.current_thread().name, filtered_response_json))
+
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
+
+    def process_reevaluateRecord(self, message_metadata, message_dict):
+        ''' Re-evaluate a record in the Senzing model. '''
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
+
+        # Get metadata.
+
+        data_source, record_id = self.extract_primary_key(message_dict)
+
+        # Call Senzing's G2Engine.
+
+        flags = 0
+        self.g2_engine.reevaluateRecord(data_source, record_id, flags)
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
+
+    def process_reevaluateRecordWithInfo(self, message_metadata, message_dict):
+        ''' Re-evaluate a record in the Senzing model and return the "info" returned by Senzing. '''
+        logging.debug(message_debug(950, sys._getframe().f_code.co_name))
+
+        # Get metadata.
+
+        data_source, record_id = self.extract_primary_key(message_dict)
+        response_bytearray = bytearray()
+
+        # Call Senzing's G2Engine.
+
+        self.g2_engine.reevaluateRecordWithInfo(data_source, record_id, response_bytearray)
+        response_json = response_bytearray.decode()
+
+        # If successful, send "withInfo" information to queue.
+
+        if response_json:
+
+            # Allow user to manipulate the Info message.
+
+            filtered_response_json = self.filter_info_message(message=response_json)
+
+            # Put "info" on info queue.
+
+            if filtered_response_json:
+                self.add_to_info_queue(filtered_response_json)
+                logging.debug(message_debug(904, threading.current_thread().name, filtered_response_json))
+
+        logging.debug(message_debug(951, sys._getframe().f_code.co_name))
+
+    def send_jsonline_to_g2_engine(self, jsonline, senzing_stream_loader_value_default={"action": 'addRecord'}):
         '''Send the JSONline to G2 engine.
            Returns True if jsonline delivered to Senzing
            or to Failure Queue.
@@ -1433,68 +1537,48 @@ class WriteG2Thread(threading.Thread):
             if self.is_g2_default_configuration_changed():
                 self.update_active_g2_configuration()
 
-        # Add Record to Senzing G2.
+        # Determine senzingStreamLoader action.
+
+        json_dictionary = json.loads(jsonline)
+        senzing_stream_loader_value = json_dictionary.pop(self.stream_loader_directive_name, senzing_stream_loader_value_default)
+        stream_loader_action = senzing_stream_loader_value.get('action', senzing_stream_loader_value_default.get('action'))
+
+        # Transform stream loader action into method name string.
+
+        method_name = "process_{0}".format(stream_loader_action)
+
+        # Test to see if method exists in the class.
+
+        if method_name not in dir(self):
+            logging.warning(message_warning(696, method_name))
+            self.add_to_failure_queue(str(jsonline))
+            return False
+
+        # Tricky code for calling method based on string.
 
         try:
-            self.add_record(jsonline)
-        except G2Exception.G2ModuleNotInitialized as err:
-            result = False
-            exit_error(888, err, jsonline)
-        except G2Exception.G2ModuleGenericException as err:
-            logging.error(message_error(889, err, jsonline))
-            result = self.add_to_failure_queue(str(jsonline))
+            method_to_call = getattr(self, method_name)
+            method_to_call(senzing_stream_loader_value, json_dictionary)
         except Exception as err:
-            logging.error(message_error(890, err, jsonline))
-            result = self.add_to_failure_queue(str(jsonline))
+            if self.is_g2_default_configuration_changed():
+                self.update_active_g2_configuration()
+                try:
+                    method_to_call(senzing_stream_loader_value, json_dictionary)
+                except Exception as err:
+                    logging.error(message_error(890, err, jsonline))
+                    self.add_to_failure_queue(str(jsonline))
+                    result = False
+            else:
+                logging.error(message_error(890, err, jsonline))
+                self.add_to_failure_queue(str(jsonline))
+                result = False
 
         logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
         return result
 
-    def send_jsonline_to_g2_engine_withinfo(self, jsonline):
-        '''Send the JSONline to G2 engine.
-           Returns True if jsonline delivered to Senzing
-           or to Failure Queue.
-        '''
-        assert type(jsonline) == str
-        result = True
-
-        # Periodically, check for configuration update.
-
-        if self.is_time_to_check_g2_configuration():
-            if self.is_g2_default_configuration_changed():
-                self.update_active_g2_configuration()
-
-        # Add Record to Senzing G2.
-
-        info_json = None
-        try:
-            info_json = self.add_record_withinfo(jsonline)
-        except G2Exception.G2ModuleNotInitialized as err:
-            result = self.add_to_failure_queue(str(jsonline))
-            exit_error(888, err, jsonline)
-        except G2Exception.G2ModuleGenericException as err:
-            result = self.add_to_failure_queue(str(jsonline))
-            logging.error(message_error(889, err, jsonline))
-        except Exception as err:
-            result = self.add_to_failure_queue(str(jsonline))
-            logging.error(message_error(890, err, jsonline))
-
-        # If successful add_record_withinfo().
-
-        if info_json:
-
-            # Allow user to manipulate the Info message.
-
-            filtered_info_json = self.filter_info_message(message=info_json)
-
-            # Put "info" on info queue.
-
-            if filtered_info_json:
-                self.add_to_info_queue(filtered_info_json)
-                logging.debug(message_debug(904, threading.current_thread().name, filtered_info_json))
-
-        return result
+    def send_jsonline_to_g2_engine_withinfo(self, jsonline, senzing_stream_loader_value_default={"action": 'addRecordWithInfo'}):
+        return self.send_jsonline_to_g2_engine(jsonline, senzing_stream_loader_value_default)
 
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaWriteG2Thread
@@ -1934,7 +2018,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
         return connection, channel
 
-
 # -----------------------------------------------------------------------------
 # Class: ReadRabbitMQWriteG2WithInfoThread
 # -----------------------------------------------------------------------------
@@ -2034,7 +2117,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         # Put record in queue to be processed later. This allows this thread to return to the RabbitMQ IOLoop and prevents heartbeat timeouts
         self.record_queue.put((method.delivery_tag, body))
-
 
     def worker(self):
         while True:

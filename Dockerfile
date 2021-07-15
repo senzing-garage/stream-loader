@@ -1,11 +1,11 @@
-ARG BASE_IMAGE=senzing/senzing-base:1.6.0
+ARG BASE_IMAGE=senzing/senzing-base:1.6.1
 FROM ${BASE_IMAGE}
 
-ENV REFRESHED_AT=2021-03-26
+ENV REFRESHED_AT=2021-07-15
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.8.1"
+      Version="1.8.2"
 
 HEALTHCHECK CMD ["/app/healthcheck.sh"]
 

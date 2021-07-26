@@ -826,6 +826,7 @@ message_dictionary = {
     "166": "          Records: {0}",
     "167": "         Contract: {0}",
     "168": "  Expiration time: EXPIRED {0} days ago",
+    "169": "G2 loaded in {0:>5.0f} seconds",
     "180": "User-supplied Governor loaded from {0}.",
     "181": "User-supplied InfoFilter loaded from {0}.",
     "190": "Thread: {0} AWS SQS Long-polling: No messages from {1}",
@@ -3424,10 +3425,17 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
     sleep_time_in_seconds = config.get('sleep_time_in_seconds')
     threads_per_process = config.get('threads_per_process')
 
+    # Start our timer to time G2 load
+
+    start_time = time.perf_counter()
+
     # Get the Senzing G2 resources.
 
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
+
+    logging.info(message_info(169, time.perf_counter() - start_time ))
+
     governor = Governor(g2_engine=g2_engine, hint="stream-loader")
 
     # Create RabbitMQ reader threads for master process.

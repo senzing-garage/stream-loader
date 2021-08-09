@@ -13,21 +13,7 @@ HEALTHCHECK CMD ["/app/healthcheck.sh"]
 
 USER root
 
-# Install packages via apt.
-
-RUN apt-get update \
- && apt-get -y install \
-      apt-transport-https \
-      curl \
-      gnupg \
-      librdkafka-dev \
-      sudo \
-      wget \
- && rm -rf /var/lib/apt/lists/*
-
  # Install Senzing repository index.
-
-RUN ls
 
 RUN curl \
         --output /senzingrepo_1.0.0-1_amd64.deb \
@@ -37,12 +23,19 @@ RUN curl \
  && apt update \
  && rm /senzingrepo_1.0.0-1_amd64.deb
 
-# Install Senzing package.
-#   Note: The system location for "data" should be /opt/senzing/data, hence the "mv" command.
+# Install packages via apt.
 
-RUN apt -y install senzingapi \
- && mv /opt/senzing/data/2.0.0/* /opt/senzing/data/ \
- && rm -rf /opt/senzing/g2
+RUN apt-get update \
+ && apt-get -y install \
+      apt-transport-https \
+      curl \
+      gnupg \
+      librdkafka-dev \
+      senzingdata-v2 \
+      sudo \
+      wget \
+ && rm -rf /var/lib/apt/lists/* \
+  && mv /opt/senzing/data/2.0.0/* /opt/senzing/data/
 
 # Install packages via PIP.
 

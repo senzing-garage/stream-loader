@@ -1,0 +1,67 @@
+ARG BASE_IMAGE=senzing/senzing-base:1.6.1
+FROM ${BASE_IMAGE}
+
+ENV REFRESHED_AT=2021-08-09
+
+LABEL Name="senzing/stream-loader-with-data" \
+      Maintainer="support@senzing.com" \
+      Version="1.8.3"
+
+HEALTHCHECK CMD ["/app/healthcheck.sh"]
+
+# Run as "root" for system installation.
+
+USER root
+
+# Install packages via apt.
+
+RUN apt-get update \
+ && apt-get -y install \
+      apt-transport-https \
+      curl \
+      gnupg \
+      librdkafka-dev \
+      sudo \
+      wget \
+ && rm -rf /var/lib/apt/lists/*
+
+ # Install Senzing repository index.
+
+RUN ls
+
+RUN curl \
+        --output /senzingrepo_1.0.0-1_amd64.deb \
+        https://senzing-production-apt.s3.amazonaws.com/senzingrepo_1.0.0-1_amd64.deb \
+ && apt -y install \
+        /senzingrepo_1.0.0-1_amd64.deb \
+ && apt update \
+ && rm /senzingrepo_1.0.0-1_amd64.deb
+
+# Install Senzing package.
+#   Note: The system location for "data" should be /opt/senzing/data, hence the "mv" command.
+
+RUN apt -y install senzingapi \
+ && mv /opt/senzing/data/2.0.0/* /opt/senzing/data/ \
+ && rm -rf /opt/senzing/g2
+
+# Install packages via PIP.
+
+COPY requirements.txt ./
+RUN pip3 install --upgrade pip \
+ && pip3 install -r requirements.txt
+
+# Copy files from repository.
+
+COPY ./rootfs /
+COPY ./stream-loader.py /app/
+
+# Make non-root container.
+
+USER 1001
+
+# Runtime execution.
+
+ENV SENZING_DOCKER_LAUNCHED=true
+
+WORKDIR /app
+ENTRYPOINT ["/app/stream-loader.py"]

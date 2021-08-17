@@ -1368,11 +1368,15 @@ class WriteG2Thread(threading.Thread):
         # Get most current Configuration ID from G2 database.
 
         default_config_id = bytearray()
-        self.g2_configuration_manager.getDefaultConfigID(default_config_id)
+        try:
+            self.g2_configuration_manager.getDefaultConfigID(default_config_id)
 
-        # Determine if configuration has changed.
+            # Determine if configuration has changed.
 
-        result = active_config_id != default_config_id
+            result = active_config_id != default_config_id
+        except Exception as err:
+            result = False
+
         if result:
             logging.info(message_info(292, active_config_id.decode(), default_config_id.decode()))
 

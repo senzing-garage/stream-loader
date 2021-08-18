@@ -3,9 +3,15 @@ FROM ${BASE_IMAGE}
 
 ENV REFRESHED_AT=2021-08-12
 
-LABEL Name="senzing/stream-loader" \
+LABEL Name="senzing/stream-loader-with-data" \
       Maintainer="support@senzing.com" \
       Version="1.8.4"
+
+# SENZING_ACCEPT_EULA to be replaced by --build-arg
+
+ARG SENZING_ACCEPT_EULA=no
+
+# Define health check
 
 HEALTHCHECK CMD ["/app/healthcheck.sh"]
 
@@ -13,12 +19,29 @@ HEALTHCHECK CMD ["/app/healthcheck.sh"]
 
 USER root
 
+ # Install Senzing repository index.
+
+RUN curl \
+        --output /senzingrepo_1.0.0-1_amd64.deb \
+        https://senzing-production-apt.s3.amazonaws.com/senzingrepo_1.0.0-1_amd64.deb \
+ && apt -y install \
+        /senzingrepo_1.0.0-1_amd64.deb \
+ && apt update \
+ && rm /senzingrepo_1.0.0-1_amd64.deb
+
 # Install packages via apt.
 
 RUN apt-get update \
  && apt-get -y install \
-    librdkafka-dev \
- && rm -rf /var/lib/apt/lists/*
+      apt-transport-https \
+      curl \
+      gnupg \
+      librdkafka-dev \
+      senzingdata-v2 \
+      sudo \
+      wget \
+ && rm -rf /var/lib/apt/lists/* \
+ && mv /opt/senzing/data/2.0.0/* /opt/senzing/data/
 
 # Install packages via PIP.
 

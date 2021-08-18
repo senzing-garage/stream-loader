@@ -8,6 +8,7 @@ GIT_VERSION := $(shell git describe --always --tags --long --dirty | sed -e 's/\
 DOCKER_IMAGE_TAG ?= $(GIT_REPOSITORY_NAME):$(GIT_VERSION)
 DOCKER_IMAGE_NAME := senzing/stream-loader
 BASE_IMAGE ?= senzing/senzing-base:1.6.1
+SENZING_ACCEPT_EULA ?= no
 
 # -----------------------------------------------------------------------------
 # The first "make" target runs as default.
@@ -32,6 +33,7 @@ docker-build:
 docker-build-with-data:
 	docker build \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg SENZING_ACCEPT_EULA=$(SENZING_ACCEPT_EULA) \
 		--file Dockerfile-with-data \
 		--tag $(DOCKER_IMAGE_NAME)-with-data \
 		--tag $(DOCKER_IMAGE_NAME)-with-data:$(GIT_VERSION) \

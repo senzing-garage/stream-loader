@@ -7,6 +7,12 @@ LABEL Name="senzing/stream-loader-with-data" \
       Maintainer="support@senzing.com" \
       Version="1.8.4"
 
+# SENZING_ACCEPT_EULA to be replaced by --build-arg
+
+ARG SENZING_ACCEPT_EULA=no
+
+# Define health check
+
 HEALTHCHECK CMD ["/app/healthcheck.sh"]
 
 # Run as "root" for system installation.
@@ -35,7 +41,7 @@ RUN apt-get update \
       sudo \
       wget \
  && rm -rf /var/lib/apt/lists/* \
-  && mv /opt/senzing/data/2.0.0/* /opt/senzing/data/
+ && mv /opt/senzing/data/2.0.0/* /opt/senzing/data/
 
 # Install packages via PIP.
 

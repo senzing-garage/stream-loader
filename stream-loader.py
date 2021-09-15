@@ -44,9 +44,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.8.4"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.9.0"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2021-09-08'
+__updated__ = '2021-09-15'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -75,11 +75,6 @@ configuration_locator = {
         "env": "SENZING_AZURE_CONNECTION_STRING",
         "cli": "azure-connection-string"
     },
-    "azure_queue_name": {
-        "default": None,
-        "env": "SENZING_AZURE_QUEUE_NAME",
-        "cli": "azure-queue-name"
-    },
     "azure_failure_connection_string": {
         "default": None,
         "env": "SENZING_AZURE_FAILURE_CONNECTION_STRING",
@@ -99,6 +94,11 @@ configuration_locator = {
         "default": None,
         "env": "SENZING_AZURE_INFO_QUEUE_NAME",
         "cli": "azure-info-queue-name"
+    },
+    "azure_queue_name": {
+        "default": None,
+        "env": "SENZING_AZURE_QUEUE_NAME",
+        "cli": "azure-queue-name"
     },
     "config_path": {
         "default": "/etc/opt/senzing",

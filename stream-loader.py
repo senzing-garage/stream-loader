@@ -1663,6 +1663,7 @@ class WriteG2Thread(threading.Thread):
 # Class: ReadAzureQueueWriteG2Thread
 # -----------------------------------------------------------------------------
 
+
 class ReadAzureQueueWriteG2Thread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
@@ -1685,7 +1686,6 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
             self.failure_queue_enabled = True
             self.failure_servicebus_client = ServiceBusClient.from_connection_string(self.failure_connection_string)
             self.failure_sender = self.servicebus_client.get_queue_sender(queue_name=self.failure_queue_name)
-
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -1815,7 +1815,6 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
         pass
-
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -3685,7 +3684,7 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
 
-    logging.info(message_info(169, time.perf_counter() - start_time ))
+    logging.info(message_info(169, time.perf_counter() - start_time))
 
     governor = Governor(g2_engine=g2_engine, hint="stream-loader")
 
@@ -3743,15 +3742,18 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 #   Common function signature: do_XXX(args)
 # -----------------------------------------------------------------------------
 
+
 def do_azure_queue(args):
     ''' Read from SQS. '''
 
     dohelper_thread_runner(args, ReadAzureQueueWriteG2Thread, {})
 
+
 def do_azure_queue_withinfo(args):
     ''' Read from SQS. '''
 
     dohelper_thread_runner(args, ReadAzureQueueWriteG2WithInfoThread, {})
+
 
 def do_docker_acceptance_test(args):
     ''' For use with Docker acceptance testing. '''

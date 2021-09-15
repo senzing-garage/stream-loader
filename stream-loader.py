@@ -536,65 +536,25 @@ def get_parser():
             "help": 'Read JSON Lines from RabbitMQ queue. Return info to a queue.',
             "argument_aspects": ["common", "rabbitmq_base"],
             "arguments": {
-                "--rabbitmq-info-host": {
-                    "dest": "rabbitmq_info_host",
-                    "metavar": "SENZING_RABBITMQ_INFO_HOST",
-                    "help": "RabbitMQ host. Default: SENZING_RABBITMQ_HOST"
-                },
-                "--rabbitmq-info-port": {
-                    "dest": "rabbitmq_info_port",
-                    "metavar": "SENZING_RABBITMQ_INFO_PORT",
-                    "help": "RabbitMQ host. Default: SENZING_RABBITMQ_PORT"
-                },
-                "--rabbitmq-info-password": {
-                    "dest": "rabbitmq_info_password",
-                    "metavar": "SENZING_RABBITMQ_INFO_PASSWORD",
-                    "help": "RabbitMQ password. Default: SENZING_RABBITMQ_PASSWORD"
-                },
-                "--rabbitmq-info-exchange": {
-                    "dest": "rabbitmq_info_exchange",
-                    "metavar": "SENZING_RABBITMQ_INFO_EXCHANGE",
-                    "help": "RabbitMQ exchange for info. Default: SENZING_RABBITMQ_EXCHANGE"
-                },
-                "--rabbitmq-info-queue": {
-                    "dest": "rabbitmq_info_queue",
-                    "metavar": "SENZING_RABBITMQ_INFO_QUEUE",
-                    "help": "RabbitMQ queue for info. Default: senzing-rabbitmq-info-queue"
-                },
-                "--rabbitmq-info-routing-key": {
-                    "dest": "rabbitmq_info_routing_key",
-                    "metavar": "SENZING_RABBITMQ_INFO_ROUTING_KEY",
-                    "help": "RabbitMQ routing key for info. Default: senzing-rabbitmq-info-routing-key"
-                },
-                "--rabbitmq-info-username": {
-                    "dest": "rabbitmq_info_username",
-                    "metavar": "SENZING_RABBITMQ_INFO_USERNAME",
-                    "help": "RabbitMQ username. Default: SENZING_RABBITMQ_USERNAME"
-                },
-                "--rabbitmq-info-virtual-host": {
-                    "dest": "rabbitmq_info_virtual_host",
-                    "metavar": "SENZING_RABBITMQ_INFO_VIRTUAL_HOST",
-                    "help": "RabbitMQ virtual host. Default: SENZING_RABBITMQ_VIRTUAL_HOST"
+                "--rabbitmq-failure-exchange": {
+                    "dest": "rabbitmq_failure_exchange",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
+                    "help": "RabbitMQ exchange for failures. Default: SENZING_RABBITMQ_EXCHANGE"
                 },
                 "--rabbitmq-failure-host": {
                     "dest": "rabbitmq_failure_host",
                     "metavar": "SENZING_RABBITMQ_FAILURE_HOST",
                     "help": "RabbitMQ host. Default: SENZING_RABBITMQ_HOST"
                 },
-                "--rabbitmq-failure-port": {
-                    "dest": "rabbitmq_failure_port",
-                    "metavar": "SENZING_RABBITMQ_FAILURE_PORT",
-                    "help": "RabbitMQ port. Default: SENZING_RABBITMQ_PORT"
-                },
                 "--rabbitmq-failure-password": {
                     "dest": "rabbitmq_failure_password",
                     "metavar": "SENZING_RABBITMQ_FAILURE_PASSWORD",
                     "help": "RabbitMQ password. Default: SENZING_RABBITMQ_PASSWORD"
                 },
-                "--rabbitmq-failure-exchange": {
-                    "dest": "rabbitmq_failure_exchange",
-                    "metavar": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
-                    "help": "RabbitMQ exchange for failures. Default: SENZING_RABBITMQ_EXCHANGE"
+                "--rabbitmq-failure-port": {
+                    "dest": "rabbitmq_failure_port",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_PORT",
+                    "help": "RabbitMQ port. Default: SENZING_RABBITMQ_PORT"
                 },
                 "--rabbitmq-failure-queue": {
                     "dest": "rabbitmq_failure_queue",
@@ -616,6 +576,47 @@ def get_parser():
                     "metavar": "SENZING_RABBITMQ_FAILURE_VIRTUAL_HOST",
                     "help": "RabbitMQ virtual host. Default: SENZING_RABBITMQ_VIRTUAL_HOST"
                 },
+                "--rabbitmq-info-exchange": {
+                    "dest": "rabbitmq_info_exchange",
+                    "metavar": "SENZING_RABBITMQ_INFO_EXCHANGE",
+                    "help": "RabbitMQ exchange for info. Default: SENZING_RABBITMQ_EXCHANGE"
+                },
+                "--rabbitmq-info-host": {
+                    "dest": "rabbitmq_info_host",
+                    "metavar": "SENZING_RABBITMQ_INFO_HOST",
+                    "help": "RabbitMQ host. Default: SENZING_RABBITMQ_HOST"
+                },
+                "--rabbitmq-info-password": {
+                    "dest": "rabbitmq_info_password",
+                    "metavar": "SENZING_RABBITMQ_INFO_PASSWORD",
+                    "help": "RabbitMQ password. Default: SENZING_RABBITMQ_PASSWORD"
+                },
+                "--rabbitmq-info-port": {
+                    "dest": "rabbitmq_info_port",
+                    "metavar": "SENZING_RABBITMQ_INFO_PORT",
+                    "help": "RabbitMQ host. Default: SENZING_RABBITMQ_PORT"
+                },
+                "--rabbitmq-info-queue": {
+                    "dest": "rabbitmq_info_queue",
+                    "metavar": "SENZING_RABBITMQ_INFO_QUEUE",
+                    "help": "RabbitMQ queue for info. Default: senzing-rabbitmq-info-queue"
+                },
+                "--rabbitmq-info-routing-key": {
+                    "dest": "rabbitmq_info_routing_key",
+                    "metavar": "SENZING_RABBITMQ_INFO_ROUTING_KEY",
+                    "help": "RabbitMQ routing key for info. Default: senzing-rabbitmq-info-routing-key"
+                },
+                "--rabbitmq-info-username": {
+                    "dest": "rabbitmq_info_username",
+                    "metavar": "SENZING_RABBITMQ_INFO_USERNAME",
+                    "help": "RabbitMQ username. Default: SENZING_RABBITMQ_USERNAME"
+                },
+                "--rabbitmq-info-virtual-host": {
+                    "dest": "rabbitmq_info_virtual_host",
+                    "metavar": "SENZING_RABBITMQ_INFO_VIRTUAL_HOST",
+                    "help": "RabbitMQ virtual host. Default: SENZING_RABBITMQ_VIRTUAL_HOST"
+                },
+
             },
         },
         'sleep': {
@@ -641,15 +642,15 @@ def get_parser():
                     "metavar": "SENZING_SQS_FAILURE_QUEUE_URL",
                     "help": "AWS SQS URL for failures. Default: none"
                 },
-                "--sqs-info-queue-url": {
-                    "dest": "sqs_info_queue_url",
-                    "metavar": "SENZING_SQS_INFO_QUEUE_URL",
-                    "help": "AWS SQS URL for info. Default: none"
-                },
                 "--sqs-info-queue-delay-seconds": {
                     "dest": "sqs_info_queue_delay_seconds",
                     "metavar": "SENZING_SQS_INFO_QUEUE_DELAY_SECONDS",
                     "help": "AWS SQS delivery delay in seconds for info. Default: 10"
+                },
+                "--sqs-info-queue-url": {
+                    "dest": "sqs_info_queue_url",
+                    "metavar": "SENZING_SQS_INFO_QUEUE_URL",
+                    "help": "AWS SQS URL for info. Default: none"
                 },
             },
         },
@@ -681,15 +682,15 @@ def get_parser():
                 "metavar": "SENZING_DATA_SOURCE",
                 "help": "Data Source."
             },
-            "--delay-in-seconds": {
-                "dest": "delay_in_seconds",
-                "metavar": "SENZING_DELAY_IN_SECONDS",
-                "help": "Delay before processing in seconds. DEFAULT: 0"
-            },
             "--debug": {
                 "dest": "debug",
                 "action": "store_true",
                 "help": "Enable debugging. (SENZING_DEBUG) Default: False"
+            },
+            "--delay-in-seconds": {
+                "dest": "delay_in_seconds",
+                "metavar": "SENZING_DELAY_IN_SECONDS",
+                "help": "Delay before processing in seconds. DEFAULT: 0"
             },
             "--engine-configuration-json": {
                 "dest": "engine_configuration_json",
@@ -762,30 +763,35 @@ def get_parser():
                 "metavar": "SENZING_RABBITMQ_HOST",
                 "help": "RabbitMQ host. Default: localhost:5672"
             },
+            "--rabbitmq-password": {
+                "dest": "rabbitmq_password",
+                "metavar": "SENZING_RABBITMQ_PASSWORD",
+                "help": "RabbitMQ password. Default: bitnami"
+            },
             "--rabbitmq-port": {
                 "dest": "rabbitmq_port",
                 "metavar": "SENZING_RABBITMQ_PORT",
                 "help": "RabbitMQ port. Default: 5672"
             },
-            "--rabbitmq-password": {
-                "dest": "rabbitmq_password",
-                "metavar": "SENZING_RABBITMQ_PASSWORD",
-                "help": "RabbitMQ password. Default: bitnami"
+            "--rabbitmq-prefetch-count": {
+                "dest": "rabbitmq_prefetch_count",
+                "metavar": "SENZING_RABBITMQ_PREFETCH_COUNT",
+                "help": "RabbitMQ prefetch-count. Default: 50"
             },
             "--rabbitmq-queue": {
                 "dest": "rabbitmq_queue",
                 "metavar": "SENZING_RABBITMQ_QUEUE",
                 "help": "RabbitMQ queue. Default: senzing-rabbitmq-queue"
             },
-            "--rabbitmq-reconnect-number-of-retries": {
-                "dest": "rabbitmq_reconnect_number_of_retries",
-                "metavar": "SENZING_RABBITMQ_RECONNECT_NUMBER_OF_RETRIES",
-                "help": "The number of times to try reconnecting a dropped connection to the RabbitMQ broker. Default: 10"
-            },
             "--rabbitmq-reconnect-delay-in-seconds": {
                 "dest": "rabbitmq_reconnect_delay_in_seconds",
                 "metavar": "SENZING_RABBITMQ_RECONNECT_DELAY_IN_SECONDS",
                 "help": "The time (in seconds) to wait between attempts to reconnect to the RabbitMQ broker. Default: 60"
+            },
+            "--rabbitmq-reconnect-number-of-retries": {
+                "dest": "rabbitmq_reconnect_number_of_retries",
+                "metavar": "SENZING_RABBITMQ_RECONNECT_NUMBER_OF_RETRIES",
+                "help": "The number of times to try reconnecting a dropped connection to the RabbitMQ broker. Default: 10"
             },
             "--rabbitmq-use-existing-entities": {
                 "dest": "rabbitmq_use_existing_entities",
@@ -796,11 +802,6 @@ def get_parser():
                 "dest": "rabbitmq_username",
                 "metavar": "SENZING_RABBITMQ_USERNAME",
                 "help": "RabbitMQ username. Default: user"
-            },
-            "--rabbitmq-prefetch-count": {
-                "dest": "rabbitmq_prefetch_count",
-                "metavar": "SENZING_RABBITMQ_PREFETCH_COUNT",
-                "help": "RabbitMQ prefetch-count. Default: 50"
             },
             "--rabbitmq-virtual-host": {
                 "dest": "rabbitmq_virtual_host",

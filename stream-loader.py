@@ -48,8 +48,7 @@ __version__ = "1.9.0"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
 __updated__ = '2021-09-15'
 
-# See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
-SENZING_PRODUCT_ID = "5001"
+SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
 
 # Working with bytes.
@@ -63,10 +62,8 @@ MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES = 6
 
 # Lists from https://www.ietf.org/rfc/rfc1738.txt
 
-safe_character_list = ['$', '-', '_', '.', '+', '!',
-                       '*', '(', ')', ',', '"'] + list(string.ascii_letters)
-unsafe_character_list = ['"', '<', '>', '#', '%',
-                         '{', '}', '|', '\\', '^', '~', '[', ']', '`']
+safe_character_list = ['$', '-', '_', '.', '+', '!', '*', '(', ')', ',', '"'] + list(string.ascii_letters)
+unsafe_character_list = ['"', '<', '>', '#', '%', '{', '}', '|', '\\', '^', '~', '[', ']', '`']
 reserved_character_list = [';', ',', '/', '?', ':', '@', '=', '&']
 
 # The "configuration_locator" describes where configuration variables are in:
@@ -832,10 +829,8 @@ def get_parser():
                 for argument, argument_value in arguments.items():
                     subcommands[subcommand]['arguments'][argument] = argument_value
 
-    parser = argparse.ArgumentParser(
-        prog="init-container.py", description="Initialize Senzing installation. For more information, see https://github.com/Senzing/docker-init-container")
-    subparsers = parser.add_subparsers(
-        dest='subcommand', help='Subcommands (SENZING_SUBCOMMAND):')
+    parser = argparse.ArgumentParser(prog="init-container.py", description="Initialize Senzing installation. For more information, see https://github.com/Senzing/docker-init-container")
+    subparsers = parser.add_subparsers(dest='subcommand', help='Subcommands (SENZING_SUBCOMMAND):')
 
     for subcommand_key, subcommand_values in subcommands.items():
         subcommand_help = subcommand_values.get('help', "")
@@ -1006,8 +1001,7 @@ message_dictionary = {
 
 def message(index, *args):
     index_string = str(index)
-    template = message_dictionary.get(
-        index_string, "No message for index {0}.".format(index_string))
+    template = message_dictionary.get(index_string, "No message for index {0}.".format(index_string))
     return template.format(*args)
 
 
@@ -1106,8 +1100,7 @@ def parse_database_url(original_senzing_database_url):
         safe_character = safe_characters[safe_characters_index]
         safe_characters_index += 1
         translation_map[safe_character] = unsafe_character
-        senzing_database_url = senzing_database_url.replace(
-            unsafe_character, safe_character)
+        senzing_database_url = senzing_database_url.replace(unsafe_character, safe_character)
 
     # Parse "translated" URL.
 
@@ -1142,8 +1135,7 @@ def parse_database_url(original_senzing_database_url):
     ]
     test_senzing_database_url = urlunparse(url_parts)
     if test_senzing_database_url != original_senzing_database_url:
-        logging.warning(message_warning(
-            891, original_senzing_database_url, test_senzing_database_url))
+        logging.warning(message_warning(891, original_senzing_database_url, test_senzing_database_url))
 
     # Return result.
 
@@ -1164,19 +1156,15 @@ def get_g2_database_url_specific(generic_database_url):
     # Format database URL for a particular database.
 
     if scheme in ['mysql']:
-        result = "{scheme}://{username}:{password}@{hostname}:{port}/?schema={schema}".format(
-            **parsed_database_url)
+        result = "{scheme}://{username}:{password}@{hostname}:{port}/?schema={schema}".format(**parsed_database_url)
     elif scheme in ['postgresql']:
-        result = "{scheme}://{username}:{password}@{hostname}:{port}:{schema}/".format(
-            **parsed_database_url)
+        result = "{scheme}://{username}:{password}@{hostname}:{port}:{schema}/".format(**parsed_database_url)
     elif scheme in ['db2']:
-        result = "{scheme}://{username}:{password}@{schema}".format(
-            **parsed_database_url)
+        result = "{scheme}://{username}:{password}@{schema}".format(**parsed_database_url)
     elif scheme in ['sqlite3']:
         result = "{scheme}://{netloc}{path}".format(**parsed_database_url)
     elif scheme in ['mssql']:
-        result = "{scheme}://{username}:{password}@{schema}".format(
-            **parsed_database_url)
+        result = "{scheme}://{username}:{password}@{schema}".format(**parsed_database_url)
     else:
         logging.error(message_error(695, scheme, generic_database_url))
 
@@ -1275,8 +1263,7 @@ def get_configuration(args):
 
     # Special case:  Tailored database URL
 
-    result['g2_database_url_specific'] = get_g2_database_url_specific(
-        result.get("g2_database_url_generic"))
+    result['g2_database_url_specific'] = get_g2_database_url_specific(result.get("g2_database_url_generic"))
 
     # Initialize counters.
 
@@ -1406,8 +1393,7 @@ class WriteG2Thread(threading.Thread):
         self.g2_configuration_manager = g2_configuration_manager
         self.governor = governor
         self.info_filter = InfoFilter(g2_engine=g2_engine)
-        self.stream_loader_directive_name = config.get(
-            'stream_loader_directive_name')
+        self.stream_loader_directive_name = config.get('stream_loader_directive_name')
 
     def add_to_failure_queue(self, jsonline):
         '''Default behavior. This may be implemented in the subclass.'''
@@ -1423,8 +1409,7 @@ class WriteG2Thread(threading.Thread):
 
     def extract_primary_key(self, message_dict):
         '''Extract compound primary key.'''
-        data_source = str(message_dict.get(
-            'DATA_SOURCE', self.config.get("data_source")))
+        data_source = str(message_dict.get('DATA_SOURCE', self.config.get("data_source")))
         record_id = message_dict.get('RECORD_ID')
         if record_id is not None:
             record_id = str(record_id)
@@ -1439,8 +1424,7 @@ class WriteG2Thread(threading.Thread):
 
     def is_time_to_check_g2_configuration(self):
         now = time.time()
-        next_check_time = self.config.get('last_configuration_check', time.time(
-        )) + self.config.get('configuration_check_frequency_in_seconds')
+        next_check_time = self.config.get('last_configuration_check', time.time()) + self.config.get('configuration_check_frequency_in_seconds')
         return now > next_check_time
 
     def is_g2_default_configuration_changed(self):
@@ -1468,8 +1452,7 @@ class WriteG2Thread(threading.Thread):
             result = False
 
         if result:
-            logging.info(message_info(
-                292, active_config_id.decode(), default_config_id.decode()))
+            logging.info(message_info(292, active_config_id.decode(), default_config_id.decode()))
 
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
         return result
@@ -1513,8 +1496,7 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        self.g2_engine.addRecordWithInfo(
-            data_source, record_id, jsonline, response_bytearray)
+        self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
         response_json = response_bytearray.decode()
 
         # If successful, send "withInfo" information to queue.
@@ -1523,15 +1505,13 @@ class WriteG2Thread(threading.Thread):
 
             # Allow user to manipulate the Info message.
 
-            filtered_response_json = self.filter_info_message(
-                message=response_json)
+            filtered_response_json = self.filter_info_message(message=response_json)
 
             # Put "info" on info queue.
 
             if filtered_response_json:
                 self.add_to_info_queue(filtered_response_json)
-                logging.debug(message_debug(
-                    904, threading.current_thread().name, filtered_response_json))
+                logging.debug(message_debug(904, threading.current_thread().name, filtered_response_json))
 
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
@@ -1559,8 +1539,7 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        self.g2_engine.deleteRecordWithInfo(
-            data_source, record_id, response_bytearray)
+        self.g2_engine.deleteRecordWithInfo(data_source, record_id, response_bytearray)
         response_json = response_bytearray.decode()
 
         # If successful, send "withInfo" information to queue.
@@ -1569,15 +1548,13 @@ class WriteG2Thread(threading.Thread):
 
             # Allow user to manipulate the Info message.
 
-            filtered_response_json = self.filter_info_message(
-                message=response_json)
+            filtered_response_json = self.filter_info_message(message=response_json)
 
             # Put "info" on info queue.
 
             if filtered_response_json:
                 self.add_to_info_queue(filtered_response_json)
-                logging.debug(message_debug(
-                    904, threading.current_thread().name, filtered_response_json))
+                logging.debug(message_debug(904, threading.current_thread().name, filtered_response_json))
 
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
@@ -1606,8 +1583,7 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        self.g2_engine.reevaluateRecordWithInfo(
-            data_source, record_id, response_bytearray)
+        self.g2_engine.reevaluateRecordWithInfo(data_source, record_id, response_bytearray)
         response_json = response_bytearray.decode()
 
         # If successful, send "withInfo" information to queue.
@@ -1616,15 +1592,13 @@ class WriteG2Thread(threading.Thread):
 
             # Allow user to manipulate the Info message.
 
-            filtered_response_json = self.filter_info_message(
-                message=response_json)
+            filtered_response_json = self.filter_info_message(message=response_json)
 
             # Put "info" on info queue.
 
             if filtered_response_json:
                 self.add_to_info_queue(filtered_response_json)
-                logging.debug(message_debug(
-                    904, threading.current_thread().name, filtered_response_json))
+                logging.debug(message_debug(904, threading.current_thread().name, filtered_response_json))
 
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
@@ -1645,10 +1619,8 @@ class WriteG2Thread(threading.Thread):
         # Determine senzingStreamLoader action.
 
         json_dictionary = json.loads(jsonline)
-        senzing_stream_loader_value = json_dictionary.pop(
-            self.stream_loader_directive_name, senzing_stream_loader_value_default)
-        stream_loader_action = senzing_stream_loader_value.get(
-            'action', senzing_stream_loader_value_default.get('action'))
+        senzing_stream_loader_value = json_dictionary.pop(self.stream_loader_directive_name, senzing_stream_loader_value_default)
+        stream_loader_action = senzing_stream_loader_value.get('action', senzing_stream_loader_value_default.get('action'))
 
         # Transform stream loader action into method name string.
 
@@ -1670,8 +1642,7 @@ class WriteG2Thread(threading.Thread):
             if self.is_g2_default_configuration_changed():
                 self.update_active_g2_configuration()
                 try:
-                    method_to_call(senzing_stream_loader_value,
-                                   json_dictionary)
+                    method_to_call(senzing_stream_loader_value, json_dictionary)
                 except Exception as err:
                     logging.error(message_error(890, err, jsonline))
                     self.add_to_failure_queue(str(jsonline))
@@ -1681,8 +1652,7 @@ class WriteG2Thread(threading.Thread):
                 self.add_to_failure_queue(str(jsonline))
                 result = False
 
-        logging.debug(message_debug(
-            904, threading.current_thread().name, jsonline))
+        logging.debug(message_debug(904, threading.current_thread().name, jsonline))
 
         return result
 
@@ -1693,7 +1663,6 @@ class WriteG2Thread(threading.Thread):
 # Class: ReadAzureQueueWriteG2Thread
 # -----------------------------------------------------------------------------
 
-
 class ReadAzureQueueWriteG2Thread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
@@ -1702,25 +1671,21 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
         self.data_source = self.config.get('data_source')
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
-        self.failure_connection_string = config.get(
-            "azure_failure_connection_string")
+        self.failure_connection_string = config.get("azure_failure_connection_string")
         self.failure_queue_name = config.get("azure_failure_queue_name")
         self.queue_name = config.get("azure_queue_name")
         self.failure_queue_enabled = False
 
         # Create objects.
 
-        self.servicebus_client = ServiceBusClient.from_connection_string(
-            self.connection_string)
-        self.receiver = self.servicebus_client.get_queue_receiver(
-            queue_name=self.queue_name)
+        self.servicebus_client = ServiceBusClient.from_connection_string(self.connection_string)
+        self.receiver = self.servicebus_client.get_queue_receiver(queue_name=self.queue_name)
 
         if self.failure_connection_string and self.failure_queue_name:
             self.failure_queue_enabled = True
-            self.failure_servicebus_client = ServiceBusClient.from_connection_string(
-                self.failure_connection_string)
-            self.failure_sender = self.servicebus_client.get_queue_sender(
-                queue_name=self.failure_queue_name)
+            self.failure_servicebus_client = ServiceBusClient.from_connection_string(self.failure_connection_string)
+            self.failure_sender = self.servicebus_client.get_queue_sender(queue_name=self.failure_queue_name)
+
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -1738,8 +1703,7 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
                 logging.info(message_info(911, jsonline))
             except Exception as err:
                 result = False
-                logging.warning(message_warning(
-                    413, self.failure_queue_url, err, jsonline))
+                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
         else:
             logging.info(message_info(221, jsonline))
         return result
@@ -1785,8 +1749,7 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
                         message_dictionary['DATA_SOURCE'] = self.data_source
                     if 'ENTITY_TYPE' not in message_dictionary:
                         message_dictionary['ENTITY_TYPE'] = self.entity_type
-                    message_string = json.dumps(
-                        message_dictionary, sort_keys=True)
+                    message_string = json.dumps(message_dictionary, sort_keys=True)
 
                     # Send valid JSON to Senzing.
 
@@ -1816,8 +1779,7 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.info_queue_url = config.get("sqs_info_queue_url")
-        self.info_queue_delay_seconds = config.get(
-            "sqs_info_queue_delay_seconds")
+        self.info_queue_delay_seconds = config.get("sqs_info_queue_delay_seconds")
         self.queue_url = config.get("sqs_queue_url")
         self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
 
@@ -1835,13 +1797,10 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
 
         # See if there is a dead letter queue and set sqs_dead_letter_queue_enabled accordingly
 
-        response = self.sqs.get_queue_attributes(
-            QueueUrl=self.queue_url, AttributeNames=['RedrivePolicy'])
-        self.sqs_dead_letter_queue_enabled = 'Attributes' in response.keys(
-        ) and 'RedrivePolicy' in response['Attributes'].keys()
+        response = self.sqs.get_queue_attributes(QueueUrl=self.queue_url, AttributeNames=['RedrivePolicy'])
+        self.sqs_dead_letter_queue_enabled = 'Attributes' in response.keys() and 'RedrivePolicy' in response['Attributes'].keys()
         if self.sqs_dead_letter_queue_enabled:
-            logging.info(message_info(
-                221, response['Attributes']['RedrivePolicy']))
+            logging.info(message_info(221, response['Attributes']['RedrivePolicy']))
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -1856,6 +1815,7 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
         pass
+
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -1894,7 +1854,7 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
             'group.id': self.config.get("kafka_group"),
             'enable.auto.commit': False,
             'auto.offset.reset': 'earliest'
-        }
+            }
         consumer = confluent_kafka.Consumer(consumer_configuration)
         consumer.subscribe([self.config.get("kafka_topic")])
 
@@ -1932,8 +1892,7 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
             kafka_message_string = kafka_message.value().strip()
             if not kafka_message_string:
                 continue
-            logging.debug(message_debug(
-                903, threading.current_thread().name, kafka_message_string))
+            logging.debug(message_debug(903, threading.current_thread().name, kafka_message_string))
 
             # Verify that message is valid JSON.
 
@@ -1945,8 +1904,7 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
                     try:
                         consumer.commit()
                     except Exception as err:
-                        logging.error(message_error(
-                            722, kafka_message_string, err))
+                        logging.error(message_error(722, kafka_message_string, err))
                 continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
@@ -1963,8 +1921,7 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
                     kafka_message_dictionary['DATA_SOURCE'] = data_source
                 if 'ENTITY_TYPE' not in kafka_message_dictionary:
                     kafka_message_dictionary['ENTITY_TYPE'] = entity_type
-                kafka_message_string = json.dumps(
-                    kafka_message_dictionary, sort_keys=True)
+                kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
 
                 # Send valid JSON to Senzing.
 
@@ -2001,11 +1958,9 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         message_topic = message.topic()
         message_value = message.value()
         message_error = message.error()
-        logging.debug(message_debug(103, message_topic,
-                      message_value, message_error, error))
+        logging.debug(message_debug(103, message_topic, message_value, message_error, error))
         if error is not None:
-            logging.warning(message_warning(408, message_topic,
-                            message_value, message_error, error))
+            logging.warning(message_warning(408, message_topic, message_value, message_error, error))
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -2016,25 +1971,20 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
         result = True
         try:
-            self.failure_producer.produce(
-                self.failure_topic, jsonline, on_delivery=self.on_kafka_delivery)
+            self.failure_producer.produce(self.failure_topic, jsonline, on_delivery=self.on_kafka_delivery)
             logging.info(message_info(911, jsonline))
         except BufferError as err:
             result = False
-            logging.warning(message_warning(
-                404, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(404, self.failure_topic, err, jsonline))
         except KafkaException as err:
             result = False
-            logging.warning(message_warning(
-                405, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(405, self.failure_topic, err, jsonline))
         except NotImplementedError as err:
             result = False
-            logging.warning(message_warning(
-                406, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(406, self.failure_topic, err, jsonline))
         except Exception as err:
             result = False
-            logging.warning(message_warning(
-                407, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(407, self.failure_topic, err, jsonline))
 
         return result
 
@@ -2043,21 +1993,16 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         assert type(jsonline) == str
 
         try:
-            self.info_producer.produce(
-                self.info_topic, jsonline, on_delivery=self.on_kafka_delivery)
+            self.info_producer.produce(self.info_topic, jsonline, on_delivery=self.on_kafka_delivery)
             logging.debug(message_debug(910, jsonline))
         except BufferError as err:
-            logging.warning(message_warning(
-                404, self.info_topic, err, jsonline))
+            logging.warning(message_warning(404, self.info_topic, err, jsonline))
         except KafkaException as err:
-            logging.warning(message_warning(
-                405, self.info_topic, err, jsonline))
+            logging.warning(message_warning(405, self.info_topic, err, jsonline))
         except NotImplementedError as err:
-            logging.warning(message_warning(
-                406, self.info_topic, err, jsonline))
+            logging.warning(message_warning(406, self.info_topic, err, jsonline))
         except Exception as err:
-            logging.warning(message_warning(
-                407, self.info_topic, err, jsonline))
+            logging.warning(message_warning(407, self.info_topic, err, jsonline))
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -2071,7 +2016,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             'group.id': self.config.get("kafka_group"),
             'enable.auto.commit': False,
             'auto.offset.reset': 'earliest'
-        }
+            }
         consumer = confluent_kafka.Consumer(consumer_configuration)
         consumer.subscribe([self.config.get("kafka_topic")])
 
@@ -2080,16 +2025,14 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         kafka_info_producer_configuration = {
             'bootstrap.servers': self.config.get('kafka_info_bootstrap_server')
         }
-        self.info_producer = confluent_kafka.Producer(
-            kafka_info_producer_configuration)
+        self.info_producer = confluent_kafka.Producer(kafka_info_producer_configuration)
 
         # Create Kafka Producer for "failure".
 
         kafka_failure_producer_configuration = {
             'bootstrap.servers': self.config.get('kafka_failure_bootstrap_server')
         }
-        self.failure_producer = confluent_kafka.Producer(
-            kafka_failure_producer_configuration)
+        self.failure_producer = confluent_kafka.Producer(kafka_failure_producer_configuration)
 
         # Data to be inserted into messages.
 
@@ -2125,8 +2068,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             kafka_message_string = kafka_message.value().strip()
             if not kafka_message_string:
                 continue
-            logging.debug(message_debug(
-                903, threading.current_thread().name, kafka_message_string))
+            logging.debug(message_debug(903, threading.current_thread().name, kafka_message_string))
 
             # Verify that message is valid JSON.
 
@@ -2138,8 +2080,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
                     try:
                         consumer.commit()
                     except Exception as err:
-                        logging.error(message_error(
-                            722, kafka_message_string, err))
+                        logging.error(message_error(722, kafka_message_string, err))
                 continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
@@ -2156,8 +2097,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
                     kafka_message_dictionary['DATA_SOURCE'] = data_source
                 if 'ENTITY_TYPE' not in kafka_message_dictionary:
                     kafka_message_dictionary['ENTITY_TYPE'] = entity_type
-                kafka_message_string = json.dumps(
-                    kafka_message_dictionary, sort_keys=True)
+                kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
 
                 # Send valid JSON to Senzing.
 
@@ -2187,8 +2127,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
 
     def callback(self, _channel, method, _header, body):
-        logging.debug(message_debug(
-            903, threading.current_thread().name, body))
+        logging.debug(message_debug(903, threading.current_thread().name, body))
 
         # Invoke Governor.
 
@@ -2224,8 +2163,7 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
                     rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
                 if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
                     rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
-                rabbitmq_message_string = json.dumps(
-                    rabbitmq_message_dictionary, sort_keys=True)
+                rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
 
                 if self.send_jsonline_to_g2_engine(rabbitmq_message_string):
 
@@ -2242,18 +2180,15 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             cb = functools.partial(self.ack_message, delivery_tag)
             self.connection.add_callback_threadsafe(cb)
         except pika.exceptions.ConnectionClosed as err:
-            logging.info(message_info(
-                131, threading.current_thread().name, err))
+            logging.info(message_info(131, threading.current_thread().name, err))
         except Exception as err:
-            logging.info(message_info(
-                880, err, "connection.add_callback_threadsafe()"))
+            logging.info(message_info(880, err, "connection.add_callback_threadsafe()"))
 
     def ack_message(self, delivery_tag):
         try:
             self.channel.basic_ack(delivery_tag)
         except Exception as err:
-            logging.info(message_info(
-                132, threading.current_thread().name, err))
+            logging.info(message_info(132, threading.current_thread().name, err))
 
     def run(self):
         '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''
@@ -2272,20 +2207,17 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
         self.data_source = self.config.get("data_source")
         self.entity_type = self.config.get("entity_type")
-        reconnect_delay = self.config.get(
-            "rabbitmq_reconnect_delay_in_seconds")
+        reconnect_delay = self.config.get("rabbitmq_reconnect_delay_in_seconds")
 
         # create record_queue.
 
         self.record_queue = queue.Queue()
 
-        credentials = pika.PlainCredentials(
-            rabbitmq_username, rabbitmq_password)
+        credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
 
         # Connect to RabbitMQ queue.
 
-        self.connection, self.channel = self.connect(
-            credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
+        self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count)
 
         # Start worker thread.
 
@@ -2299,54 +2231,42 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
                 if self.channel.is_open:
                     self.channel.start_consuming()
                 else:
-                    logging.info(message_info(
-                        134, threading.current_thread().name))
+                    logging.info(message_info(134, threading.current_thread().name))
             except pika.exceptions.ChannelClosed as err:
-                logging.info(message_info(
-                    130, threading.current_thread().name, err))
+                logging.info(message_info(130, threading.current_thread().name, err))
             except pika.exceptions.ConnectionClosed as err:
-                logging.info(message_info(
-                    131, threading.current_thread().name, err))
+                logging.info(message_info(131, threading.current_thread().name, err))
             except Exception as err:
-                logging.info(message_info(
-                    880, err, "channel.start_consuming()"))
+                logging.info(message_info(880, err, "channel.start_consuming()"))
 
             logging.info(message_info(133, reconnect_delay))
             time.sleep(reconnect_delay)
 
             # Reconnect to RabbitMQ queue.
 
-            self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host,
-                                                         rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count, exit_on_exception=False)
+            self.connection, self.channel = self.connect(credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, rabbitmq_heartbeat, rabbitmq_prefetch_count, exit_on_exception=False)
 
     def connect(self, credentials, host_name, port, virtual_host, queue_name, heartbeat, prefetch_count, exit_on_exception=True):
-        rabbitmq_passive_declare = self.config.get(
-            "rabbitmq_use_existing_entities")
+        rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
 
         connection = None
         channel = None
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(
-                host=host_name, port=port, virtual_host=virtual_host, credentials=credentials, heartbeat=heartbeat))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=host_name, port=port, virtual_host=virtual_host, credentials=credentials, heartbeat=heartbeat))
             channel = connection.channel()
-            channel.queue_declare(
-                queue=queue_name, passive=rabbitmq_passive_declare)
+            channel.queue_declare(queue=queue_name, passive=rabbitmq_passive_declare)
             channel.basic_qos(prefetch_count=prefetch_count)
-            channel.basic_consume(
-                on_message_callback=self.callback, queue=queue_name)
+            channel.basic_consume(on_message_callback=self.callback, queue=queue_name)
         except (pika.exceptions.AMQPConnectionError, socket.gaierror) as err:
             if exit_on_exception:
-                exit_error(412, "N/A (consumer)", queue_name,
-                           "N/A (consumer)", err, host_name)
+                exit_error(412, "N/A (consumer)", queue_name, "N/A (consumer)", err, host_name)
             else:
-                logging.info(message_info(412, "N/A (consumer)",
-                             queue_name, "N/A (consumer)", err, host_name))
+                logging.info(message_info(412, "N/A (consumer)", queue_name, "N/A (consumer)", err, host_name))
         except Exception as err:
             if exit_on_exception:
                 exit_error(880, err, "creating RabbitMQ channel")
             else:
-                logging.info(message_info(
-                    880, err, "creating RabbitMQ channel"))
+                logging.info(message_info(880, err, "creating RabbitMQ channel"))
 
         return connection, channel
 
@@ -2374,8 +2294,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         result = True
 
         jsonline_bytes = jsonline.encode()
-        retries_remaining = self.config.get(
-            "rabbitmq_reconnect_number_of_retries")
+        retries_remaining = self.config.get("rabbitmq_reconnect_number_of_retries")
         retry_delay = self.config.get("rabbitmq_reconnect_delay_in_seconds")
         while retries_remaining > 0:
             try:
@@ -2392,21 +2311,18 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 # publish was successful so break out of rety loop
                 break
             except pika.exceptions.StreamLostError as err:
-                logging.warning(message_warning(
-                    417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
+                logging.warning(message_warning(417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
 
                 # if we are out of retries, exit
                 if retries_remaining == 0:
-                    exit_error(message_error(418, self.config.get(
-                        "rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
+                    exit_error(message_error(418, self.config.get("rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
                 retries_remaining = retries_remaining - 1
             except Exception as err:
                 exit_error(880, err, "failure_channel.basic_publish().")
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
-            self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host,
-                                                self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)
+            self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)
 
         return result
 
@@ -2414,8 +2330,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         '''Overwrite superclass method.'''
         assert type(jsonline) == str
         jsonline_bytes = jsonline.encode()
-        retries_remaining = self.config.get(
-            "rabbitmq_reconnect_number_of_retries")
+        retries_remaining = self.config.get("rabbitmq_reconnect_number_of_retries")
         retry_delay = self.config.get("rabbitmq_reconnect_delay_in_seconds")
         while retries_remaining > 0:
             try:
@@ -2432,25 +2347,21 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 # publish was successful so break out of rety loop
                 break
             except pika.exceptions.StreamLostError as err:
-                logging.warning(message_warning(
-                    417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
+                logging.warning(message_warning(417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
 
                 # if we are out of retries, exit
                 if retries_remaining == 0:
-                    exit_error(message_error(418, self.config.get(
-                        "rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
+                    exit_error(message_error(418, self.config.get("rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
                 retries_remaining = retries_remaining - 1
             except Exception as err:
                 exit_error(880, err, "info_channel.basic_publish().")
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
-            self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host,
-                                             self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
+            self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
 
     def callback(self, _channel, method, _header, body):
-        logging.debug(message_debug(
-            903, threading.current_thread().name, body))
+        logging.debug(message_debug(903, threading.current_thread().name, body))
 
         # Invoke Governor.
 
@@ -2488,8 +2399,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                     rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
                 if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
                     rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
-                rabbitmq_message_string = json.dumps(
-                    rabbitmq_message_dictionary, sort_keys=True)
+                rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
 
                 # Send valid JSON to Senzing.
 
@@ -2508,18 +2418,15 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             cb = functools.partial(self.ack_message, delivery_tag)
             self.connection.add_callback_threadsafe(cb)
         except pika.exceptions.ConnectionClosed as err:
-            logging.info(message_info(
-                131, threading.current_thread().name, err))
+            logging.info(message_info(131, threading.current_thread().name, err))
         except Exception as err:
-            logging.info(message_info(
-                880, err, "connection.add_callback_threadsafe()"))
+            logging.info(message_info(880, err, "connection.add_callback_threadsafe()"))
 
     def ack_message(self, delivery_tag):
         try:
             self.channel.basic_ack(delivery_tag)
         except Exception as err:
-            logging.info(message_info(
-                132, threading.current_thread().name, err))
+            logging.info(message_info(132, threading.current_thread().name, err))
 
     def run(self):
         '''Process for reading lines from RabbitMQ and feeding them to a process_function() function'''
@@ -2534,65 +2441,49 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         rabbitmq_password = self.config.get("rabbitmq_password")
         rabbitmq_queue = self.config.get("rabbitmq_queue")
         rabbitmq_username = self.config.get("rabbitmq_username")
-        reconnect_delay = self.config.get(
-            "rabbitmq_reconnect_delay_in_seconds")
+        reconnect_delay = self.config.get("rabbitmq_reconnect_delay_in_seconds")
 
         self.rabbitmq_info_host = self.config.get("rabbitmq_info_host")
         self.rabbitmq_info_port = self.config.get("rabbitmq_info_port")
-        self.rabbitmq_info_virtual_host = self.config.get(
-            "rabbitmq_info_virtual_host")
+        self.rabbitmq_info_virtual_host = self.config.get("rabbitmq_info_virtual_host")
         rabbitmq_info_password = self.config.get("rabbitmq_info_password")
         self.rabbitmq_info_exchange = self.config.get("rabbitmq_info_exchange")
         self.rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
-        self.rabbitmq_info_routing_key = self.config.get(
-            "rabbitmq_info_routing_key")
+        self.rabbitmq_info_routing_key = self.config.get("rabbitmq_info_routing_key")
         rabbitmq_info_username = self.config.get("rabbitmq_info_username")
 
         self.rabbitmq_failure_host = self.config.get("rabbitmq_failure_host")
         self.rabbitmq_failure_port = self.config.get("rabbitmq_failure_port")
-        self.rabbitmq_failure_virtual_host = self.config.get(
-            "rabbitmq_failure_virtual_host")
-        rabbitmq_failure_password = self.config.get(
-            "rabbitmq_failure_password")
-        self.rabbitmq_failure_exchange = self.config.get(
-            "rabbitmq_failure_exchange")
+        self.rabbitmq_failure_virtual_host = self.config.get("rabbitmq_failure_virtual_host")
+        rabbitmq_failure_password = self.config.get("rabbitmq_failure_password")
+        self.rabbitmq_failure_exchange = self.config.get("rabbitmq_failure_exchange")
         self.rabbitmq_failure_queue = self.config.get("rabbitmq_failure_queue")
-        self.rabbitmq_failure_routing_key = self.config.get(
-            "rabbitmq_failure_routing_key")
-        rabbitmq_failure_username = self.config.get(
-            "rabbitmq_failure_username")
+        self.rabbitmq_failure_routing_key = self.config.get("rabbitmq_failure_routing_key")
+        rabbitmq_failure_username = self.config.get("rabbitmq_failure_username")
 
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
-        self.rabbitmq_heartbeat = self.config.get(
-            "rabbitmq_heartbeat_in_seconds")
+        self.rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
 
         # Create RabbitMQ channel to publish "info". Ignore the connection returned from connect() since we don't use it.
 
-        self.info_credentials = pika.PlainCredentials(
-            rabbitmq_info_username, rabbitmq_info_password)
-        self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host,
-                                         self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)[1]
+        self.info_credentials = pika.PlainCredentials(rabbitmq_info_username, rabbitmq_info_password)
+        self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)[1]
 
         # Create RabbitMQ channel to publish "failure". Ignore the connection returned from connect() since we don't use it.
 
-        self.failure_credentials = pika.PlainCredentials(
-            rabbitmq_failure_username, rabbitmq_failure_password)
-        self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host,
-                                            self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)[1]
+        self.failure_credentials = pika.PlainCredentials(rabbitmq_failure_username, rabbitmq_failure_password)
+        self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)[1]
 
         # create record_queue to put the records in from RabbitMQ.
 
         self.record_queue = queue.Queue()
 
         # Create RabbitMQ channel to subscribe to records.
-        self.credentials = pika.PlainCredentials(
-            rabbitmq_username, rabbitmq_password)
+        self.credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
 
-        self.connection, self.channel = self.connect(
-            self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, self.rabbitmq_heartbeat)
+        self.connection, self.channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, self.rabbitmq_heartbeat)
         self.channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
-        self.channel.basic_consume(
-            on_message_callback=self.callback, queue=rabbitmq_queue)
+        self.channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
 
         # Start worker thread.
 
@@ -2606,60 +2497,47 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 if self.channel is not None and self.channel.is_open:
                     self.channel.start_consuming()
             except pika.exceptions.ChannelClosed as err:
-                logging.info(message_info(
-                    130, threading.current_thread().name, err))
+                logging.info(message_info(130, threading.current_thread().name, err))
             except pika.exceptions.ConnectionClosed as err:
-                logging.info(message_info(
-                    131, threading.current_thread().name, err))
+                logging.info(message_info(131, threading.current_thread().name, err))
             except Exception as err:
-                logging.info(message_info(
-                    880, err, "channel.start_consuming()"))
+                logging.info(message_info(880, err, "channel.start_consuming()"))
 
             logging.info(message_info(133, reconnect_delay))
             time.sleep(reconnect_delay)
 
             # Reconnect to RabbitMQ queue.
 
-            self.connection, self.channel = self.connect(
-                self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, self.rabbitmq_heartbeat, exit_on_exception=False)
+            self.connection, self.channel = self.connect(self.credentials, rabbitmq_host, rabbitmq_port, rabbitmq_virtual_host, rabbitmq_queue, self.rabbitmq_heartbeat, exit_on_exception=False)
             if self.channel is not None and self.channel.is_open:
                 self.channel.basic_qos(prefetch_count=rabbitmq_prefetch_count)
-                self.channel.basic_consume(
-                    on_message_callback=self.callback, queue=rabbitmq_queue)
+                self.channel.basic_consume(on_message_callback=self.callback, queue=rabbitmq_queue)
 
     def connect(self, credentials, host_name, port, virtual_host, queue_name, heartbeat, exchange=None, routing_key=None, exit_on_exception=True):
-        rabbitmq_passive_declare = self.config.get(
-            "rabbitmq_use_existing_entities")
+        rabbitmq_passive_declare = self.config.get("rabbitmq_use_existing_entities")
 
         connection = None
         channel = None
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(
-                host=host_name, port=port, virtual_host=virtual_host, credentials=credentials, heartbeat=heartbeat))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=host_name, port=port, virtual_host=virtual_host, credentials=credentials, heartbeat=heartbeat))
             channel = connection.channel()
             if exchange is not None:
-                channel.exchange_declare(
-                    exchange=exchange, passive=rabbitmq_passive_declare)
-            queue = channel.queue_declare(
-                queue=queue_name, passive=rabbitmq_passive_declare)
+                channel.exchange_declare(exchange=exchange, passive=rabbitmq_passive_declare)
+            queue = channel.queue_declare(queue=queue_name, passive=rabbitmq_passive_declare)
 
             # if we are actively declaring, then we need to bind. If passive declare, we assume it is already set up
             if not rabbitmq_passive_declare and routing_key is not None:
-                channel.queue_bind(
-                    exchange=exchange, routing_key=routing_key, queue=queue.method.queue)
+                channel.queue_bind(exchange=exchange, routing_key=routing_key, queue=queue.method.queue)
         except (pika.exceptions.AMQPConnectionError) as err:
             if exit_on_exception:
-                exit_error(412, str(exchange), queue_name,
-                           str(routing_key), err, host_name)
+                exit_error(412, str(exchange), queue_name, str(routing_key), err, host_name)
             else:
-                logging.info(message_info(412, str(exchange),
-                             queue_name, str(routing_key), err, host_name))
+                logging.info(message_info(412, str(exchange), queue_name, str(routing_key), err, host_name))
         except Exception as err:
             if exit_on_exception:
                 exit_error(880, err, "creating RabbitMQ channel")
             else:
-                logging.info(message_info(
-                    880, err, "creating RabbitMQ channel"))
+                logging.info(message_info(880, err, "creating RabbitMQ channel"))
 
         return connection, channel
 
@@ -2693,13 +2571,10 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
         # See if there is a dead letter queue and set sqs_dead_letter_queue_enabled accordingly
 
-        response = self.sqs.get_queue_attributes(
-            QueueUrl=self.queue_url, AttributeNames=['RedrivePolicy'])
-        self.sqs_dead_letter_queue_enabled = 'Attributes' in response.keys(
-        ) and 'RedrivePolicy' in response['Attributes'].keys()
+        response = self.sqs.get_queue_attributes(QueueUrl=self.queue_url, AttributeNames=['RedrivePolicy'])
+        self.sqs_dead_letter_queue_enabled = 'Attributes' in response.keys() and 'RedrivePolicy' in response['Attributes'].keys()
         if self.sqs_dead_letter_queue_enabled:
-            logging.info(message_info(
-                221, response['Attributes']['RedrivePolicy']))
+            logging.info(message_info(221, response['Attributes']['RedrivePolicy']))
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -2721,8 +2596,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                 logging.info(message_info(911, jsonline))
             except Exception as err:
                 result = False
-                logging.warning(message_warning(
-                    413, self.failure_queue_url, err, jsonline))
+                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
         elif self.sqs_dead_letter_queue_enabled:
             result = False
             logging.warning(message_warning(416, jsonline))
@@ -2761,12 +2635,10 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
             sqs_messages = sqs_response.get("Messages", [])
             if not sqs_messages:
                 if self.exit_on_empty_queue:
-                    logging.info(message_info(
-                        191, threading.current_thread().name, self.queue_url))
+                    logging.info(message_info(191, threading.current_thread().name, self.queue_url))
                     break
                 else:
-                    logging.info(message_info(
-                        190, threading.current_thread().name, self.queue_url))
+                    logging.info(message_info(190, threading.current_thread().name, self.queue_url))
                     delay(self.config, threading.current_thread().name)
                     continue
 
@@ -2775,8 +2647,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
             sqs_message = sqs_messages[0]
             sqs_message_body = sqs_message.get("Body")
             sqs_message_receipt_handle = sqs_message.get("ReceiptHandle")
-            logging.debug(message_debug(
-                903, threading.current_thread().name, sqs_message_body))
+            logging.debug(message_debug(903, threading.current_thread().name, sqs_message_body))
 
             # Verify that message is valid JSON.
 
@@ -2805,8 +2676,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                     sqs_message_dictionary['DATA_SOURCE'] = self.data_source
                 if 'ENTITY_TYPE' not in sqs_message_dictionary:
                     sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
-                sqs_message_string = json.dumps(
-                    sqs_message_dictionary, sort_keys=True)
+                sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
 
                 # Send valid JSON to Senzing.
 
@@ -2837,8 +2707,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.info_queue_url = config.get("sqs_info_queue_url")
-        self.info_queue_delay_seconds = config.get(
-            "sqs_info_queue_delay_seconds")
+        self.info_queue_delay_seconds = config.get("sqs_info_queue_delay_seconds")
         self.queue_url = config.get("sqs_queue_url")
         self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
 
@@ -2856,13 +2725,10 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
         # See if there is a dead letter queue and set sqs_dead_letter_queue_enabled accordingly
 
-        response = self.sqs.get_queue_attributes(
-            QueueUrl=self.queue_url, AttributeNames=['RedrivePolicy'])
-        self.sqs_dead_letter_queue_enabled = 'Attributes' in response.keys(
-        ) and 'RedrivePolicy' in response['Attributes'].keys()
+        response = self.sqs.get_queue_attributes(QueueUrl=self.queue_url, AttributeNames=['RedrivePolicy'])
+        self.sqs_dead_letter_queue_enabled = 'Attributes' in response.keys() and 'RedrivePolicy' in response['Attributes'].keys()
         if self.sqs_dead_letter_queue_enabled:
-            logging.info(message_info(
-                221, response['Attributes']['RedrivePolicy']))
+            logging.info(message_info(221, response['Attributes']['RedrivePolicy']))
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -2885,8 +2751,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                 logging.info(message_info(911, jsonline))
             except Exception as err:
                 result = False
-                logging.warning(message_warning(
-                    413, self.failure_queue_url, err, jsonline))
+                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
         elif self.sqs_dead_letter_queue_enabled:
             result = False
             logging.warning(message_warning(416, jsonline))
@@ -2908,8 +2773,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             )
             logging.debug(message_debug(910, jsonline))
         except Exception as err:
-            logging.warning(message_warning(
-                413, self.info_queue_url, err, jsonline))
+            logging.warning(message_warning(413, self.info_queue_url, err, jsonline))
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -2942,12 +2806,10 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             sqs_messages = sqs_response.get("Messages", [])
             if not sqs_messages:
                 if self.exit_on_empty_queue:
-                    logging.info(message_info(
-                        191, threading.current_thread().name, self.queue_url))
+                    logging.info(message_info(191, threading.current_thread().name, self.queue_url))
                     break
                 else:
-                    logging.info(message_info(
-                        190, threading.current_thread().name, self.queue_url))
+                    logging.info(message_info(190, threading.current_thread().name, self.queue_url))
                     delay(self.config, threading.current_thread().name)
                     continue
 
@@ -2956,8 +2818,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             sqs_message = sqs_messages[0]
             sqs_message_body = sqs_message.get("Body")
             sqs_message_receipt_handle = sqs_message.get("ReceiptHandle")
-            logging.debug(message_debug(
-                903, threading.current_thread().name, sqs_message_body))
+            logging.debug(message_debug(903, threading.current_thread().name, sqs_message_body))
 
             # Verify that message is valid JSON.
 
@@ -2986,8 +2847,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                     sqs_message_dictionary['DATA_SOURCE'] = self.data_source
                 if 'ENTITY_TYPE' not in sqs_message_dictionary:
                     sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
-                sqs_message_string = json.dumps(
-                    sqs_message_dictionary, sort_keys=True)
+                sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
 
                 # Send valid JSON to Senzing.
 
@@ -3035,8 +2895,7 @@ class UrlProcess(multiprocessing.Process):
         g2_configuration_manager = get_g2_configuration_manager(config)
         threads_per_process = config.get('threads_per_process')
         for i in range(0, threads_per_process):
-            thread = ReadQueueWriteG2Thread(
-                config, self.g2_engine, g2_configuration_manager, work_queue, governor)
+            thread = ReadQueueWriteG2Thread(config, self.g2_engine, g2_configuration_manager, work_queue, governor)
             thread.name = "{0}-writer-{1}".format(self.name, i)
             self.threads.append(thread)
 
@@ -3093,8 +2952,7 @@ class ReadUrlWriteQueueThread(threading.Thread):
                 if line:
                     output_line_function(self, line)
                 else:
-                    # FIXME: Not sure if this is the best method of exiting.
-                    reading = False
+                    reading = False  # FIXME: Not sure if this is the best method of exiting.
 
         def input_lines_from_file(self, output_line_function):
             '''Process for reading lines from a file and feeding them to a output_line_function() function'''
@@ -3228,8 +3086,7 @@ class MonitorThread(threading.Thread):
         self.g2_engine = g2_engine
         self.in_regex_pattern = re.compile('\sin\s')
         self.log_level_parameter = config.get("log_level_parameter")
-        self.log_license_period_in_seconds = config.get(
-            "log_license_period_in_seconds")
+        self.log_license_period_in_seconds = config.get("log_license_period_in_seconds")
         self.pstack_pid = config.get("pstack_pid")
         self.sleep_time_in_seconds = config.get('monitoring_period_in_seconds')
         self.workers = workers
@@ -3274,8 +3131,7 @@ class MonitorThread(threading.Thread):
             processed_records_total = self.config['counter_processed_records']
             processed_records_interval = processed_records_total - last_processed_records
             rate_processed_total = int(processed_records_total / uptime)
-            rate_processed_interval = int(
-                processed_records_interval / elapsed_time)
+            rate_processed_interval = int(processed_records_interval / elapsed_time)
 
             queued_records_total = self.config['counter_queued_records']
             queued_records_interval = queued_records_total - last_queued_records
@@ -3303,10 +3159,8 @@ class MonitorThread(threading.Thread):
 
             g2_engine_stats_response = bytearray()
             self.g2_engine.stats(g2_engine_stats_response)
-            g2_engine_stats_dictionary = json.loads(
-                g2_engine_stats_response.decode())
-            logging.info(message_info(125, json.dumps(
-                g2_engine_stats_dictionary, sort_keys=True)))
+            g2_engine_stats_dictionary = json.loads(g2_engine_stats_response.decode())
+            logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
 
             # If requested, debug stacks.
 
@@ -3317,8 +3171,7 @@ class MonitorThread(threading.Thread):
                     # Run gdb to get stacks.
 
                     completed_process = subprocess.run(
-                        ["gdb", "-q", "-p", self.pstack_pid,
-                            "-batch", "-ex", "thread apply all bt"],
+                        ["gdb", "-q", "-p", self.pstack_pid, "-batch", "-ex", "thread apply all bt"],
                         capture_output=True)
 
                 except Exception as err:
@@ -3341,8 +3194,7 @@ class MonitorThread(threading.Thread):
 
                             counter += 1
                             line_parts = stdout_line.split()
-                            output_line = "{0:<3} {1} {2}".format(
-                                line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
+                            output_line = "{0:<3} {1} {2}".format(line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
                             stdout_dict[str(counter).zfill(4)] = output_line
 
                     # Log STDOUT.
@@ -3407,8 +3259,7 @@ def delay(config, thread_name=""):
         if delay_randomized:
             random.seed()
             random_delay_in_seconds = random.random() * delay_in_seconds
-            logging.info(message_info(119, thread_name,
-                         f'{random_delay_in_seconds:.6f}'))
+            logging.info(message_info(119, thread_name, f'{random_delay_in_seconds:.6f}'))
             time.sleep(random_delay_in_seconds)
         else:
             logging.info(message_info(120, thread_name, delay_in_seconds))
@@ -3428,21 +3279,17 @@ def import_plugins(config):
             logging.info(message_info(180, senzing_governor.__file__))
         except ImportError:
             database_urls = []
-            engine_configuration_json = config.get(
-                'engine_configuration_json', {})
+            engine_configuration_json = config.get('engine_configuration_json', {})
             if engine_configuration_json:
-                engine_configuration_dict = json.loads(
-                    engine_configuration_json)
+                engine_configuration_dict = json.loads(engine_configuration_json)
                 hybrid = engine_configuration_dict.get('HYBRID', {})
                 database_keys = set(hybrid.values())
 
                 # Create list of database URLs.
 
-                database_urls = [
-                    engine_configuration_dict["SQL"]["CONNECTION"]]
+                database_urls = [engine_configuration_dict["SQL"]["CONNECTION"]]
                 for database_key in database_keys:
-                    database_url = engine_configuration_dict.get(
-                        database_key, {}).get("DB_1", None)
+                    database_url = engine_configuration_dict.get(database_key, {}).get("DB_1", None)
                     if database_url:
                         database_urls.append(database_url)
 
@@ -3455,8 +3302,7 @@ def import_plugins(config):
     if not skip_info_filter:
         try:
             global InfoFilter
-            senzing_info_filter = importlib.import_module(
-                "senzing_info_filter")
+            senzing_info_filter = importlib.import_module("senzing_info_filter")
             InfoFilter = senzing_info_filter.InfoFilter
             logging.info(message_info(181, senzing_info_filter.__file__))
         except ImportError:
@@ -3546,8 +3392,7 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Config()
-        result.initV2(g2_config_name, g2_configuration_json,
-                      config.get('debug'))
+        result.initV2(g2_config_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(897, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3560,8 +3405,7 @@ def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2ConfigMgr()
-        result.initV2(g2_configuration_manager_name,
-                      g2_configuration_json, config.get('debug'))
+        result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(896, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3574,8 +3418,7 @@ def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Diagnostic()
-        result.initV2(g2_diagnostic_name, g2_configuration_json,
-                      config.get('debug'))
+        result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(894, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3589,8 +3432,7 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Engine()
         logging.debug(message_debug(950, "g2_engine.initV2()"))
-        result.initV2(g2_engine_name, g2_configuration_json,
-                      config.get('debug'))
+        result.initV2(g2_engine_name, g2_configuration_json, config.get('debug'))
         logging.debug(message_debug(951, "g2_engine.initV2()"))
         config['last_configuration_check'] = time.time()
     except G2Exception.G2ModuleException as err:
@@ -3613,8 +3455,7 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Product()
-        result.initV2(g2_product_name, g2_configuration_json,
-                      config.get('debug'))
+        result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(892, config.get('g2project_ini'), err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3634,8 +3475,7 @@ def log_license(config):
 
     logging.info(message_info(160, '-' * 20))
     if 'VERSION' in version:
-        logging.info(message_info(
-            161, version['VERSION'], version['BUILD_DATE']))
+        logging.info(message_info(161, version['VERSION'], version['BUILD_DATE']))
     if 'customer' in license:
         logging.info(message_info(162, license['customer']))
     if 'licenseType' in license:
@@ -3645,14 +3485,12 @@ def log_license(config):
 
         # Calculate days remaining.
 
-        expire_date = datetime.datetime.strptime(
-            license['expireDate'], '%Y-%m-%d')
+        expire_date = datetime.datetime.strptime(license['expireDate'], '%Y-%m-%d')
         today = datetime.datetime.today()
         remaining_time = expire_date - today
         if remaining_time.days > 0:
             logging.info(message_info(165, remaining_time.days))
-            expiration_warning_in_days = config.get(
-                'expiration_warning_in_days')
+            expiration_warning_in_days = config.get('expiration_warning_in_days')
             if remaining_time.days < expiration_warning_in_days:
                 logging.warning(message_warning(203, remaining_time.days))
         else:
@@ -3706,10 +3544,8 @@ def log_performance(config):
         memory_per_process = 2.5
         memory_per_thread = 0.5
         threads_per_core = float(4 + 1)
-        minimum_recommended_cores = int(
-            math.ceil((processes * threads_per_process) / threads_per_core))
-        minimum_recommended_memory = (
-            processes * memory_per_process) + (threads_per_process * memory_per_thread)
+        minimum_recommended_cores = int(math.ceil((processes * threads_per_process) / threads_per_core))
+        minimum_recommended_memory = (processes * memory_per_process) + (threads_per_process * memory_per_thread)
 
         # Log messages for resource request.
 
@@ -3724,15 +3560,12 @@ def log_performance(config):
         db_perf_response = bytearray()
         g2_diagnostic.checkDBPerf(3, db_perf_response)
         performance_information = json.loads(db_perf_response.decode())
-        number_of_records_inserted = performance_information.get(
-            'numRecordsInserted', 0)
+        number_of_records_inserted = performance_information.get('numRecordsInserted', 0)
         time_to_insert = performance_information.get('insertTime', 0)
         time_per_insert = None
         if number_of_records_inserted and time_to_insert:
-            time_per_insert = time_to_insert / \
-                float(number_of_records_inserted)
-            logging.info(message_info(
-                150, number_of_records_inserted, time_to_insert, time_per_insert))
+            time_per_insert = time_to_insert / float(number_of_records_inserted)
+            logging.info(message_info(150, number_of_records_inserted, time_to_insert, time_per_insert))
         else:
             logging.warning(message_warning(563))
 
@@ -3740,17 +3573,14 @@ def log_performance(config):
 
         maximum_time_allowed_per_insert_in_ms = 4
         if time_per_insert and (time_per_insert > maximum_time_allowed_per_insert_in_ms):
-            logging.warning(message_warning(564, time_per_insert,
-                            maximum_time_allowed_per_insert_in_ms))
+            logging.warning(message_warning(564, time_per_insert, maximum_time_allowed_per_insert_in_ms))
             logging.info(message_info(151))
 
         if g2_diagnostic.getPhysicalCores() < minimum_recommended_cores:
-            logging.warning(message_warning(
-                565, g2_diagnostic.getPhysicalCores(), minimum_recommended_cores))
+            logging.warning(message_warning(565, g2_diagnostic.getPhysicalCores(), minimum_recommended_cores))
 
         if total_available_memory < minimum_recommended_memory:
-            logging.warning(message_warning(
-                566, total_available_memory, minimum_recommended_memory))
+            logging.warning(message_warning(566, total_available_memory, minimum_recommended_memory))
 
     except G2Exception.G2ModuleNotInitialized as err:
         logging.warning(message_warning(727, err))
@@ -3778,15 +3608,13 @@ def log_memory():
 
         minimum_total_memory = MINIMUM_TOTAL_MEMORY_IN_GIGABYTES * GIGABYTES
         if total_memory < minimum_total_memory:
-            logging.warning(message_warning(
-                554, MINIMUM_TOTAL_MEMORY_IN_GIGABYTES))
+            logging.warning(message_warning(554, MINIMUM_TOTAL_MEMORY_IN_GIGABYTES))
 
         # Check available memory.
 
         minimum_available_memory = MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES * GIGABYTES
         if available_memory < minimum_available_memory:
-            logging.warning(message_warning(
-                555, MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES))
+            logging.warning(message_warning(555, MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES))
 
     except Exception as err:
         logging.warning(message_warning(201, err))
@@ -3857,7 +3685,7 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
 
-    logging.info(message_info(169, time.perf_counter() - start_time))
+    logging.info(message_info(169, time.perf_counter() - start_time ))
 
     governor = Governor(g2_engine=g2_engine, hint="stream-loader")
 
@@ -3865,8 +3693,7 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = threadClass(
-            config, g2_engine, g2_configuration_manager, governor)
+        thread = threadClass(config, g2_engine, g2_configuration_manager, governor)
         thread.name = "{0}-0-thread-{1}".format(threadClass.__name__, i)
         threads.append(thread)
 
@@ -3916,18 +3743,15 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 #   Common function signature: do_XXX(args)
 # -----------------------------------------------------------------------------
 
-
 def do_azure_queue(args):
     ''' Read from SQS. '''
 
     dohelper_thread_runner(args, ReadAzureQueueWriteG2Thread, {})
 
-
 def do_azure_queue_withinfo(args):
     ''' Read from SQS. '''
 
     dohelper_thread_runner(args, ReadAzureQueueWriteG2WithInfoThread, {})
-
 
 def do_docker_acceptance_test(args):
     ''' For use with Docker acceptance testing. '''
@@ -3971,8 +3795,7 @@ def do_kafka(args):
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadKafkaWriteG2Thread(
-            config, g2_engine, g2_configuration_manager, governor)
+        thread = ReadKafkaWriteG2Thread(config, g2_engine, g2_configuration_manager, governor)
         thread.name = "KafkaProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
@@ -4050,8 +3873,7 @@ def do_kafka_withinfo(args):
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadKafkaWriteG2WithInfoThread(
-            config, g2_engine, g2_configuration_manager, governor)
+        thread = ReadKafkaWriteG2WithInfoThread(config, g2_engine, g2_configuration_manager, governor)
         thread.name = "KafkaProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
@@ -4118,8 +3940,7 @@ def do_rabbitmq(args):
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadRabbitMQWriteG2Thread(
-            config, g2_engine, g2_configuration_manager, governor)
+        thread = ReadRabbitMQWriteG2Thread(config, g2_engine, g2_configuration_manager, governor)
         thread.name = "RabbitMQProcess-0-thread-{0}".format(i)
         threads.append(thread)
 
@@ -4207,8 +4028,7 @@ def do_rabbitmq_withinfo(args):
 
     threads = []
     for i in range(0, threads_per_process):
-        thread = ReadRabbitMQWriteG2WithInfoThread(
-            config, g2_engine, g2_configuration_manager, governor)
+        thread = ReadRabbitMQWriteG2WithInfoThread(config, g2_engine, g2_configuration_manager, governor)
         thread.name = "RabbitMQProcess-0-thread-{0}".format(i)
         threads.append(thread)
 

@@ -5,7 +5,6 @@
 # -----------------------------------------------------------------------------
 
 import argparse
-import boto3
 import datetime
 import functools
 import importlib
@@ -28,18 +27,19 @@ import time
 from urllib.parse import urlparse, urlunparse
 from urllib.request import urlopen
 
+import boto3
 import confluent_kafka
 import pika
-
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
 
 # Import Senzing libraries.
 try:
+    import G2Exception
     from G2Config import G2Config
     from G2ConfigMgr import G2ConfigMgr
     from G2Diagnostic import G2Diagnostic
     from G2Engine import G2Engine
     from G2Product import G2Product
-    import G2Exception
 except ImportError:
     pass
 
@@ -3750,7 +3750,7 @@ def do_azure_queue(args):
 def do_azure_queue_withinfo(args):
     ''' Read from SQS. '''
 
-    dohelper_thread_runner(args, ReadAzureQueueWriteG2WithinfoThread, {})
+    dohelper_thread_runner(args, ReadAzureQueueWriteG2WithInfoThread, {})
 
 def do_docker_acceptance_test(args):
     ''' For use with Docker acceptance testing. '''

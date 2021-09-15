@@ -1,3 +1,4 @@
+azure-servicebus==7.3.2
 boto3==1.18.36
 confluent-kafka==1.7.0
 pika==1.2.0

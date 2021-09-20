@@ -4,10 +4,9 @@
 # stream-loader.py Loader for streaming input.
 # -----------------------------------------------------------------------------
 
-from urllib.parse import urlparse, urlunparse
-from urllib.request import urlopen
 import argparse
 import datetime
+import functools
 import importlib
 import json
 import linecache
@@ -19,33 +18,35 @@ import queue
 import random
 import re
 import signal
+import socket
 import string
 import subprocess
 import sys
 import threading
 import time
-import functools
-import socket
+from urllib.parse import urlparse, urlunparse
+from urllib.request import urlopen
+
 import boto3
 import confluent_kafka
 import pika
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
 
 # Import Senzing libraries.
-
 try:
+    import G2Exception
     from G2Config import G2Config
     from G2ConfigMgr import G2ConfigMgr
     from G2Diagnostic import G2Diagnostic
     from G2Engine import G2Engine
     from G2Product import G2Product
-    import G2Exception
 except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.8.4"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.9.0"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2021-08-12'
+__updated__ = '2021-09-16'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -69,6 +70,36 @@ reserved_character_list = [';', ',', '/', '?', ':', '@', '=', '&']
 # 1) Command line options, 2) Environment variables, 3) Configuration files, 4) Default values
 
 configuration_locator = {
+    "azure_connection_string": {
+        "default": None,
+        "env": "SENZING_AZURE_CONNECTION_STRING",
+        "cli": "azure-connection-string"
+    },
+    "azure_failure_connection_string": {
+        "default": None,
+        "env": "SENZING_AZURE_FAILURE_CONNECTION_STRING",
+        "cli": "azure-failure-connection-string"
+    },
+    "azure_failure_queue_name": {
+        "default": None,
+        "env": "SENZING_AZURE_FAILURE_QUEUE_NAME",
+        "cli": "azure-failure-queue-name"
+    },
+    "azure_info_connection_string": {
+        "default": None,
+        "env": "SENZING_AZURE_INFO_CONNECTION_STRING",
+        "cli": "azure-info-connection-string"
+    },
+    "azure_info_queue_name": {
+        "default": None,
+        "env": "SENZING_AZURE_INFO_QUEUE_NAME",
+        "cli": "azure-info-queue-name"
+    },
+    "azure_queue_name": {
+        "default": None,
+        "env": "SENZING_AZURE_QUEUE_NAME",
+        "cli": "azure-queue-name"
+    },
     "config_path": {
         "default": "/etc/opt/senzing",
         "env": "SENZING_CONFIG_PATH",
@@ -437,6 +468,36 @@ def get_parser():
     ''' Parse commandline arguments. '''
 
     subcommands = {
+        'azure-queue': {
+            "help": 'Read JSON Lines from Azure Message Bus queue.',
+            "argument_aspects": ["common", "azure_queue_base"],
+        },
+        'azure-queue-withinfo': {
+            "help": 'Read JSON Lines from Azure Message Bus queue.',
+            "argument_aspects": ["common", "azure_queue_base"],
+            "arguments": {
+                "--azure-failure-connection-string": {
+                    "dest": "azure_failure_connection_string",
+                    "metavar": "SENZING_AZURE_FAILURE_CONNECTION_STRING",
+                    "help": "Azure Service Bus Failure Queue connection string. Default: none"
+                },
+                "--azure-failure-queue-name": {
+                    "dest": "azure_failure_queue_name",
+                    "metavar": "SENZING_AZURE_FAILURE_QUEUE_NAME",
+                    "help": "Azure Queue Name for failures. Default: none"
+                },
+                "--azure-info-connection-string": {
+                    "dest": "azure_info_connection_string",
+                    "metavar": "SENZING_AZURE_INFO_CONNECTION_STRING",
+                    "help": "Azure Service Bus Info Queue connection string. Default: none"
+                },
+                "--azure-info-queue-name": {
+                    "dest": "azure_info_queue_name",
+                    "metavar": "SENZING_AZURE_INFO_QUEUE_NAME",
+                    "help": "Azure Queue Name for info. Default: none"
+                },
+            },
+        },
         'kafka': {
             "help": 'Read JSON Lines from Apache Kafka topic.',
             "argument_aspects": ["common", "kafka_base"],
@@ -475,25 +536,65 @@ def get_parser():
             "help": 'Read JSON Lines from RabbitMQ queue. Return info to a queue.',
             "argument_aspects": ["common", "rabbitmq_base"],
             "arguments": {
+                "--rabbitmq-failure-exchange": {
+                    "dest": "rabbitmq_failure_exchange",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
+                    "help": "RabbitMQ exchange for failures. Default: SENZING_RABBITMQ_EXCHANGE"
+                },
+                "--rabbitmq-failure-host": {
+                    "dest": "rabbitmq_failure_host",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_HOST",
+                    "help": "RabbitMQ host. Default: SENZING_RABBITMQ_HOST"
+                },
+                "--rabbitmq-failure-password": {
+                    "dest": "rabbitmq_failure_password",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_PASSWORD",
+                    "help": "RabbitMQ password. Default: SENZING_RABBITMQ_PASSWORD"
+                },
+                "--rabbitmq-failure-port": {
+                    "dest": "rabbitmq_failure_port",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_PORT",
+                    "help": "RabbitMQ port. Default: SENZING_RABBITMQ_PORT"
+                },
+                "--rabbitmq-failure-queue": {
+                    "dest": "rabbitmq_failure_queue",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_QUEUE",
+                    "help": "RabbitMQ queue for failures. Default: senzing-rabbitmq-failure-queue"
+                },
+                "--rabbitmq-failure-routing-key": {
+                    "dest": "rabbitmq_failure_routing_key",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_ROUTING_KEY",
+                    "help": "RabbitMQ routing key for failures. Default: senzing.failure"
+                },
+                "--rabbitmq-failure-username": {
+                    "dest": "rabbitmq_failure_username",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_USERNAME",
+                    "help": "RabbitMQ username. Default: SENZING_RABBITMQ_USERNAME"
+                },
+                "--rabbitmq-failure-virtual-host": {
+                    "dest": "rabbitmq_failure_virtual_host",
+                    "metavar": "SENZING_RABBITMQ_FAILURE_VIRTUAL_HOST",
+                    "help": "RabbitMQ virtual host. Default: SENZING_RABBITMQ_VIRTUAL_HOST"
+                },
+                "--rabbitmq-info-exchange": {
+                    "dest": "rabbitmq_info_exchange",
+                    "metavar": "SENZING_RABBITMQ_INFO_EXCHANGE",
+                    "help": "RabbitMQ exchange for info. Default: SENZING_RABBITMQ_EXCHANGE"
+                },
                 "--rabbitmq-info-host": {
                     "dest": "rabbitmq_info_host",
                     "metavar": "SENZING_RABBITMQ_INFO_HOST",
                     "help": "RabbitMQ host. Default: SENZING_RABBITMQ_HOST"
-                },
-                "--rabbitmq-info-port": {
-                    "dest": "rabbitmq_info_port",
-                    "metavar": "SENZING_RABBITMQ_INFO_PORT",
-                    "help": "RabbitMQ host. Default: SENZING_RABBITMQ_PORT"
                 },
                 "--rabbitmq-info-password": {
                     "dest": "rabbitmq_info_password",
                     "metavar": "SENZING_RABBITMQ_INFO_PASSWORD",
                     "help": "RabbitMQ password. Default: SENZING_RABBITMQ_PASSWORD"
                 },
-                "--rabbitmq-info-exchange": {
-                    "dest": "rabbitmq_info_exchange",
-                    "metavar": "SENZING_RABBITMQ_INFO_EXCHANGE",
-                    "help": "RabbitMQ exchange for info. Default: SENZING_RABBITMQ_EXCHANGE"
+                "--rabbitmq-info-port": {
+                    "dest": "rabbitmq_info_port",
+                    "metavar": "SENZING_RABBITMQ_INFO_PORT",
+                    "help": "RabbitMQ host. Default: SENZING_RABBITMQ_PORT"
                 },
                 "--rabbitmq-info-queue": {
                     "dest": "rabbitmq_info_queue",
@@ -515,46 +616,7 @@ def get_parser():
                     "metavar": "SENZING_RABBITMQ_INFO_VIRTUAL_HOST",
                     "help": "RabbitMQ virtual host. Default: SENZING_RABBITMQ_VIRTUAL_HOST"
                 },
-                "--rabbitmq-failure-host": {
-                    "dest": "rabbitmq_failure_host",
-                    "metavar": "SENZING_RABBITMQ_FAILURE_HOST",
-                    "help": "RabbitMQ host. Default: SENZING_RABBITMQ_HOST"
-                },
-                "--rabbitmq-failure-port": {
-                    "dest": "rabbitmq_failure_port",
-                    "metavar": "SENZING_RABBITMQ_FAILURE_PORT",
-                    "help": "RabbitMQ port. Default: SENZING_RABBITMQ_PORT"
-                },
-                "--rabbitmq-failure-password": {
-                    "dest": "rabbitmq_failure_password",
-                    "metavar": "SENZING_RABBITMQ_FAILURE_PASSWORD",
-                    "help": "RabbitMQ password. Default: SENZING_RABBITMQ_PASSWORD"
-                },
-                "--rabbitmq-failure-exchange": {
-                    "dest": "rabbitmq_failure_exchange",
-                    "metavar": "SENZING_RABBITMQ_FAILURE_EXCHANGE",
-                    "help": "RabbitMQ exchange for failures. Default: SENZING_RABBITMQ_EXCHANGE"
-                },
-                "--rabbitmq-failure-queue": {
-                    "dest": "rabbitmq_failure_queue",
-                    "metavar": "SENZING_RABBITMQ_FAILURE_QUEUE",
-                    "help": "RabbitMQ queue for failures. Default: senzing-rabbitmq-failure-queue"
-                },
-                "--rabbitmq-failure-routing-key": {
-                    "dest": "rabbitmq_failure_routing_key",
-                    "metavar": "SENZING_RABBITMQ_FAILURE_ROUTING_KEY",
-                    "help": "RabbitMQ routing key for failures. Default: senzing.failure"
-                },
-                "--rabbitmq-failure-username": {
-                    "dest": "rabbitmq_failure_username",
-                    "metavar": "SENZING_RABBITMQ_FAILURE_USERNAME",
-                    "help": "RabbitMQ username. Default: SENZING_RABBITMQ_USERNAME"
-                },
-                "--rabbitmq-failure-virtual-host": {
-                   "dest": "rabbitmq_failure_virtual_host",
-                    "metavar": "SENZING_RABBITMQ_FAILURE_VIRTUAL_HOST",
-                    "help": "RabbitMQ virtual host. Default: SENZING_RABBITMQ_VIRTUAL_HOST"
-                },
+
             },
         },
         'sleep': {
@@ -580,15 +642,15 @@ def get_parser():
                     "metavar": "SENZING_SQS_FAILURE_QUEUE_URL",
                     "help": "AWS SQS URL for failures. Default: none"
                 },
-                "--sqs-info-queue-url": {
-                    "dest": "sqs_info_queue_url",
-                    "metavar": "SENZING_SQS_INFO_QUEUE_URL",
-                    "help": "AWS SQS URL for info. Default: none"
-                },
                 "--sqs-info-queue-delay-seconds": {
                     "dest": "sqs_info_queue_delay_seconds",
                     "metavar": "SENZING_SQS_INFO_QUEUE_DELAY_SECONDS",
                     "help": "AWS SQS delivery delay in seconds for info. Default: 10"
+                },
+                "--sqs-info-queue-url": {
+                    "dest": "sqs_info_queue_url",
+                    "metavar": "SENZING_SQS_INFO_QUEUE_URL",
+                    "help": "AWS SQS URL for info. Default: none"
                 },
             },
         },
@@ -620,15 +682,15 @@ def get_parser():
                 "metavar": "SENZING_DATA_SOURCE",
                 "help": "Data Source."
             },
-            "--delay-in-seconds": {
-                "dest": "delay_in_seconds",
-                "metavar": "SENZING_DELAY_IN_SECONDS",
-                "help": "Delay before processing in seconds. DEFAULT: 0"
-            },
             "--debug": {
                 "dest": "debug",
                 "action": "store_true",
                 "help": "Enable debugging. (SENZING_DEBUG) Default: False"
+            },
+            "--delay-in-seconds": {
+                "dest": "delay_in_seconds",
+                "metavar": "SENZING_DELAY_IN_SECONDS",
+                "help": "Delay before processing in seconds. DEFAULT: 0"
             },
             "--engine-configuration-json": {
                 "dest": "engine_configuration_json",
@@ -655,6 +717,18 @@ def get_parser():
                 "metavar": "SENZING_THREADS_PER_PROCESS",
                 "help": "Number of threads per process. Default: 4"
             },
+        },
+        "azure_queue_base": {
+            "--azure-connection-string": {
+                "dest": "azure_connection_string",
+                "metavar": "SENZING_AZURE_CONNECTION_STRING",
+                "help": "Azure Service Bus Queue connection string. Default: none"
+            },
+            "--azure-queue-name": {
+                "dest": "azure_queue_name",
+                "metavar": "SENZING_AZURE_QUEUE_NAME",
+                "help": "Azure Service Bus Queue name. Default: none"
+            }
         },
         "kafka_base": {
             "--kafka-bootstrap-server": {
@@ -689,30 +763,35 @@ def get_parser():
                 "metavar": "SENZING_RABBITMQ_HOST",
                 "help": "RabbitMQ host. Default: localhost:5672"
             },
+            "--rabbitmq-password": {
+                "dest": "rabbitmq_password",
+                "metavar": "SENZING_RABBITMQ_PASSWORD",
+                "help": "RabbitMQ password. Default: bitnami"
+            },
             "--rabbitmq-port": {
                 "dest": "rabbitmq_port",
                 "metavar": "SENZING_RABBITMQ_PORT",
                 "help": "RabbitMQ port. Default: 5672"
             },
-            "--rabbitmq-password": {
-                "dest": "rabbitmq_password",
-                "metavar": "SENZING_RABBITMQ_PASSWORD",
-                "help": "RabbitMQ password. Default: bitnami"
+            "--rabbitmq-prefetch-count": {
+                "dest": "rabbitmq_prefetch_count",
+                "metavar": "SENZING_RABBITMQ_PREFETCH_COUNT",
+                "help": "RabbitMQ prefetch-count. Default: 50"
             },
             "--rabbitmq-queue": {
                 "dest": "rabbitmq_queue",
                 "metavar": "SENZING_RABBITMQ_QUEUE",
                 "help": "RabbitMQ queue. Default: senzing-rabbitmq-queue"
             },
-            "--rabbitmq-reconnect-number-of-retries": {
-                "dest": "rabbitmq_reconnect_number_of_retries",
-                "metavar": "SENZING_RABBITMQ_RECONNECT_NUMBER_OF_RETRIES",
-                "help": "The number of times to try reconnecting a dropped connection to the RabbitMQ broker. Default: 10"
-            },
             "--rabbitmq-reconnect-delay-in-seconds": {
                 "dest": "rabbitmq_reconnect_delay_in_seconds",
                 "metavar": "SENZING_RABBITMQ_RECONNECT_DELAY_IN_SECONDS",
                 "help": "The time (in seconds) to wait between attempts to reconnect to the RabbitMQ broker. Default: 60"
+            },
+            "--rabbitmq-reconnect-number-of-retries": {
+                "dest": "rabbitmq_reconnect_number_of_retries",
+                "metavar": "SENZING_RABBITMQ_RECONNECT_NUMBER_OF_RETRIES",
+                "help": "The number of times to try reconnecting a dropped connection to the RabbitMQ broker. Default: 10"
             },
             "--rabbitmq-use-existing-entities": {
                 "dest": "rabbitmq_use_existing_entities",
@@ -723,11 +802,6 @@ def get_parser():
                 "dest": "rabbitmq_username",
                 "metavar": "SENZING_RABBITMQ_USERNAME",
                 "help": "RabbitMQ username. Default: user"
-            },
-            "--rabbitmq-prefetch-count": {
-                "dest": "rabbitmq_prefetch_count",
-                "metavar": "SENZING_RABBITMQ_PREFETCH_COUNT",
-                "help": "RabbitMQ prefetch-count. Default: 50"
             },
             "--rabbitmq-virtual-host": {
                 "dest": "rabbitmq_virtual_host",
@@ -1584,6 +1658,178 @@ class WriteG2Thread(threading.Thread):
 
     def send_jsonline_to_g2_engine_withinfo(self, jsonline, senzing_stream_loader_value_default={"action": 'addRecordWithInfo'}):
         return self.send_jsonline_to_g2_engine(jsonline, senzing_stream_loader_value_default)
+
+# -----------------------------------------------------------------------------
+# Class: ReadAzureQueueWriteG2Thread
+# -----------------------------------------------------------------------------
+
+
+class ReadAzureQueueWriteG2Thread(WriteG2Thread):
+
+    def __init__(self, config, g2_engine, g2_configuration_manager, governor):
+        super().__init__(config, g2_engine, g2_configuration_manager, governor)
+        self.connection_string = config.get("azure_connection_string")
+        self.data_source = self.config.get('data_source')
+        self.entity_type = self.config.get('entity_type')
+        self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
+        self.failure_connection_string = config.get("azure_failure_connection_string")
+        self.failure_queue_name = config.get("azure_failure_queue_name")
+        self.queue_name = config.get("azure_queue_name")
+        self.failure_queue_enabled = False
+
+        # Create objects.
+
+        self.servicebus_client = ServiceBusClient.from_connection_string(self.connection_string)
+        self.receiver = self.servicebus_client.get_queue_receiver(queue_name=self.queue_name)
+
+        if self.failure_connection_string and self.failure_queue_name:
+            self.failure_queue_enabled = True
+            self.failure_servicebus_client = ServiceBusClient.from_connection_string(self.failure_connection_string)
+            self.failure_sender = self.servicebus_client.get_queue_sender(queue_name=self.failure_queue_name)
+
+    def add_to_failure_queue(self, jsonline):
+        '''
+        Overwrite superclass method.
+        Returns true if actually sent to failure queue.
+        Support AWS SQS dead-letter queue.
+        '''
+
+        result = True
+        assert type(jsonline) == str
+        if self.failure_queue_enabled:
+            try:
+                service_bus_message = ServiceBusMessage(jsonline)
+                self.failure_sender.send_messages(service_bus_message)
+                logging.info(message_info(911, jsonline))
+            except Exception as err:
+                result = False
+                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
+        else:
+            logging.info(message_info(221, jsonline))
+        return result
+
+    def run(self):
+        '''Process for reading lines from AWS SQS and feeding them to a process_function() function'''
+
+        logging.info(message_info(129, threading.current_thread().name))
+
+        # In a loop, get messages from AWS SQS.
+
+        while True:
+
+            for queue_message in self.receiver:
+
+                # Invoke Governor.
+
+                self.govern()
+
+                # Verify that message is valid JSON.
+
+                try:
+                    message_list = json.loads(str(queue_message))
+                except Exception as err:
+                    logging.info(message_debug(557, queue_message, err))
+                    if self.add_to_failure_queue(queue_message):
+                        self.receiver.complete_message(queue_message)
+                    continue
+
+                # Tricky code: If this is a dict, it's a single record. Make it an array for future processing.
+
+                if isinstance(message_list, dict):
+                    message_list = [message_list]
+
+                # Process each dictionary in list.
+
+                for message_dictionary in message_list:
+                    self.config['counter_queued_records'] += 1
+
+                    # If needed, modify JSON message.
+
+                    if 'DATA_SOURCE' not in message_dictionary:
+                        message_dictionary['DATA_SOURCE'] = self.data_source
+                    if 'ENTITY_TYPE' not in message_dictionary:
+                        message_dictionary['ENTITY_TYPE'] = self.entity_type
+                    message_string = json.dumps(message_dictionary, sort_keys=True)
+
+                    # Send valid JSON to Senzing.
+
+                    if self.send_jsonline_to_g2_engine(message_string):
+
+                        # Record successful transfer to Senzing.
+
+                        self.config['counter_processed_records'] += 1
+
+                        # After importing into Senzing, tell Azure Queue we're done with message.
+                        # All the records are loaded or moved to the failure queue
+
+                        self.receiver.complete_message(queue_message)
+
+
+# -----------------------------------------------------------------------------
+# Class: ReadSqsWriteG2WithInfoThread
+# -----------------------------------------------------------------------------
+
+
+class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
+
+    def __init__(self, config, g2_engine, g2_configuration_manager, governor):
+        super().__init__(config, g2_engine, g2_configuration_manager, governor)
+        self.data_source = self.config.get('data_source')
+        self.entity_type = self.config.get('entity_type')
+        self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
+        self.failure_queue_url = config.get("sqs_failure_queue_url")
+        self.info_queue_url = config.get("sqs_info_queue_url")
+        self.info_queue_delay_seconds = config.get("sqs_info_queue_delay_seconds")
+        self.queue_url = config.get("sqs_queue_url")
+        self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
+
+        # Create sqs object.
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sqs.html
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html
+
+        regular_expression = "^([^/]+://[^/]+)/"
+        regex = re.compile(regular_expression)
+        match = regex.match(self.queue_url)
+        if not match:
+            exit_error(750, self.queue_url)
+        endpoint_url = match.group(1)
+        self.sqs = boto3.client("sqs", endpoint_url=endpoint_url)
+
+        # See if there is a dead letter queue and set sqs_dead_letter_queue_enabled accordingly
+
+        response = self.sqs.get_queue_attributes(QueueUrl=self.queue_url, AttributeNames=['RedrivePolicy'])
+        self.sqs_dead_letter_queue_enabled = 'Attributes' in response.keys() and 'RedrivePolicy' in response['Attributes'].keys()
+        if self.sqs_dead_letter_queue_enabled:
+            logging.info(message_info(221, response['Attributes']['RedrivePolicy']))
+
+    def add_to_failure_queue(self, jsonline):
+        '''
+        Overwrite superclass method.
+        Returns true if actually sent to failure queue.
+        Support AWS SQS dead-letter queue.
+        '''
+
+        result = True
+        return result
+
+    def add_to_info_queue(self, jsonline):
+        '''Overwrite superclass method.'''
+        pass
+
+    def run(self):
+        '''Process for reading lines from Kafka and feeding them to a process_function() function'''
+
+        logging.info(message_info(129, threading.current_thread().name))
+
+        # In a loop, get messages from Azure Queue.
+
+        while True:
+
+            # Invoke Governor.
+
+            self.govern()
+
+            # Get message from Azure queue.
 
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaWriteG2Thread
@@ -3438,7 +3684,7 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
     g2_engine = get_g2_engine(config)
     g2_configuration_manager = get_g2_configuration_manager(config)
 
-    logging.info(message_info(169, time.perf_counter() - start_time ))
+    logging.info(message_info(169, time.perf_counter() - start_time))
 
     governor = Governor(g2_engine=g2_engine, hint="stream-loader")
 
@@ -3495,6 +3741,18 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 # do_* functions
 #   Common function signature: do_XXX(args)
 # -----------------------------------------------------------------------------
+
+
+def do_azure_queue(args):
+    ''' Read from SQS. '''
+
+    dohelper_thread_runner(args, ReadAzureQueueWriteG2Thread, {})
+
+
+def do_azure_queue_withinfo(args):
+    ''' Read from SQS. '''
+
+    dohelper_thread_runner(args, ReadAzureQueueWriteG2WithInfoThread, {})
 
 
 def do_docker_acceptance_test(args):

@@ -7,7 +7,6 @@ GIT_VERSION := $(shell git describe --always --tags --long --dirty | sed -e 's/\
 
 DOCKER_IMAGE_TAG ?= $(GIT_REPOSITORY_NAME):$(GIT_VERSION)
 DOCKER_IMAGE_NAME := senzing/stream-loader
-BASE_IMAGE ?= senzing/senzing-base:1.6.1
 SENZING_ACCEPT_EULA ?= no
 
 # -----------------------------------------------------------------------------
@@ -24,7 +23,6 @@ default: help
 .PHONY: docker-build
 docker-build:
 	docker build \
-		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--tag $(DOCKER_IMAGE_NAME) \
 		--tag $(DOCKER_IMAGE_NAME):$(GIT_VERSION) \
 		.
@@ -32,7 +30,6 @@ docker-build:
 .PHONY: docker-build-with-data
 docker-build-with-data:
 	docker build \
-		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg SENZING_ACCEPT_EULA=$(SENZING_ACCEPT_EULA) \
 		--file Dockerfile-with-data \
 		--tag $(DOCKER_IMAGE_NAME)-with-data \

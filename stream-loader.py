@@ -34,14 +34,22 @@ from azure.servicebus import ServiceBusClient, ServiceBusMessage
 
 # Import Senzing libraries.
 try:
-    import G2Exception
-    from G2Config import G2Config
-    from G2ConfigMgr import G2ConfigMgr
-    from G2Diagnostic import G2Diagnostic
-    from G2Engine import G2Engine
-    from G2Product import G2Product
+    pass
+    # import G2Exception
+    # from G2Config import G2Config
+    # from G2ConfigMgr import G2ConfigMgr
+    # from G2Diagnostic import G2Diagnostic
+    # from G2Engine import G2Engine
+    # from G2Product import G2Product
 except ImportError:
     pass
+
+from senzing import G2Exception as G2Exception
+from senzing import G2Config as G2Config
+from senzing import G2ConfigMgr as G2ConfigMgr
+from senzing import G2Diagnostic as G2Diagnostic
+from senzing import G2Engine as G2Engine
+from senzing import G2Product as G2Product
 
 __all__ = []
 __version__ = "1.9.0"  # See https://www.python.org/dev/peps/pep-0396/

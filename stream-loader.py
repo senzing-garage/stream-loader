@@ -44,17 +44,17 @@ try:
 except ImportError:
     pass
 
-from senzing import G2Exception as G2Exception
-from senzing import G2Config as G2Config
-from senzing import G2ConfigMgr as G2ConfigMgr
-from senzing import G2Diagnostic as G2Diagnostic
-from senzing import G2Engine as G2Engine
-from senzing import G2Product as G2Product
+from senzing.G2Exception import G2Exception
+from senzing.G2Config import G2Config
+from senzing.G2ConfigMgr import G2ConfigMgr
+from senzing.G2Diagnostic import G2Diagnostic
+from senzing.G2Engine import G2Engine
+from senzing.G2Product import G2Product
 
 __all__ = []
-__version__ = "1.9.0"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.9.x"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2021-09-16'
+__updated__ = '2021-11-03'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'

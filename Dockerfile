@@ -1,11 +1,37 @@
-ARG BASE_IMAGE=senzing/senzing-base:1.6.2
-FROM ${BASE_IMAGE}
+ARG BASE_IMAGE=debian:10.10@sha256:e5cfab8012b17d80f93a7f567797b0c8a2839069d4f50e499152162152518663
+FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2021-10-11
+ENV REFRESHED_AT=2021-11-04
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.9.1"
+      Version="1.9.2"
+
+# Run as "root" for system installation.
+USER root
+
+RUN apt-get update \
+ && apt-get -y install \
+    python3 \
+    python3-dev \
+    python3-venv \
+    python3-pip \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
+
+# create and activate virtual environment
+RUN python3 -m venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+# Install packages via PIP.
+COPY requirements.txt .
+RUN pip3 install --upgrade pip \
+ && pip3 install -r requirements.txt \
+ && rm /requirements.txt
+
+##
+# create the runtime image
+FROM ${BASE_IMAGE} AS runner
 
 # Define health check
 
@@ -19,28 +45,38 @@ USER root
 
 RUN apt-get update \
  && apt-get -y install \
-    librdkafka-dev \
+      librdkafka-dev \
+      libxml2 \
+      python3 \
+      python3-venv \
+      postgresql-client \
+      unixodbc \
+ && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-# Install packages via PIP.
-
-COPY requirements.txt ./
-RUN pip3 install --upgrade pip \
- && pip3 install -r requirements.txt \
- && rm requirements.txt
-
 # Copy files from repository.
-
 COPY ./rootfs /
 COPY ./stream-loader.py /app/
 
-# Make non-root container.
+# Copy python virtual environment from the builder image
+COPY --from=builder /app/venv /app/venv
 
+# Make non-root container.
 USER 1001
 
-# Runtime execution.
+# make sure all messages always reach console
+ENV PYTHONUNBUFFERED=1
 
+# activate virtual environment
+ENV VIRTUAL_ENV=/app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+# Runtime execution.
 ENV SENZING_DOCKER_LAUNCHED=true
+ENV LD_LIBRARY_PATH=/opt/senzing/g2/lib:/opt/senzing/g2/lib/debian:/opt/IBM/db2/clidriver/lib
+ENV PATH=${PATH}:/opt/senzing/g2/python:/opt/IBM/db2/clidriver/adm:/opt/IBM/db2/clidriver/bin
+ENV PYTHONPATH=/opt/senzing/g2/python
+ENV SENZING_ETC_PATH=/etc/opt/senzing
 
 WORKDIR /app
 ENTRYPOINT ["/app/stream-loader.py"]

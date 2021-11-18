@@ -83,7 +83,7 @@ COPY ./stream-loader.py /app/
 
 # Copy python virtual environment and senzing data from the builder image
 COPY --from=builder /app/venv /app/venv
-COPY --from=builder /opt/senzing/data/2.0.0/* /opt/senzing/data/
+COPY --from=builder /opt/senzing/data/2.0.0/ /opt/senzing/data/
 
 # Make non-root container.
 USER 1001

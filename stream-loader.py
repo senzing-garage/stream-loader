@@ -2321,7 +2321,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
-            self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)
+            self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)[1]
 
         return result
 
@@ -2357,7 +2357,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
-            self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
+            self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)[1]
 
     def callback(self, _channel, method, _header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))

@@ -1,11 +1,11 @@
-ARG BASE_IMAGE=debian:10.11@sha256:94ccfd1c5115a6903cbb415f043a0b04e307be3f37b768cf6d6d3edff0021da3
+ARG BASE_IMAGE=debian:11.2-slim@sha256:b0d53c872fd640c2af2608ba1e693cfc7dedea30abcd8f584b23d583ec6dadc7
 FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2022-01-06
+ENV REFRESHED_AT=2022-01-26
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.9.2"
+      Version="1.9.4"
 
 # Run as "root" for system installation.
 USER root

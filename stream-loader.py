@@ -44,9 +44,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.9.0"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.9.4"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2021-09-16'
+__updated__ = '2022-01-27'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -165,10 +165,20 @@ configuration_locator = {
         "env": "SENZING_KAFKA_BOOTSTRAP_SERVER",
         "cli": "kafka-bootstrap-server",
     },
+    "kafka_configuration": {
+        "default": None,
+        "env": "SENZING_KAFKA_CONFIGURATION",
+        "cli": "kafka-configuration",
+    },
     "kafka_failure_bootstrap_server": {
         "default": None,
         "env": "SENZING_KAFKA_FAILURE_BOOTSTRAP_SERVER",
         "cli": "kafka-failure-bootstrap-server",
+    },
+    "kafka_failure_configuration": {
+        "default": None,
+        "env": "SENZING_KAFKA_FAILURE_CONFIGURATION",
+        "cli": "kafka-failure-configuration",
     },
     "kafka_failure_topic": {
         "default": "senzing-kafka-failure-topic",
@@ -184,6 +194,11 @@ configuration_locator = {
         "default": None,
         "env": "SENZING_KAFKA_INFO_BOOTSTRAP_SERVER",
         "cli": "kafka-info-bootstrap-server",
+    },
+    "kafka_info_configuration": {
+        "default": None,
+        "env": "SENZING_KAFKA_INFO_CONFIGURATION",
+        "cli": "kafka-info-configuration",
     },
     "kafka_info_topic": {
         "default": "senzing-kafka-info-topic",
@@ -511,6 +526,11 @@ def get_parser():
                     "metavar": "SENZING_KAFKA_FAILURE_BOOTSTRAP_SERVER",
                     "help": "Kafka bootstrap server. Default: SENZING_KAFKA_BOOTSTRAP_SERVER"
                 },
+                "--kafka-failure-configuration": {
+                    "dest": "kafka_failure_configuration",
+                    "metavar": "SENZING_KAFKA_FAILURE_CONFIGURATION",
+                    "help": "A JSON string with extra configuration parameters for Kafka failure service. Default: none"
+                },
                 "--kafka-failure-topic": {
                     "dest": "kafka_failure_topic",
                     "metavar": "SENZING_KAFKA_FAILURE_TOPIC",
@@ -520,6 +540,11 @@ def get_parser():
                     "dest": "kafka_info_bootstrap_server",
                     "metavar": "SENZING_KAFKA_INFO_BOOTSTRAP_SERVER",
                     "help": "Kafka bootstrap server. Default: SENZING_KAFKA_BOOTSTRAP_SERVER"
+                },
+                "--kafka-info-configuration": {
+                    "dest": "kafka_info_configuration",
+                    "metavar": "SENZING_KAFKA_INFO_CONFIGURATION",
+                    "help": "A JSON string with extra configuration parameters for Kafka info service. Default: none"
                 },
                 "--kafka-info-topic": {
                     "dest": "kafka_info_topic",
@@ -741,6 +766,11 @@ def get_parser():
                 "metavar": "SENZING_KAFKA_GROUP",
                 "help": "Kafka group. Default: senzing-kafka-group"
             },
+            "--kafka-configuration": {
+                "dest": "kafka_configuration",
+                "metavar": "SENZING_KAFKA_CONFIGURATION",
+                "help": "A JSON string with extra configuration parameters. Default: none"
+            },
             "--kafka-topic": {
                 "dest": "kafka_topic",
                 "metavar": "SENZING_KAFKA_TOPIC",
@@ -829,7 +859,7 @@ def get_parser():
                 for argument, argument_value in arguments.items():
                     subcommands[subcommand]['arguments'][argument] = argument_value
 
-    parser = argparse.ArgumentParser(prog="stream-loader.py", description="Initialize Senzing installation. For more information, see https://github.com/Senzing/stream-loader")
+    parser = argparse.ArgumentParser(prog="stream-loader.py", description="Initialize Senzing installation. For subcommand help, run 'stream-loader.py <subcommand> --help' For more information, see https://github.com/Senzing/stream-loader")
     subparsers = parser.add_subparsers(dest='subcommand', help='Subcommands (SENZING_SUBCOMMAND):')
 
     for subcommand_key, subcommand_values in subcommands.items():
@@ -1764,7 +1794,6 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
 
                         self.receiver.complete_message(queue_message)
 
-
 # -----------------------------------------------------------------------------
 # Class: ReadSqsWriteG2WithInfoThread
 # -----------------------------------------------------------------------------
@@ -1841,6 +1870,30 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
 
+    def get_kafka_consumer_configuration(self):
+
+        # Base configuration parameters.
+
+        result = {
+            'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
+            'group.id': self.config.get("kafka_group"),
+            'enable.auto.commit': False,
+            'auto.offset.reset': 'earliest'
+            }
+
+        # TLS parameters. FIXME:
+
+        # Any extra Kafka configuration parameters.
+
+        kafka_configuration = self.config.get('kafka_configuration')
+        if kafka_configuration:
+            result.update(json.loads(kafka_configuration))
+
+        print(">>>>>> {0}".format(json.dumps(result)))
+        exit()
+
+        return result
+
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
 
@@ -1848,13 +1901,8 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
         # Create Kafka client.
 
-        consumer_configuration = {
-            'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
-            'group.id': self.config.get("kafka_group"),
-            'enable.auto.commit': False,
-            'auto.offset.reset': 'earliest'
-            }
-        consumer = confluent_kafka.Consumer(consumer_configuration)
+        kafka_consumer_configuration = self.get_kafka_consumer_configuration('')
+        consumer = confluent_kafka.Consumer(kafka_consumer_configuration)
         consumer.subscribe([self.config.get("kafka_topic")])
 
         # Data to be inserted into messages.
@@ -2003,6 +2051,66 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         except Exception as err:
             logging.warning(message_warning(407, self.info_topic, err, jsonline))
 
+    def get_kafka_consumer_configuration(self):
+        '''Construct configuration for Kafka reader.'''
+
+        # Base configuration parameters.
+
+        result = {
+            'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
+            'group.id': self.config.get("kafka_group"),
+            'enable.auto.commit': False,
+            'auto.offset.reset': 'earliest'
+            }
+
+        # TLS parameters. FIXME:
+
+        # Any extra Kafka configuration parameters.
+
+        kafka_configuration = self.config.get('kafka_configuration')
+        if kafka_configuration:
+            result.update(json.loads(kafka_configuration))
+
+        return result
+
+    def get_kafka_info_producer_configuration(self):
+        '''Construct configuration for Kafka writer for info queue.'''
+
+        # Base configuration parameters.
+
+        result = {
+            'bootstrap.servers': self.config.get('kafka_info_bootstrap_server')
+        }
+
+        # TLS parameters. FIXME:
+
+        # Any extra Kafka configuration parameters.
+
+        kafka_configuration = self.config.get('kafka_info_configuration')
+        if kafka_configuration:
+            result.update(json.loads(kafka_configuration))
+
+        return result
+
+    def get_kafka_failure_producer_configuration(self):
+        '''Construct configuration for Kafka writer for failure queue.'''
+
+        # Base configuration parameters.
+
+        result = {
+            'bootstrap.servers': self.config.get('kafka_failure_bootstrap_server')
+        }
+
+        # TLS parameters. FIXME:
+
+        # Any extra Kafka configuration parameters.
+
+        kafka_configuration = self.config.get('kafka_failure_configuration')
+        if kafka_configuration:
+            result.update(json.loads(kafka_configuration))
+
+        return result
+
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
 
@@ -2010,27 +2118,18 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
         # Create Kafka client.
 
-        consumer_configuration = {
-            'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
-            'group.id': self.config.get("kafka_group"),
-            'enable.auto.commit': False,
-            'auto.offset.reset': 'earliest'
-            }
-        consumer = confluent_kafka.Consumer(consumer_configuration)
+        kafka_consumer_configuration = self.get_kafka_consumer_configuration()
+        consumer = confluent_kafka.Consumer(kafka_consumer_configuration)
         consumer.subscribe([self.config.get("kafka_topic")])
 
         # Create Kafka Producer for "info".
 
-        kafka_info_producer_configuration = {
-            'bootstrap.servers': self.config.get('kafka_info_bootstrap_server')
-        }
+        kafka_info_producer_configuration = self.get_kafka_info_producer_configuration()
         self.info_producer = confluent_kafka.Producer(kafka_info_producer_configuration)
 
         # Create Kafka Producer for "failure".
 
-        kafka_failure_producer_configuration = {
-            'bootstrap.servers': self.config.get('kafka_failure_bootstrap_server')
-        }
+        kafka_failure_producer_configuration = self.get_kafka_failure_producer_configuration()
         self.failure_producer = confluent_kafka.Producer(kafka_failure_producer_configuration)
 
         # Data to be inserted into messages.

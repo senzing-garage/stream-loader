@@ -46,7 +46,7 @@ except ImportError:
 __all__ = []
 __version__ = "1.9.4"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-01-27'
+__updated__ = '2022-01-28'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -1022,6 +1022,7 @@ message_dictionary = {
     "911": "Adding JSON to failure queue: {0}",
     "920": "gdb STDOUT: {0}",
     "921": "gdb STDERR: {0}",
+    "930": "Kafka configuration for {0}: {1}",
     "950": "Enter function: {0}",
     "951": "Exit  function: {0}",
     "998": "Debugging enabled.",
@@ -1872,25 +1873,20 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
     def get_kafka_consumer_configuration(self):
 
-        # Base configuration parameters.
+        # Default configuration parameters.
 
         result = {
             'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
             'group.id': self.config.get("kafka_group"),
             'enable.auto.commit': False,
             'auto.offset.reset': 'earliest'
-            }
+        }
 
-        # TLS parameters. FIXME:
-
-        # Any extra Kafka configuration parameters.
+        # Extra Kafka configuration parameters.
 
         kafka_configuration = self.config.get('kafka_configuration')
         if kafka_configuration:
             result.update(json.loads(kafka_configuration))
-
-        print(">>>>>> {0}".format(json.dumps(result)))
-        exit()
 
         return result
 
@@ -1902,6 +1898,7 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
         # Create Kafka client.
 
         kafka_consumer_configuration = self.get_kafka_consumer_configuration()
+        logging.debug(message_debug(930, 'ReadKafkaWriteG2Thread', kafka_consumer_configuration))
         consumer = confluent_kafka.Consumer(kafka_consumer_configuration)
         consumer.subscribe([self.config.get("kafka_topic")])
 
@@ -2054,18 +2051,16 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
     def get_kafka_consumer_configuration(self):
         '''Construct configuration for Kafka reader.'''
 
-        # Base configuration parameters.
+        # Default configuration parameters.
 
         result = {
             'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
             'group.id': self.config.get("kafka_group"),
             'enable.auto.commit': False,
             'auto.offset.reset': 'earliest'
-            }
+        }
 
-        # TLS parameters. FIXME:
-
-        # Any extra Kafka configuration parameters.
+        # Extra Kafka configuration parameters.
 
         kafka_configuration = self.config.get('kafka_configuration')
         if kafka_configuration:
@@ -2076,15 +2071,13 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
     def get_kafka_info_producer_configuration(self):
         '''Construct configuration for Kafka writer for info queue.'''
 
-        # Base configuration parameters.
+        # Default configuration parameters.
 
         result = {
             'bootstrap.servers': self.config.get('kafka_info_bootstrap_server')
         }
 
-        # TLS parameters. FIXME:
-
-        # Any extra Kafka configuration parameters.
+        # Extra Kafka configuration parameters.
 
         kafka_configuration = self.config.get('kafka_info_configuration')
         if kafka_configuration:
@@ -2095,7 +2088,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
     def get_kafka_failure_producer_configuration(self):
         '''Construct configuration for Kafka writer for failure queue.'''
 
-        # Base configuration parameters.
+        # Default configuration parameters.
 
         result = {
             'bootstrap.servers': self.config.get('kafka_failure_bootstrap_server')
@@ -2103,7 +2096,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
         # TLS parameters. FIXME:
 
-        # Any extra Kafka configuration parameters.
+        # Extra Kafka configuration parameters.
 
         kafka_configuration = self.config.get('kafka_failure_configuration')
         if kafka_configuration:
@@ -2119,17 +2112,20 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         # Create Kafka client.
 
         kafka_consumer_configuration = self.get_kafka_consumer_configuration()
+        logging.debug(message_debug(930, 'ReadKafkaWriteG2WithInfoThread.consumer', kafka_consumer_configuration))
         consumer = confluent_kafka.Consumer(kafka_consumer_configuration)
         consumer.subscribe([self.config.get("kafka_topic")])
 
         # Create Kafka Producer for "info".
 
         kafka_info_producer_configuration = self.get_kafka_info_producer_configuration()
+        logging.debug(message_debug(930, 'ReadKafkaWriteG2WithInfoThread.infoProducer', kafka_info_producer_configuration))
         self.info_producer = confluent_kafka.Producer(kafka_info_producer_configuration)
 
         # Create Kafka Producer for "failure".
 
         kafka_failure_producer_configuration = self.get_kafka_failure_producer_configuration()
+        logging.debug(message_debug(930, 'ReadKafkaWriteG2WithInfoThread.failureProducer', kafka_failure_producer_configuration))
         self.failure_producer = confluent_kafka.Producer(kafka_failure_producer_configuration)
 
         # Data to be inserted into messages.

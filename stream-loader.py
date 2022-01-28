@@ -1901,7 +1901,7 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
         # Create Kafka client.
 
-        kafka_consumer_configuration = self.get_kafka_consumer_configuration('')
+        kafka_consumer_configuration = self.get_kafka_consumer_configuration()
         consumer = confluent_kafka.Consumer(kafka_consumer_configuration)
         consumer.subscribe([self.config.get("kafka_topic")])
 

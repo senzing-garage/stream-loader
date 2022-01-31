@@ -44,9 +44,9 @@ except ImportError:
     pass
 
 __all__ = []
-__version__ = "1.9.4"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.9.5"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-01-28'
+__updated__ = '2022-01-31'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -761,15 +761,15 @@ def get_parser():
                 "metavar": "SENZING_KAFKA_BOOTSTRAP_SERVER",
                 "help": "Kafka bootstrap server. Default: localhost:9092"
             },
-            "--kafka-group": {
-                "dest": "kafka_group",
-                "metavar": "SENZING_KAFKA_GROUP",
-                "help": "Kafka group. Default: senzing-kafka-group"
-            },
             "--kafka-configuration": {
                 "dest": "kafka_configuration",
                 "metavar": "SENZING_KAFKA_CONFIGURATION",
                 "help": "A JSON string with extra configuration parameters. Default: none"
+            },
+            "--kafka-group": {
+                "dest": "kafka_group",
+                "metavar": "SENZING_KAFKA_GROUP",
+                "help": "Kafka group. Default: senzing-kafka-group"
             },
             "--kafka-topic": {
                 "dest": "kafka_topic",

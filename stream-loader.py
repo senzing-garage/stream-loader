@@ -1500,7 +1500,7 @@ class WriteG2Thread(threading.Thread):
 
         # Apply new configuration to g2_engine.
 
-        self.g2_engine.reinitV2(default_config_id)
+        self.g2_engine.reinit(default_config_id)
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_addRecord(self, message_metadata, message_dict):
@@ -3488,7 +3488,7 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Config.G2Config()
-        result.initV2(g2_config_name, g2_configuration_json, config.get('debug'))
+        result.init(g2_config_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(897, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3501,7 +3501,7 @@ def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2ConfigMgr.G2ConfigMgr()
-        result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
+        result.init(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(896, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3514,7 +3514,7 @@ def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Diagnostic.G2Diagnostic()
-        result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
+        result.init(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(894, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3527,9 +3527,9 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Engine.G2Engine()
-        logging.debug(message_debug(950, "g2_engine.initV2()"))
-        result.initV2(g2_engine_name, g2_configuration_json, config.get('debug'))
-        logging.debug(message_debug(951, "g2_engine.initV2()"))
+        logging.debug(message_debug(950, "g2_engine.init()"))
+        result.init(g2_engine_name, g2_configuration_json, config.get('debug'))
+        logging.debug(message_debug(951, "g2_engine.init()"))
         config['last_configuration_check'] = time.time()
     except G2Exception.G2ModuleException as err:
         exit_error(898, g2_configuration_json, err)
@@ -3551,7 +3551,7 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Product.G2Product()
-        result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
+        result.init(g2_product_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(892, config.get('g2project_ini'), err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))

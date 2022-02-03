@@ -4,7 +4,10 @@
 # stream-loader.py Loader for streaming input.
 # -----------------------------------------------------------------------------
 
+# Import from standard library. https://docs.python.org/3/library/
+
 import argparse
+import confluent_kafka
 import datetime
 import functools
 import importlib
@@ -14,6 +17,7 @@ import logging
 import math
 import multiprocessing
 import os
+import pika
 import queue
 import random
 import re
@@ -27,26 +31,24 @@ import time
 from urllib.parse import urlparse, urlunparse
 from urllib.request import urlopen
 
-import boto3
-import confluent_kafka
-import pika
-from azure.servicebus import ServiceBusClient, ServiceBusMessage
+# Import from https://pypi.org/
 
-# Import Senzing libraries.
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
+import boto3
+
+# Import from Senzing
+
 try:
-    import G2Exception
-    from G2Config import G2Config
-    from G2ConfigMgr import G2ConfigMgr
-    from G2Diagnostic import G2Diagnostic
-    from G2Engine import G2Engine
-    from G2Product import G2Product
+    from senzing import G2Exception, G2Config, G2ConfigMgr, G2Diagnostic, G2Engine, G2Product
 except ImportError:
     pass
+
+# Metadata
 
 __all__ = []
 __version__ = "1.9.4"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-01-28'
+__updated__ = '2022-02-03'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -3485,7 +3487,7 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
-        result = G2Config()
+        result = G2Config.G2Config()
         result.initV2(g2_config_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(897, g2_configuration_json, err)
@@ -3498,7 +3500,7 @@ def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
-        result = G2ConfigMgr()
+        result = G2ConfigMgr.G2ConfigMgr()
         result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(896, g2_configuration_json, err)
@@ -3511,7 +3513,7 @@ def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
-        result = G2Diagnostic()
+        result = G2Diagnostic.G2Diagnostic()
         result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(894, g2_configuration_json, err)
@@ -3524,7 +3526,7 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
-        result = G2Engine()
+        result = G2Engine.G2Engine()
         logging.debug(message_debug(950, "g2_engine.initV2()"))
         result.initV2(g2_engine_name, g2_configuration_json, config.get('debug'))
         logging.debug(message_debug(951, "g2_engine.initV2()"))
@@ -3548,7 +3550,7 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
-        result = G2Product()
+        result = G2Product.G2Product()
         result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(892, config.get('g2project_ini'), err)

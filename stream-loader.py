@@ -1256,6 +1256,7 @@ def get_configuration(args):
 
     result['program_version'] = __version__
     result['program_updated'] = __updated__
+    result['senzing_version_major'] = senzing_version_major
 
     # Add "run_as" information.
 

@@ -40,15 +40,30 @@ import boto3
 
 try:
     from senzing import G2Exception, G2Config, G2ConfigMgr, G2Diagnostic, G2Engine, G2Product
-except ImportError:
-    pass
+    print(">>>>>> DEBUG: Imported Version 3 style")
+except:
+
+    # Fall back to pre-Senzing version 3 style of imports.
+
+    print(">>>>>> DEBUG: Version 3 style failed, trying version 2")
+    try:
+        import G2Exception
+        import G2Config
+        import G2ConfigMgr
+        import G2Diagnostic
+        import G2Engine
+        import G2Product
+        print(">>>>>> DEBUG: Imported Version 2 style")
+    except:
+        print(">>>>>> DEBUG: Version 3 style failed, trying version 2")
+        pass
 
 # Metadata
 
 __all__ = []
-__version__ = "1.9.4"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.9.5"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-02-03'
+__updated__ = '2022-02-04'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'

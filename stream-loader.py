@@ -36,27 +36,28 @@ from urllib.request import urlopen
 from azure.servicebus import ServiceBusClient, ServiceBusMessage
 import boto3
 
-# Import from Senzing
+# Determine "Major" version of Senzing.
+
+senzing_version_major = 3
+
+# Import from Senzing.
 
 try:
-    from senzing import G2Exception, G2Config, G2ConfigMgr, G2Diagnostic, G2Engine, G2Product
-    print(">>>>>> DEBUG: Imported Version 3 style")
+    from senzing import G2Config, G2ConfigMgr, G2Diagnostic, G2Engine, G2Exception, G2Product
 except:
 
-    # Fall back to pre-Senzing version 3 style of imports.
+    # Fall back to pre-Senzing-Python-SDK style of imports.
 
-    print(">>>>>> DEBUG: Version 3 style failed, trying version 2")
     try:
-        import G2Exception
         import G2Config
         import G2ConfigMgr
         import G2Diagnostic
         import G2Engine
+        import G2Exception
         import G2Product
-        print(">>>>>> DEBUG: Imported Version 2 style")
+        senzing_version_major = 2
     except:
-        print(">>>>>> DEBUG: Version 3 style failed, trying version 2")
-        pass
+        senzing_version_major = 0
 
 # Metadata
 
@@ -3503,7 +3504,10 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Config.G2Config()
-        result.init(g2_config_name, g2_configuration_json, config.get('debug'))
+        if senzing_version_major <= 2:
+            result.initV2(g2_config_name, g2_configuration_json, config.get('debug'))
+        else:
+            result.init(g2_config_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(897, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3516,7 +3520,10 @@ def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2ConfigMgr.G2ConfigMgr()
-        result.init(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
+        if senzing_version_major <= 2:
+            result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
+        else:
+            result.init(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(896, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3529,7 +3536,10 @@ def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Diagnostic.G2Diagnostic()
-        result.init(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
+        if senzing_version_major <= 2:
+            result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
+        else:
+            result.init(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(894, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3543,7 +3553,10 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Engine.G2Engine()
         logging.debug(message_debug(950, "g2_engine.init()"))
-        result.init(g2_engine_name, g2_configuration_json, config.get('debug'))
+        if senzing_version_major <= 2:
+            result.initV2(g2_engine_name, g2_configuration_json, config.get('debug'))
+        else:
+            result.init(g2_engine_name, g2_configuration_json, config.get('debug'))
         logging.debug(message_debug(951, "g2_engine.init()"))
         config['last_configuration_check'] = time.time()
     except G2Exception.G2ModuleException as err:
@@ -3566,7 +3579,10 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Product.G2Product()
-        result.init(g2_product_name, g2_configuration_json, config.get('debug'))
+        if senzing_version_major <= 2:
+            result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
+        else:
+            result.init(g2_product_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(892, config.get('g2project_ini'), err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))

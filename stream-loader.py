@@ -1439,10 +1439,11 @@ class WriteG2Thread(threading.Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         threading.Thread.__init__(self)
         self.config = config
-        self.g2_engine = g2_engine
         self.g2_configuration_manager = g2_configuration_manager
+        self.g2_engine = g2_engine
         self.governor = governor
         self.info_filter = InfoFilter(g2_engine=g2_engine)
+        self.senzing_version_major = config.get('senzing_version_major')
         self.stream_loader_directive_name = config.get('stream_loader_directive_name')
 
     def add_to_failure_queue(self, jsonline):
@@ -1517,7 +1518,10 @@ class WriteG2Thread(threading.Thread):
 
         # Apply new configuration to g2_engine.
 
-        self.g2_engine.reinit(default_config_id)
+        if self.senzing_version_major <= 2:
+            self.g2_engine.reinitV2(default_config_id)
+        else:
+            self.g2_engine.reinit(default_config_id)
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_addRecord(self, message_metadata, message_dict):
@@ -3505,7 +3509,7 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Config.G2Config()
-        if senzing_version_major <= 2:
+        if config.get("senzing_version_major") <= 2:
             result.initV2(g2_config_name, g2_configuration_json, config.get('debug'))
         else:
             result.init(g2_config_name, g2_configuration_json, config.get('debug'))
@@ -3521,7 +3525,7 @@ def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2ConfigMgr.G2ConfigMgr()
-        if senzing_version_major <= 2:
+        if config.get("senzing_version_major") <= 2:
             result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
         else:
             result.init(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
@@ -3537,7 +3541,7 @@ def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Diagnostic.G2Diagnostic()
-        if senzing_version_major <= 2:
+        if config.get("senzing_version_major") <= 2:
             result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
         else:
             result.init(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
@@ -3554,7 +3558,7 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Engine.G2Engine()
         logging.debug(message_debug(950, "g2_engine.init()"))
-        if senzing_version_major <= 2:
+        if config.get("senzing_version_major") <= 2:
             result.initV2(g2_engine_name, g2_configuration_json, config.get('debug'))
         else:
             result.init(g2_engine_name, g2_configuration_json, config.get('debug'))
@@ -3580,7 +3584,7 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Product.G2Product()
-        if senzing_version_major <= 2:
+        if config.get("senzing_version_major") <= 2:
             result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
         else:
             result.init(g2_product_name, g2_configuration_json, config.get('debug'))

@@ -1,11 +1,11 @@
 ARG BASE_IMAGE=debian:11.2-slim@sha256:4c25ffa6ef572cf0d57da8c634769a08ae94529f7de5be5587ec8ce7b9b50f9c
 FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2022-01-28
+ENV REFRESHED_AT=2022-02-04
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.9.4"
+      Version="1.9.5"
 
 # -----------------------------------------------------------------------------
 # Stage: builder
@@ -17,10 +17,11 @@ USER root
 
 RUN apt-get update \
  && apt-get -y install \
-    python3 \
-    python3-dev \
-    python3-venv \
-    python3-pip \
+      libaio1 \
+      python3 \
+      python3-dev \
+      python3-pip \
+      python3-venv \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
@@ -54,11 +55,12 @@ USER root
 
 RUN apt-get update \
  && apt-get -y install \
+      libaio1 \
       librdkafka-dev \
       libxml2 \
+      postgresql-client \
       python3 \
       python3-venv \
-      postgresql-client \
       unixodbc \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*

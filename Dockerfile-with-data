@@ -12,6 +12,7 @@ LABEL Name="senzing/stream-loader" \
 # -----------------------------------------------------------------------------
 
 # SENZING_ACCEPT_EULA to be replaced by --build-arg
+
 ARG SENZING_ACCEPT_EULA=no
 
 # Run as "root" for system installation.

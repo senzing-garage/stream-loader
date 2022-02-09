@@ -1,11 +1,11 @@
 ARG BASE_IMAGE=debian:11.2-slim@sha256:4c25ffa6ef572cf0d57da8c634769a08ae94529f7de5be5587ec8ce7b9b50f9c
 FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2022-02-04
+ENV REFRESHED_AT=2022-02-09
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.9.5"
+      Version="1.9.6"
 
 # -----------------------------------------------------------------------------
 # Stage: builder
@@ -42,6 +42,10 @@ RUN pip3 install --upgrade pip \
 # -----------------------------------------------------------------------------
 
 FROM ${BASE_IMAGE} AS runner
+
+LABEL Name="senzing/stream-loader" \
+      Maintainer="support@senzing.com" \
+      Version="1.9.6"
 
 # Define health check
 

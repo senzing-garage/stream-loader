@@ -43,6 +43,10 @@ RUN pip3 install --upgrade pip \
 
 FROM ${BASE_IMAGE} AS runner
 
+LABEL Name="senzing/stream-loader" \
+      Maintainer="support@senzing.com" \
+      Version="1.9.5"
+
 # Define health check
 
 HEALTHCHECK CMD ["/app/healthcheck.sh"]

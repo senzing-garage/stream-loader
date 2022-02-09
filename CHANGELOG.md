@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.6] - 2022-02-09
+
+### Changed in 1.9.6
+
+ - Added label to runner image
+ - updated documentation
+
 ## [1.9.5] - 2022-02-04
 
 ### Changed in 1.9.5

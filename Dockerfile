@@ -5,7 +5,7 @@ ENV REFRESHED_AT=2022-02-04
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.9.5"
+      Version="1.9.6"
 
 # -----------------------------------------------------------------------------
 # Stage: builder
@@ -45,7 +45,7 @@ FROM ${BASE_IMAGE} AS runner
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.9.5"
+      Version="1.9.6"
 
 # Define health check
 

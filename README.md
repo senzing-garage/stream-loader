@@ -41,35 +41,39 @@ optional arguments:
 
 ### Contents
 
-1. [Preamble](#preamble)
-    1. [Legend](#legend)
-1. [Related artifacts](#related-artifacts)
-1. [Expectations](#expectations)
-1. [Demonstrate using Command Line Interface](#demonstrate-using-command-line-interface)
-    1. [Prerequisites for CLI](#prerequisites-for-cli)
-    1. [Download](#download)
-    1. [Environment variables for CLI](#environment-variables-for-cli)
-    1. [Run command](#run-command)
-1. [Demonstrate using Docker](#demonstrate-using-docker)
-    1. [Prerequisites for Docker](#prerequisites-for-docker)
-    1. [Docker volumes](#docker-volumes)
-    1. [Docker network](#docker-network)
-    1. [Docker user](#docker-user)
-    1. [Database support](#database-support)
-    1. [External database](#external-database)
-    1. [Run Docker container](#run-docker-container)
-1. [Directives](#directives)
-1. [Develop](#develop)
-    1. [Prerequisites for development](#prerequisites-for-development)
-    1. [Clone repository](#clone-repository)
-    1. [Build Docker image](#build-docker-image)
-1. [Examples](#examples)
-    1. [Examples of CLI](#examples-of-cli)
-    1. [Examples of Docker](#examples-of-docker)
-1. [Advanced](#advanced)
-    1. [Configuration](#configuration)
-1. [Errors](#errors)
-1. [References](#references)
+- [stream-loader](#stream-loader)
+  - [Synopsis](#synopsis)
+  - [Overview](#overview)
+    - [Contents](#contents)
+  - [Preamble](#preamble)
+    - [Legend](#legend)
+  - [Related artifacts](#related-artifacts)
+  - [Expectations](#expectations)
+  - [Demonstrate using Command Line Interface](#demonstrate-using-command-line-interface)
+    - [Prerequisites for CLI](#prerequisites-for-cli)
+    - [Download](#download)
+    - [Environment variables for CLI](#environment-variables-for-cli)
+    - [Run command](#run-command)
+  - [Demonstrate using Docker](#demonstrate-using-docker)
+    - [Prerequisites for Docker](#prerequisites-for-docker)
+    - [Docker volumes](#docker-volumes)
+    - [Docker network](#docker-network)
+    - [Docker user](#docker-user)
+    - [Database support](#database-support)
+    - [External database](#external-database)
+    - [Run Docker container](#run-docker-container)
+  - [Directives](#directives)
+  - [Develop](#develop)
+    - [Prerequisites for development](#prerequisites-for-development)
+    - [Clone repository](#clone-repository)
+    - [Build Docker image](#build-docker-image)
+  - [Examples](#examples)
+    - [Examples of CLI](#examples-of-cli)
+    - [Examples of Docker](#examples-of-docker)
+  - [Advanced](#advanced)
+    - [Configuration](#configuration)
+  - [Errors](#errors)
+  - [References](#references)
 
 ## Preamble
 
@@ -495,10 +499,8 @@ see [Environment Variables](https://github.com/Senzing/knowledge-base/blob/maste
 
     ```console
     cd ${GIT_REPOSITORY_DIR}
-    sudo make docker-build
+    sudo --preserve-env make docker-build
     ```
-
-    Note: `sudo make docker-build-development-cache` can be used to create cached Docker layers.
 
 ## Examples
 

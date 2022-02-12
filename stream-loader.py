@@ -36,14 +36,16 @@ import boto3
 import confluent_kafka
 import pika
 
-# Determine "Major" version of Senzing.
+# Determine "Major" version of Senzing SDK.
 
-senzing_version_major = 3
+senzing_sdk_version_major = None
 
 # Import from Senzing.
 
 try:
     from senzing import G2Config, G2ConfigMgr, G2Diagnostic, G2Engine, G2Exception, G2Product
+    senzing_sdk_version_major = 3
+
 except:
 
     # Fall back to pre-Senzing-Python-SDK style of imports.
@@ -55,16 +57,16 @@ except:
         import G2Engine
         import G2Exception
         import G2Product
-        senzing_version_major = 2
+        senzing_sdk_version_major = 2
     except:
-        senzing_version_major = 0
+        senzing_sdk_version_major = None
 
 # Metadata
 
 __all__ = []
-__version__ = "1.9.5"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.9.7"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-02-04'
+__updated__ = '2022-02-11'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -779,15 +781,15 @@ def get_parser():
                 "metavar": "SENZING_KAFKA_BOOTSTRAP_SERVER",
                 "help": "Kafka bootstrap server. Default: localhost:9092"
             },
-            "--kafka-group": {
-                "dest": "kafka_group",
-                "metavar": "SENZING_KAFKA_GROUP",
-                "help": "Kafka group. Default: senzing-kafka-group"
-            },
             "--kafka-configuration": {
                 "dest": "kafka_configuration",
                 "metavar": "SENZING_KAFKA_CONFIGURATION",
                 "help": "A JSON string with extra configuration parameters. Default: none"
+            },
+            "--kafka-group": {
+                "dest": "kafka_group",
+                "metavar": "SENZING_KAFKA_GROUP",
+                "help": "Kafka group. Default: senzing-kafka-group"
             },
             "--kafka-topic": {
                 "dest": "kafka_topic",
@@ -1015,6 +1017,7 @@ message_dictionary = {
     "729": "Could not do performance test. Error: {0}",
     "730": "There are not enough safe characters to do the translation. Unsafe Characters: {0}; Safe Characters: {1}",
     "750": "Invalid SQS URL config for {0}",
+    "879": "Senzing SDK was not imported.",
     "880": "Unspecific error when {1}. Error: {0}",
     "881": "Could not G2Engine.primeEngine with '{0}'. Error: {1}",
     "885": "License has expired.",
@@ -1256,7 +1259,7 @@ def get_configuration(args):
 
     result['program_version'] = __version__
     result['program_updated'] = __updated__
-    result['senzing_version_major'] = senzing_version_major
+    result['senzing_sdk_version_major'] = senzing_sdk_version_major
 
     # Add "run_as" information.
 
@@ -1443,7 +1446,7 @@ class WriteG2Thread(threading.Thread):
         self.g2_engine = g2_engine
         self.governor = governor
         self.info_filter = InfoFilter(g2_engine=g2_engine)
-        self.senzing_version_major = config.get('senzing_version_major')
+        self.senzing_sdk_version_major = config.get('senzing_sdk_version_major')
         self.stream_loader_directive_name = config.get('stream_loader_directive_name')
 
     def add_to_failure_queue(self, jsonline):
@@ -1518,7 +1521,7 @@ class WriteG2Thread(threading.Thread):
 
         # Apply new configuration to g2_engine.
 
-        if self.senzing_version_major <= 2:
+        if self.senzing_sdk_version_major == 2:
             self.g2_engine.reinitV2(default_config_id)
         else:
             self.g2_engine.reinit(default_config_id)
@@ -3509,7 +3512,7 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Config.G2Config()
-        if config.get("senzing_version_major") <= 2:
+        if config.get("senzing_sdk_version_major") == 2:
             result.initV2(g2_config_name, g2_configuration_json, config.get('debug'))
         else:
             result.init(g2_config_name, g2_configuration_json, config.get('debug'))
@@ -3525,7 +3528,7 @@ def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2ConfigMgr.G2ConfigMgr()
-        if config.get("senzing_version_major") <= 2:
+        if config.get("senzing_sdk_version_major") == 2:
             result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
         else:
             result.init(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
@@ -3541,7 +3544,7 @@ def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Diagnostic.G2Diagnostic()
-        if config.get("senzing_version_major") <= 2:
+        if config.get("senzing_sdk_version_major") == 2:
             result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
         else:
             result.init(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
@@ -3558,7 +3561,7 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Engine.G2Engine()
         logging.debug(message_debug(950, "g2_engine.init()"))
-        if config.get("senzing_version_major") <= 2:
+        if config.get("senzing_sdk_version_major") == 2:
             result.initV2(g2_engine_name, g2_configuration_json, config.get('debug'))
         else:
             result.init(g2_engine_name, g2_configuration_json, config.get('debug'))
@@ -3584,7 +3587,7 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Product.G2Product()
-        if config.get("senzing_version_major") <= 2:
+        if config.get("senzing_sdk_version_major") == 2:
             result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
         else:
             result.init(g2_product_name, g2_configuration_json, config.get('debug'))
@@ -4318,6 +4321,11 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGTERM, bootstrap_signal_handler)
     signal.signal(signal.SIGINT, bootstrap_signal_handler)
+
+    # Warn that Senzing was not imported.
+
+    if not senzing_sdk_version_major:
+        logging.warning(message_warning(879))
 
     # Parse the command line arguments.
 

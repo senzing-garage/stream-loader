@@ -5,7 +5,7 @@ ENV REFRESHED_AT=2022-02-09
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.9.6"
+      Version="1.9.7"
 
 # -----------------------------------------------------------------------------
 # Stage: builder

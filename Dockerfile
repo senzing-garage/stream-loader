@@ -69,8 +69,6 @@ RUN apt-get update \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --index-url https://test.pypi.org/simple/ --no-deps senzing
-
 # Copy files from repository.
 
 COPY ./rootfs /

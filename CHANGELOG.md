@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.6] - 2022-02-09
+
+### Changed in 1.9.6
+
+ - Added label to runner image
+ - updated documentation
+
+## [1.9.5] - 2022-02-04
+
+### Changed in 1.9.5
+
+ - Support for Senzing v2 and v3 python package styles
+
+## [1.9.4] - 2022-01-26
+
+### Added in 1.9.4
+
+ - Updated base image to address vulnerabilities
+ - Added support for Kafka configuration
+
+## [1.9.3] - 2021-12-13
+
+### Fixed in 1.9.3
+
+ - [Issue 253](https://github.com/Senzing/stream-loader/issues/253)
+
+## [1.9.2] - 2021-11-04
+
+### Added in 1.9.2
+
+- trimmed image size
+
 ## [1.9.1] - 2021-10-11
 
 ### Added in 1.9.1

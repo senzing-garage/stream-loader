@@ -4,6 +4,8 @@
 # stream-loader.py Loader for streaming input.
 # -----------------------------------------------------------------------------
 
+# Import from standard library. https://docs.python.org/3/library/
+
 import argparse
 import datetime
 import functools
@@ -27,34 +29,42 @@ import time
 from urllib.parse import urlparse, urlunparse
 from urllib.request import urlopen
 
+# Import from https://pypi.org/
+
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
 import boto3
 import confluent_kafka
 import pika
-from azure.servicebus import ServiceBusClient, ServiceBusMessage
 
-# Import Senzing libraries.
+# Determine "Major" version of Senzing.
+
+senzing_version_major = 3
+
+# Import from Senzing.
+
 try:
-    pass
-    # import G2Exception
-    # from G2Config import G2Config
-    # from G2ConfigMgr import G2ConfigMgr
-    # from G2Diagnostic import G2Diagnostic
-    # from G2Engine import G2Engine
-    # from G2Product import G2Product
-except ImportError:
-    pass
+    from senzing import G2Config, G2ConfigMgr, G2Diagnostic, G2Engine, G2Exception, G2Product
+except:
 
-from senzing.G2Exception import G2Exception
-from senzing.G2Config import G2Config
-from senzing.G2ConfigMgr import G2ConfigMgr
-from senzing.G2Diagnostic import G2Diagnostic
-from senzing.G2Engine import G2Engine
-from senzing.G2Product import G2Product
+    # Fall back to pre-Senzing-Python-SDK style of imports.
+
+    try:
+        import G2Config
+        import G2ConfigMgr
+        import G2Diagnostic
+        import G2Engine
+        import G2Exception
+        import G2Product
+        senzing_version_major = 2
+    except:
+        senzing_version_major = 0
+
+# Metadata
 
 __all__ = []
-__version__ = "1.9.x"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.9.5"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2021-11-03'
+__updated__ = '2022-02-24'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -173,10 +183,20 @@ configuration_locator = {
         "env": "SENZING_KAFKA_BOOTSTRAP_SERVER",
         "cli": "kafka-bootstrap-server",
     },
+    "kafka_configuration": {
+        "default": None,
+        "env": "SENZING_KAFKA_CONFIGURATION",
+        "cli": "kafka-configuration",
+    },
     "kafka_failure_bootstrap_server": {
         "default": None,
         "env": "SENZING_KAFKA_FAILURE_BOOTSTRAP_SERVER",
         "cli": "kafka-failure-bootstrap-server",
+    },
+    "kafka_failure_configuration": {
+        "default": None,
+        "env": "SENZING_KAFKA_FAILURE_CONFIGURATION",
+        "cli": "kafka-failure-configuration",
     },
     "kafka_failure_topic": {
         "default": "senzing-kafka-failure-topic",
@@ -192,6 +212,11 @@ configuration_locator = {
         "default": None,
         "env": "SENZING_KAFKA_INFO_BOOTSTRAP_SERVER",
         "cli": "kafka-info-bootstrap-server",
+    },
+    "kafka_info_configuration": {
+        "default": None,
+        "env": "SENZING_KAFKA_INFO_CONFIGURATION",
+        "cli": "kafka-info-configuration",
     },
     "kafka_info_topic": {
         "default": "senzing-kafka-info-topic",
@@ -519,6 +544,11 @@ def get_parser():
                     "metavar": "SENZING_KAFKA_FAILURE_BOOTSTRAP_SERVER",
                     "help": "Kafka bootstrap server. Default: SENZING_KAFKA_BOOTSTRAP_SERVER"
                 },
+                "--kafka-failure-configuration": {
+                    "dest": "kafka_failure_configuration",
+                    "metavar": "SENZING_KAFKA_FAILURE_CONFIGURATION",
+                    "help": "A JSON string with extra configuration parameters for Kafka failure service. Default: none"
+                },
                 "--kafka-failure-topic": {
                     "dest": "kafka_failure_topic",
                     "metavar": "SENZING_KAFKA_FAILURE_TOPIC",
@@ -528,6 +558,11 @@ def get_parser():
                     "dest": "kafka_info_bootstrap_server",
                     "metavar": "SENZING_KAFKA_INFO_BOOTSTRAP_SERVER",
                     "help": "Kafka bootstrap server. Default: SENZING_KAFKA_BOOTSTRAP_SERVER"
+                },
+                "--kafka-info-configuration": {
+                    "dest": "kafka_info_configuration",
+                    "metavar": "SENZING_KAFKA_INFO_CONFIGURATION",
+                    "help": "A JSON string with extra configuration parameters for Kafka info service. Default: none"
                 },
                 "--kafka-info-topic": {
                     "dest": "kafka_info_topic",
@@ -749,6 +784,11 @@ def get_parser():
                 "metavar": "SENZING_KAFKA_GROUP",
                 "help": "Kafka group. Default: senzing-kafka-group"
             },
+            "--kafka-configuration": {
+                "dest": "kafka_configuration",
+                "metavar": "SENZING_KAFKA_CONFIGURATION",
+                "help": "A JSON string with extra configuration parameters. Default: none"
+            },
             "--kafka-topic": {
                 "dest": "kafka_topic",
                 "metavar": "SENZING_KAFKA_TOPIC",
@@ -837,7 +877,7 @@ def get_parser():
                 for argument, argument_value in arguments.items():
                     subcommands[subcommand]['arguments'][argument] = argument_value
 
-    parser = argparse.ArgumentParser(prog="stream-loader.py", description="Initialize Senzing installation. For more information, see https://github.com/Senzing/stream-loader")
+    parser = argparse.ArgumentParser(prog="stream-loader.py", description="Initialize Senzing installation. For subcommand help, run 'stream-loader.py <subcommand> --help' For more information, see https://github.com/Senzing/stream-loader")
     subparsers = parser.add_subparsers(dest='subcommand', help='Subcommands (SENZING_SUBCOMMAND):')
 
     for subcommand_key, subcommand_values in subcommands.items():
@@ -1000,6 +1040,7 @@ message_dictionary = {
     "911": "Adding JSON to failure queue: {0}",
     "920": "gdb STDOUT: {0}",
     "921": "gdb STDERR: {0}",
+    "930": "Kafka configuration for {0}: {1}",
     "950": "Enter function: {0}",
     "951": "Exit  function: {0}",
     "998": "Debugging enabled.",
@@ -1215,6 +1256,7 @@ def get_configuration(args):
 
     result['program_version'] = __version__
     result['program_updated'] = __updated__
+    result['senzing_version_major'] = senzing_version_major
 
     # Add "run_as" information.
 
@@ -1397,10 +1439,11 @@ class WriteG2Thread(threading.Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         threading.Thread.__init__(self)
         self.config = config
-        self.g2_engine = g2_engine
         self.g2_configuration_manager = g2_configuration_manager
+        self.g2_engine = g2_engine
         self.governor = governor
         self.info_filter = InfoFilter(g2_engine=g2_engine)
+        self.senzing_version_major = config.get('senzing_version_major')
         self.stream_loader_directive_name = config.get('stream_loader_directive_name')
 
     def add_to_failure_queue(self, jsonline):
@@ -1475,7 +1518,10 @@ class WriteG2Thread(threading.Thread):
 
         # Apply new configuration to g2_engine.
 
-        self.g2_engine.reinitV2(default_config_id)
+        if self.senzing_version_major <= 2:
+            self.g2_engine.reinitV2(default_config_id)
+        else:
+            self.g2_engine.reinit(default_config_id)
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_addRecord(self, message_metadata, message_dict):
@@ -1772,7 +1818,6 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
 
                         self.receiver.complete_message(queue_message)
 
-
 # -----------------------------------------------------------------------------
 # Class: ReadSqsWriteG2WithInfoThread
 # -----------------------------------------------------------------------------
@@ -1849,6 +1894,25 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
 
+    def get_kafka_consumer_configuration(self):
+
+        # Default configuration parameters.
+
+        result = {
+            'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
+            'group.id': self.config.get("kafka_group"),
+            'enable.auto.commit': False,
+            'auto.offset.reset': 'earliest'
+        }
+
+        # Extra Kafka configuration parameters.
+
+        kafka_configuration = self.config.get('kafka_configuration')
+        if kafka_configuration:
+            result.update(json.loads(kafka_configuration))
+
+        return result
+
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
 
@@ -1856,13 +1920,9 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
         # Create Kafka client.
 
-        consumer_configuration = {
-            'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
-            'group.id': self.config.get("kafka_group"),
-            'enable.auto.commit': False,
-            'auto.offset.reset': 'earliest'
-            }
-        consumer = confluent_kafka.Consumer(consumer_configuration)
+        kafka_consumer_configuration = self.get_kafka_consumer_configuration()
+        logging.debug(message_debug(930, 'ReadKafkaWriteG2Thread', kafka_consumer_configuration))
+        consumer = confluent_kafka.Consumer(kafka_consumer_configuration)
         consumer.subscribe([self.config.get("kafka_topic")])
 
         # Data to be inserted into messages.
@@ -2011,6 +2071,62 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         except Exception as err:
             logging.warning(message_warning(407, self.info_topic, err, jsonline))
 
+    def get_kafka_consumer_configuration(self):
+        '''Construct configuration for Kafka reader.'''
+
+        # Default configuration parameters.
+
+        result = {
+            'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
+            'group.id': self.config.get("kafka_group"),
+            'enable.auto.commit': False,
+            'auto.offset.reset': 'earliest'
+        }
+
+        # Extra Kafka configuration parameters.
+
+        kafka_configuration = self.config.get('kafka_configuration')
+        if kafka_configuration:
+            result.update(json.loads(kafka_configuration))
+
+        return result
+
+    def get_kafka_info_producer_configuration(self):
+        '''Construct configuration for Kafka writer for info queue.'''
+
+        # Default configuration parameters.
+
+        result = {
+            'bootstrap.servers': self.config.get('kafka_info_bootstrap_server')
+        }
+
+        # Extra Kafka configuration parameters.
+
+        kafka_configuration = self.config.get('kafka_info_configuration')
+        if kafka_configuration:
+            result.update(json.loads(kafka_configuration))
+
+        return result
+
+    def get_kafka_failure_producer_configuration(self):
+        '''Construct configuration for Kafka writer for failure queue.'''
+
+        # Default configuration parameters.
+
+        result = {
+            'bootstrap.servers': self.config.get('kafka_failure_bootstrap_server')
+        }
+
+        # TLS parameters. FIXME:
+
+        # Extra Kafka configuration parameters.
+
+        kafka_configuration = self.config.get('kafka_failure_configuration')
+        if kafka_configuration:
+            result.update(json.loads(kafka_configuration))
+
+        return result
+
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
 
@@ -2018,27 +2134,21 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
         # Create Kafka client.
 
-        consumer_configuration = {
-            'bootstrap.servers': self.config.get('kafka_bootstrap_server'),
-            'group.id': self.config.get("kafka_group"),
-            'enable.auto.commit': False,
-            'auto.offset.reset': 'earliest'
-            }
-        consumer = confluent_kafka.Consumer(consumer_configuration)
+        kafka_consumer_configuration = self.get_kafka_consumer_configuration()
+        logging.debug(message_debug(930, 'ReadKafkaWriteG2WithInfoThread.consumer', kafka_consumer_configuration))
+        consumer = confluent_kafka.Consumer(kafka_consumer_configuration)
         consumer.subscribe([self.config.get("kafka_topic")])
 
         # Create Kafka Producer for "info".
 
-        kafka_info_producer_configuration = {
-            'bootstrap.servers': self.config.get('kafka_info_bootstrap_server')
-        }
+        kafka_info_producer_configuration = self.get_kafka_info_producer_configuration()
+        logging.debug(message_debug(930, 'ReadKafkaWriteG2WithInfoThread.infoProducer', kafka_info_producer_configuration))
         self.info_producer = confluent_kafka.Producer(kafka_info_producer_configuration)
 
         # Create Kafka Producer for "failure".
 
-        kafka_failure_producer_configuration = {
-            'bootstrap.servers': self.config.get('kafka_failure_bootstrap_server')
-        }
+        kafka_failure_producer_configuration = self.get_kafka_failure_producer_configuration()
+        logging.debug(message_debug(930, 'ReadKafkaWriteG2WithInfoThread.failureProducer', kafka_failure_producer_configuration))
         self.failure_producer = confluent_kafka.Producer(kafka_failure_producer_configuration)
 
         # Data to be inserted into messages.
@@ -2329,7 +2439,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
-            self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)
+            self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)[1]
 
         return result
 
@@ -2365,7 +2475,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
             # sleep to give the broker time to come back
             time.sleep(retry_delay)
-            self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)
+            self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)[1]
 
     def callback(self, _channel, method, _header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -3398,8 +3508,11 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
-        result = G2Config()
-        result.initV2(g2_config_name, g2_configuration_json, config.get('debug'))
+        result = G2Config.G2Config()
+        if config.get("senzing_version_major") <= 2:
+            result.initV2(g2_config_name, g2_configuration_json, config.get('debug'))
+        else:
+            result.init(g2_config_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(897, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3411,8 +3524,11 @@ def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
-        result = G2ConfigMgr()
-        result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
+        result = G2ConfigMgr.G2ConfigMgr()
+        if config.get("senzing_version_major") <= 2:
+            result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
+        else:
+            result.init(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(896, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3424,8 +3540,11 @@ def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
-        result = G2Diagnostic()
-        result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
+        result = G2Diagnostic.G2Diagnostic()
+        if config.get("senzing_version_major") <= 2:
+            result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
+        else:
+            result.init(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(894, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3437,10 +3556,13 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
-        result = G2Engine()
-        logging.debug(message_debug(950, "g2_engine.initV2()"))
-        result.initV2(g2_engine_name, g2_configuration_json, config.get('debug'))
-        logging.debug(message_debug(951, "g2_engine.initV2()"))
+        result = G2Engine.G2Engine()
+        logging.debug(message_debug(950, "g2_engine.init()"))
+        if config.get("senzing_version_major") <= 2:
+            result.initV2(g2_engine_name, g2_configuration_json, config.get('debug'))
+        else:
+            result.init(g2_engine_name, g2_configuration_json, config.get('debug'))
+        logging.debug(message_debug(951, "g2_engine.init()"))
         config['last_configuration_check'] = time.time()
     except G2Exception.G2ModuleException as err:
         exit_error(898, g2_configuration_json, err)
@@ -3461,8 +3583,11 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
-        result = G2Product()
-        result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
+        result = G2Product.G2Product()
+        if config.get("senzing_version_major") <= 2:
+            result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
+        else:
+            result.init(g2_product_name, g2_configuration_json, config.get('debug'))
     except G2Exception.G2ModuleException as err:
         exit_error(892, config.get('g2project_ini'), err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))

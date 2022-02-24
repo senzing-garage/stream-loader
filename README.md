@@ -495,10 +495,8 @@ see [Environment Variables](https://github.com/Senzing/knowledge-base/blob/maste
 
     ```console
     cd ${GIT_REPOSITORY_DIR}
-    sudo make docker-build
+    sudo --preserve-env make docker-build
     ```
-
-    Note: `sudo make docker-build-development-cache` can be used to create cached Docker layers.
 
 ## Examples
 

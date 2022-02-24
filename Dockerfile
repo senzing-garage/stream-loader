@@ -1,11 +1,51 @@
-ARG BASE_IMAGE=senzing/senzing-base:1.6.2
-FROM ${BASE_IMAGE}
+ARG BASE_IMAGE=debian:11.2-slim@sha256:4c25ffa6ef572cf0d57da8c634769a08ae94529f7de5be5587ec8ce7b9b50f9c
+FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2021-10-11
+ENV REFRESHED_AT=2022-02-09
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.9.1"
+      Version="1.9.6"
+
+# -----------------------------------------------------------------------------
+# Stage: builder
+# -----------------------------------------------------------------------------
+
+# Run as "root" for system installation.
+
+USER root
+
+RUN apt-get update \
+ && apt-get -y install \
+      libaio1 \
+      python3 \
+      python3-dev \
+      python3-pip \
+      python3-venv \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
+
+# Create and activate virtual environment.
+
+RUN python3 -m venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+# Install packages via PIP.
+
+COPY requirements.txt .
+RUN pip3 install --upgrade pip \
+ && pip3 install -r requirements.txt \
+ && rm /requirements.txt
+
+# -----------------------------------------------------------------------------
+# Stage: Final
+# -----------------------------------------------------------------------------
+
+FROM ${BASE_IMAGE} AS runner
+
+LABEL Name="senzing/stream-loader" \
+      Maintainer="support@senzing.com" \
+      Version="1.9.6"
 
 # Define health check
 
@@ -19,15 +59,15 @@ USER root
 
 RUN apt-get update \
  && apt-get -y install \
-    librdkafka-dev \
+      libaio1 \
+      librdkafka-dev \
+      libxml2 \
+      postgresql-client \
+      python3 \
+      python3-venv \
+      unixodbc \
+ && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
-
-# Install packages via PIP.
-
-COPY requirements.txt ./
-RUN pip3 install --upgrade pip \
- && pip3 install -r requirements.txt \
- && rm requirements.txt
 
 RUN pip3 install --index-url https://test.pypi.org/simple/ --no-deps senzing
 
@@ -36,13 +76,30 @@ RUN pip3 install --index-url https://test.pypi.org/simple/ --no-deps senzing
 COPY ./rootfs /
 COPY ./stream-loader.py /app/
 
+# Copy python virtual environment from the builder image.
+
+COPY --from=builder /app/venv /app/venv
+
 # Make non-root container.
 
 USER 1001
 
+# Make sure all messages always reach console.
+
+ENV PYTHONUNBUFFERED=1
+
+# Activate virtual environment.
+
+ENV VIRTUAL_ENV=/app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
 # Runtime execution.
 
 ENV SENZING_DOCKER_LAUNCHED=true
+ENV LD_LIBRARY_PATH=/opt/senzing/g2/lib:/opt/senzing/g2/lib/debian:/opt/IBM/db2/clidriver/lib
+ENV PATH=${PATH}:/opt/senzing/g2/python:/opt/IBM/db2/clidriver/adm:/opt/IBM/db2/clidriver/bin
+ENV PYTHONPATH=/opt/senzing/g2/python
+ENV SENZING_ETC_PATH=/etc/opt/senzing
 
 WORKDIR /app
 ENTRYPOINT ["/app/stream-loader.py"]

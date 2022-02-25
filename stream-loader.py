@@ -959,8 +959,6 @@ message_dictionary = {
     "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
     "221": "AWS SQS redrive: {0}",
-    "280": "Python SDK import level {0}",
-    "281": "Senzing Engine version: {0}",
     "292": "Configuration change detected.  Old: {0} New: {1}",
     "293": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "294": "Version: {0}  Updated: {1}",
@@ -4328,8 +4326,6 @@ if __name__ == "__main__":
 
     if not senzing_sdk_version_major:
         logging.warning(message_warning(879))
-    else:
-        logging.info(message_info(280, senzing_sdk_version_major))
 
     # Parse the command line arguments.
 

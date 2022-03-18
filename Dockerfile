@@ -1,19 +1,24 @@
 ARG BASE_IMAGE=debian:11.2-slim@sha256:4c25ffa6ef572cf0d57da8c634769a08ae94529f7de5be5587ec8ce7b9b50f9c
-FROM ${BASE_IMAGE} AS builder
-
-ENV REFRESHED_AT=2022-02-25
-
-LABEL Name="senzing/stream-loader" \
-      Maintainer="support@senzing.com" \
-      Version="1.9.8"
 
 # -----------------------------------------------------------------------------
 # Stage: builder
 # -----------------------------------------------------------------------------
 
+FROM ${BASE_IMAGE} AS builder
+
+# Set Shell to use for RUN commands in builder step.
+
+ENV REFRESHED_AT=2022-03-17
+
+LABEL Name="senzing/stream-loader" \
+      Maintainer="support@senzing.com" \
+      Version="1.9.9"
+
 # Run as "root" for system installation.
 
 USER root
+
+# Install packages via apt.
 
 RUN apt-get update \
  && apt-get -y install \
@@ -41,13 +46,17 @@ RUN pip3 install --upgrade pip \
 # Stage: Final
 # -----------------------------------------------------------------------------
 
+# Create the runtime image.
+
 FROM ${BASE_IMAGE} AS runner
+
+ENV REFRESHED_AT=2022-03-17
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.9.8"
+      Version="1.9.9"
 
-# Define health check
+# Define health check.
 
 HEALTHCHECK CMD ["/app/healthcheck.sh"]
 
@@ -61,6 +70,7 @@ RUN apt-get update \
  && apt-get -y install \
       libaio1 \
       librdkafka-dev \
+      libssl1.1 \
       libxml2 \
       postgresql-client \
       python3 \
@@ -82,22 +92,21 @@ COPY --from=builder /app/venv /app/venv
 
 USER 1001
 
-# Make sure all messages always reach console.
-
-ENV PYTHONUNBUFFERED=1
-
 # Activate virtual environment.
 
 ENV VIRTUAL_ENV=/app/venv
-ENV PATH="/app/venv/bin:$PATH"
+ENV PATH="/app/venv/bin:${PATH}"
 
-# Runtime execution.
+# Runtime environment variables.
 
-ENV SENZING_DOCKER_LAUNCHED=true
 ENV LD_LIBRARY_PATH=/opt/senzing/g2/lib:/opt/senzing/g2/lib/debian:/opt/IBM/db2/clidriver/lib
 ENV PATH=${PATH}:/opt/senzing/g2/python:/opt/IBM/db2/clidriver/adm:/opt/IBM/db2/clidriver/bin
 ENV PYTHONPATH=/opt/senzing/g2/python
+ENV PYTHONUNBUFFERED=1
+ENV SENZING_DOCKER_LAUNCHED=true
 ENV SENZING_ETC_PATH=/etc/opt/senzing
+
+# Runtime execution.
 
 WORKDIR /app
 ENTRYPOINT ["/app/stream-loader.py"]

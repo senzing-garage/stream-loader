@@ -66,7 +66,7 @@ except:
 __all__ = []
 __version__ = "1.9.9"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-03-16'
+__updated__ = '2022-03-23'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -979,7 +979,7 @@ message_dictionary = {
     "410": "RabbitMQ exchange: {0} Queue: {1} Routing key: {2} Unknown RabbitMQ error when connecting and declaring RabbitMQ entities: {3}.",
     "411": "RabbitMQ exchange: {0} Routing key {1} Unknown RabbitMQ error: {2} Message: {3}",
     "412": "RabbitMQ exchange: {0} Queue: {1} Routing key: {2} Error: '{3}'. Could not connect to RabbitMQ host at {4}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
-    "413": "SQS queue: {0} Unknown SQS error: {1} Message: {2}",
+    "413": "SQS queue: {0} Unknown SQS error: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
     "414": "The exchange {0} and/or the queue {1} exist but are configured with different parameters. Set rabbitmq-use-existing-entities to True to connect to the preconfigured exchange and queue, or delete the existing exchange and queue and try again.",
     "415": "The exchange {0} and/or the queue {1} do not exist. Create them, or set rabbitmq-use-existing-entities to False to have stream-loader create them.",
     "416": "Candidate for SQS dead-letter queue: {0}",
@@ -1040,7 +1040,7 @@ message_dictionary = {
     "903": "Thread: {0} queued: {1}",
     "904": "Thread: {0} processed: {1}",
     "910": "Adding JSON to info queue: {0}",
-    "911": "Adding JSON to failure queue: {0}",
+    "911": "Adding JSON to failure queue: DATA_SOURCE: {0}; RECORD_ID: {1}",
     "920": "gdb STDOUT: {0}",
     "921": "gdb STDERR: {0}",
     "930": "Kafka configuration for {0}: {1}",
@@ -1461,8 +1461,23 @@ class WriteG2Thread(threading.Thread):
         logging.info(message_info(128, jsonline))
         return True
 
-    def extract_primary_key(self, message_dict):
+    def extract_primary_key(self, message):
         '''Extract compound primary key.'''
+
+        # Create dictionary.
+
+        message_dict = {
+            "DATA_SOURCE": "unparsable",
+            "RECORD_ID": "unparsable"
+        }
+        try:
+            if isinstance(message, dict):
+                message_dict = message
+            elif isinstance(message, str):
+                message_dict = json.dumps(message)
+        except:
+            pass
+
         data_source = str(message_dict.get('DATA_SOURCE', self.config.get("data_source")))
         record_id = message_dict.get('RECORD_ID')
         if record_id is not None:
@@ -1701,11 +1716,11 @@ class WriteG2Thread(threading.Thread):
                 try:
                     method_to_call(senzing_stream_loader_value, json_dictionary)
                 except Exception as err:
-                    logging.error(message_error(890, err, jsonline))
+                    logging.error(message_error(890, err, *self.extract_primary_key(jsonline)))
                     self.add_to_failure_queue(str(jsonline))
                     result = False
             else:
-                logging.error(message_error(890, err, jsonline))
+                logging.error(message_error(890, err, *self.extract_primary_key(jsonline)))
                 self.add_to_failure_queue(str(jsonline))
                 result = False
 
@@ -1757,10 +1772,10 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
             try:
                 service_bus_message = ServiceBusMessage(jsonline)
                 self.failure_sender.send_messages(service_bus_message)
-                logging.info(message_info(911, jsonline))
+                logging.info(message_info(911, *self.extract_primary_key(jsonline)))
             except Exception as err:
                 result = False
-                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
+                logging.warning(message_warning(413, self.failure_queue_url, err, *self.extract_primary_key(jsonline)))
         else:
             logging.info(message_info(221, jsonline))
         return result
@@ -2042,19 +2057,19 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         result = True
         try:
             self.failure_producer.produce(self.failure_topic, jsonline, on_delivery=self.on_kafka_delivery)
-            logging.info(message_info(911, jsonline))
+            logging.info(message_info(911, *self.extract_primary_key(jsonline)))
         except BufferError as err:
             result = False
-            logging.warning(message_warning(404, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(404, self.failure_topic, err, *self.extract_primary_key(jsonline)))
         except KafkaException as err:
             result = False
-            logging.warning(message_warning(405, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(405, self.failure_topic, err, *self.extract_primary_key(jsonline)))
         except NotImplementedError as err:
             result = False
-            logging.warning(message_warning(406, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(406, self.failure_topic, err, *self.extract_primary_key(jsonline)))
         except Exception as err:
             result = False
-            logging.warning(message_warning(407, self.failure_topic, err, jsonline))
+            logging.warning(message_warning(407, self.failure_topic, err, *self.extract_primary_key(jsonline)))
 
         return result
 
@@ -2426,7 +2441,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                         delivery_mode=2
                     )
                 )  # make message persistent
-                logging.debug(message_debug(911, jsonline))
+                logging.debug(message_debug(911, *self.extract_primary_key(jsonline)))
 
                 # publish was successful so break out of rety loop
                 break
@@ -2713,10 +2728,10 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                     MessageAttributes={},
                     MessageBody=(jsonline),
                 )
-                logging.info(message_info(911, jsonline))
+                logging.info(message_info(911, *self.extract_primary_key(jsonline)))
             except Exception as err:
                 result = False
-                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
+                logging.warning(message_warning(413, self.failure_queue_url, err, *self.extract_primary_key(jsonline)))
         elif self.sqs_dead_letter_queue_enabled:
             result = False
             logging.warning(message_warning(416, jsonline))
@@ -2868,10 +2883,10 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                     MessageAttributes={},
                     MessageBody=(jsonline),
                 )
-                logging.info(message_info(911, jsonline))
+                logging.info(message_info(911, *self.extract_primary_key(jsonline)))
             except Exception as err:
                 result = False
-                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
+                logging.warning(message_warning(413, self.failure_queue_url, err, *self.extract_primary_key(jsonline)))
         elif self.sqs_dead_letter_queue_enabled:
             result = False
             logging.warning(message_warning(416, jsonline))
@@ -2893,7 +2908,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             )
             logging.debug(message_debug(910, jsonline))
         except Exception as err:
-            logging.warning(message_warning(413, self.info_queue_url, err, jsonline))
+            logging.warning(message_warning(413, self.info_queue_url, err, *self.extract_primary_key(jsonline)))
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''

@@ -1452,7 +1452,7 @@ class WriteG2Thread(threading.Thread):
             if isinstance(message, dict):
                 message_dict = message
             elif isinstance(message, str):
-                message_dict = json.dumps(message)
+                message_dict = json.loads(message)
         except:
             pass
 
@@ -1820,33 +1820,32 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
+        self.connection_string = config.get("azure_connection_string")
         self.data_source = self.config.get('data_source')
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
-        self.failure_queue_url = config.get("sqs_failure_queue_url")
-        self.info_queue_url = config.get("sqs_info_queue_url")
-        self.info_queue_delay_seconds = config.get("sqs_info_queue_delay_seconds")
-        self.queue_url = config.get("sqs_queue_url")
-        self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
+        self.failure_connection_string = config.get("azure_failure_connection_string")
+        self.failure_queue_enabled = False
+        self.failure_queue_name = config.get("azure_failure_queue_name")
+        self.info_connection_string = config.get("azure_info_connection_string")
+        self.info_queue_enabled = False
+        self.info_queue_name = config.get("azure_info_queue_name")
+        self.queue_name = config.get("azure_queue_name")
 
-        # Create sqs object.
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sqs.html
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html
+        # Create objects.
 
-        regular_expression = "^([^/]+://[^/]+)/"
-        regex = re.compile(regular_expression)
-        match = regex.match(self.queue_url)
-        if not match:
-            exit_error(750, self.queue_url)
-        endpoint_url = match.group(1)
-        self.sqs = boto3.client("sqs", endpoint_url=endpoint_url)
+        self.servicebus_client = ServiceBusClient.from_connection_string(self.connection_string)
+        self.receiver = self.servicebus_client.get_queue_receiver(queue_name=self.queue_name)
 
-        # See if there is a dead letter queue and set sqs_dead_letter_queue_enabled accordingly
+        if self.failure_connection_string and self.failure_queue_name:
+            self.failure_queue_enabled = True
+            self.failure_servicebus_client = ServiceBusClient.from_connection_string(self.failure_connection_string)
+            self.failure_sender = self.servicebus_client.get_queue_sender(queue_name=self.failure_queue_name)
 
-        response = self.sqs.get_queue_attributes(QueueUrl=self.queue_url, AttributeNames=['RedrivePolicy'])
-        self.sqs_dead_letter_queue_enabled = 'Attributes' in response.keys() and 'RedrivePolicy' in response['Attributes'].keys()
-        if self.sqs_dead_letter_queue_enabled:
-            logging.info(message_info(221, response['Attributes']['RedrivePolicy']))
+        if self.info_connection_string and self.info_queue_name:
+            self.info_queue_enabled = True
+            self.info_servicebus_client = ServiceBusClient.from_connection_string(self.info_connection_string)
+            self.info_sender = self.servicebus_client.get_queue_sender(queue_name=self.info_queue_name)
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -1867,6 +1866,26 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
                 result = False
         else:
             logging.info(message_info(121, jsonline))
+
+        return result
+
+    def add_to_info_queue(self, jsonline):
+        '''
+        Overwrite superclass method.
+        Returns true if actually sent to failure queue.
+        '''
+
+        result = True
+
+        if self.info_queue_enabled:
+            try:
+                service_bus_message = ServiceBusMessage(jsonline)
+                self.info_sender.send_messages(service_bus_message)
+            except Exception as err:
+                logging.error(message_error(751, *self.extract_primary_key(jsonline)))
+                result = False
+        else:
+            logging.info(message_info(128, jsonline))
 
         return result
 
@@ -1914,7 +1933,7 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
 
                     # Send valid JSON to Senzing.
 
-                    if self.send_jsonline_to_g2_engine(message_string):
+                    if self.send_jsonline_to_g2_engine_withinfo(message_string):
 
                         # Record successful transfer to Senzing.
 

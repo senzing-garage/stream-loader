@@ -966,10 +966,10 @@ message_dictionary = {
     "299": "{0}",
     "300": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}W",
     "404": "Kafka topic: {0}; BufferError: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
-    "405": "Kafka topic: {0} KafkaException: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
-    "406": "Kafka topic: {0} NotImplemented: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
-    "407": "Kafka topic: {0} Unknown error: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
-    "408": "Kafka topic: {0}; Message: {1}; Error: {2}; Error: {3}",
+    "405": "Kafka topic: {0}; KafkaException: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
+    "406": "Kafka topic: {0}; NotImplemented: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
+    "407": "Kafka topic: {0}; Unknown error: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
+    "408": "Kafka topic: {0}; DATA_SOURCE: {1}; RECORD_ID: {2}; Error: {3}; Error: {4}",
     "412": "RabbitMQ exchange: {0} Queue: {1} Routing key: {2} Error: '{3}'. Could not connect to RabbitMQ host at {4}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
     "413": "SQS queue: {0} Unknown SQS error: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
     "417": "RabbitMQ exchange: {0} routing key {1}: Lost connection to server. Waiting {2} seconds and attempting to reconnect. Message: {3}",
@@ -996,7 +996,7 @@ message_dictionary = {
     "699": "{0}",
     "700": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "721": "Running low on workers.  May need to restart",
-    "722": "Kafka commit failed for {0} Error: {1}",
+    "722": "Kafka commit failed for DATA_SOURCE: {0}; RECORD_ID: {1}; Error: {2}",
     "723": "Kafka poll error: {0}",
     "727": "Could not do performance test. G2 module initialization error. Error: {0}",
     "728": "Could not do performance test. G2 generic exception. Error: {0}",
@@ -1751,6 +1751,9 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
             except Exception as err:
                 logging.error(message_error(751, *self.extract_primary_key(jsonline)))
                 result = False
+        else:
+            logging.info(message_info(121, jsonline))
+
         return result
 
     def run(self):
@@ -1862,6 +1865,9 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
             except Exception as err:
                 logging.error(message_error(751, *self.extract_primary_key(jsonline)))
                 result = False
+        else:
+            logging.info(message_info(121, jsonline))
+
         return result
 
     def run(self):
@@ -2061,7 +2067,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         message_error = message.error()
         logging.debug(message_debug(103, message_topic, message_value, message_error, error))
         if error is not None:
-            logging.warning(message_warning(408, message_topic, message_value, message_error, error))
+            logging.warning(message_warning(408, message_topic, *self.extract_primary_key(message_value), message_error, error))
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -2229,7 +2235,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
                     try:
                         consumer.commit()
                     except Exception as err:
-                        logging.error(message_error(722, kafka_message_string, err))
+                        logging.error(message_error(722, *self.extract_primary_key(kafka_message_string), err))
                 continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
@@ -2261,7 +2267,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             try:
                 consumer.commit()
             except Exception as err:
-                logging.error(message_error(722, kafka_message_string, err))
+                logging.error(message_error(722, *self.extract_primary_key(kafka_message_string), err))
 
         consumer.close()
 
@@ -2496,21 +2502,25 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                         delivery_mode=2
                     )
                 )  # make message persistent
+
                 logging.debug(message_debug(910, jsonline))
 
-                # publish was successful so break out of rety loop
+                # Publish was successful so break out of retry loop.
+
                 break
             except pika.exceptions.StreamLostError as err:
                 logging.warning(message_warning(417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
 
-                # if we are out of retries, exit
+                # If we are out of retries, exit.
+
                 if retries_remaining == 0:
                     exit_error(message_error(418, self.config.get("rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
                 retries_remaining = retries_remaining - 1
             except Exception as err:
                 exit_error(880, err, "info_channel.basic_publish().")
 
-            # sleep to give the broker time to come back
+            # Sleep to give the broker time to come back.
+
             time.sleep(retry_delay)
             self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)[1]
 
@@ -2521,7 +2531,8 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         self.govern()
 
-        # Put record in queue to be processed later. This allows this thread to return to the RabbitMQ IOLoop and prevents heartbeat timeouts
+        # Put record in queue to be processed later. This allows this thread to return to the RabbitMQ IOLoop and prevents heartbeat timeouts.
+
         self.record_queue.put((method.delivery_tag, body))
 
     def worker(self):

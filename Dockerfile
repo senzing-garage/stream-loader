@@ -6,13 +6,11 @@ ARG BASE_IMAGE=debian:11.2-slim@sha256:4c25ffa6ef572cf0d57da8c634769a08ae94529f7
 
 FROM ${BASE_IMAGE} AS builder
 
-# Set Shell to use for RUN commands in builder step.
-
-ENV REFRESHED_AT=2022-03-17
+ENV REFRESHED_AT=2022-03-24
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.9.9"
+      Version="1.9.10"
 
 # Run as "root" for system installation.
 
@@ -50,11 +48,11 @@ RUN pip3 install --upgrade pip \
 
 FROM ${BASE_IMAGE} AS runner
 
-ENV REFRESHED_AT=2022-03-17
+ENV REFRESHED_AT=2022-03-24
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.9.9"
+      Version="1.9.10"
 
 # Define health check.
 

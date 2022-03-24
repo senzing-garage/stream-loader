@@ -66,7 +66,7 @@ except:
 __all__ = []
 __version__ = "1.9.9"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-03-16'
+__updated__ = '2022-03-24'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -912,14 +912,13 @@ message_dictionary = {
     "103": "Kafka topic: {0}; message: {1}; error: {2}; error: {3}",
     "119": "Thread: {0} Sleeping for randomized delay of {1} seconds.",
     "120": "Thread: {0} Sleeping for requested delay of {1} seconds.",
-    "121": "Adding JSON to failure queue: {0}",
+    "121": "Failure queue: {0}",
     "122": "Quitting time!  Error: {0}",
     "123": "Total     memory: {0:>15} bytes",
     "124": "Available memory: {0:>15} bytes",
     "125": "G2 engine statistics: {0}",
-    "126": "G2 project statistics: {0}",
     "127": "Monitor: {0}",
-    "128": "Adding JSON to info queue: {0}",
+    "128": "Info queue: {0}",
     "129": "{0} is running.",
     "130": "RabbitMQ channel closed by the broker. Thread {0}. Error: {1}",
     "131": "RabbitMQ connection closed by the broker. Thread {0}. Error: {1}",
@@ -939,8 +938,6 @@ message_dictionary = {
     "150": "Insertion test: {0} records inserted in {1}ms with an average of {2:.2f}ms per insert.",
     "151": "For database tuning help, see: https://senzing.zendesk.com/hc/en-us/sections/360000386433-Technical-Database",
     "152": "Sleeping {0} seconds before deploying administrative threads.",
-    "153": "Created datasource {0}. Return code: {1}",
-    "154": "Sleeping for a requested {0} seconds before exiting.",
     "160": "{0} LICENSE {0}",
     "161": "          Version: {0} ({1})",
     "162": "         Customer: {0}",
@@ -951,12 +948,12 @@ message_dictionary = {
     "167": "         Contract: {0}",
     "168": "  Expiration time: EXPIRED {0} days ago",
     "169": "G2 loaded in {0:>5.0f} seconds",
+    "170": "Adding JSON to failure queue: DATA_SOURCE: {0}; RECORD_ID: {1}",
     "180": "User-supplied Governor loaded from {0}.",
     "181": "User-supplied InfoFilter loaded from {0}.",
     "190": "Thread: {0} AWS SQS Long-polling: No messages from {1}",
     "191": "Thread: {0} Exiting. No messages from {1}.",
     "201": "Python 'psutil' not installed. Could not report memory. Error: {0}",
-    "202": "Non-fatal exception on Line {0}: {1} Error: {2}",
     "203": "          WARNING: License will expire soon. Only {0} days left.",
     "221": "AWS SQS redrive: {0}",
     "292": "Configuration change detected.  Old: {0} New: {1}",
@@ -968,21 +965,13 @@ message_dictionary = {
     "298": "Exit {0}",
     "299": "{0}",
     "300": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}W",
-    "401": "Failure queue not open.  Could not add: {0}",
-    "402": "Info queue not open.  Could not add: {0}",
-    "403": "Bad file protocol in --input-file-name: {0}.",
-    "404": "Kafka topic: {0} BufferError: {1} Message: {2}",
-    "405": "Kafka topic: {0} KafkaException: {1} Message: {2}",
-    "406": "Kafka topic: {0} NotImplemented: {1} Message: {2}",
-    "407": "Kafka topic: {0} Unknown error: {1} Message: {2}",
-    "408": "Kafka topic: {0}; Message: {1}; Error: {2}; Error: {3}",
-    "410": "RabbitMQ exchange: {0} Queue: {1} Routing key: {2} Unknown RabbitMQ error when connecting and declaring RabbitMQ entities: {3}.",
-    "411": "RabbitMQ exchange: {0} Routing key {1} Unknown RabbitMQ error: {2} Message: {3}",
+    "404": "Kafka topic: {0}; BufferError: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
+    "405": "Kafka topic: {0}; KafkaException: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
+    "406": "Kafka topic: {0}; NotImplemented: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
+    "407": "Kafka topic: {0}; Unknown error: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
+    "408": "Kafka topic: {0}; DATA_SOURCE: {1}; RECORD_ID: {2}; Error: {3}; Error: {4}",
     "412": "RabbitMQ exchange: {0} Queue: {1} Routing key: {2} Error: '{3}'. Could not connect to RabbitMQ host at {4}. The host name maybe wrong, it may not be ready, or your credentials are incorrect. See the RabbitMQ log for more details.",
-    "413": "SQS queue: {0} Unknown SQS error: {1} Message: {2}",
-    "414": "The exchange {0} and/or the queue {1} exist but are configured with different parameters. Set rabbitmq-use-existing-entities to True to connect to the preconfigured exchange and queue, or delete the existing exchange and queue and try again.",
-    "415": "The exchange {0} and/or the queue {1} do not exist. Create them, or set rabbitmq-use-existing-entities to False to have stream-loader create them.",
-    "416": "Candidate for SQS dead-letter queue: {0}",
+    "413": "SQS queue: {0} Unknown SQS error: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
     "417": "RabbitMQ exchange: {0} routing key {1}: Lost connection to server. Waiting {2} seconds and attempting to reconnect. Message: {3}",
     "418": "Exceeded the requested number of attempts ({0}) to reconnect to RabbitMQ broker at {1}:{2} with no success. Exiting.",
     "499": "{0}",
@@ -993,50 +982,41 @@ message_dictionary = {
     "554": "Running with less than the recommended total memory of {0} GiB.",
     "555": "Running with less than the recommended available memory of {0} GiB.",
     "556": "SENZING_KAFKA_BOOTSTRAP_SERVER not set. See ./stream-loader.py kafka --help.",
-    "557": "Invalid JSON received: {0} Error: {1}",
     "558": "LD_LIBRARY_PATH environment variable not set.",
     "559": "PYTHONPATH environment variable not set.",
-    "561": "Unknown RabbitMQ error when connecting: {0}.",
     "563": "Could not perform database performance test.",
     "564": "Database performance of {0:.2f}ms per insert is slower than the recommended minimum performance of {1:.2f}ms per insert",
     "565": "System has {0} cores which is less than the recommended minimum of {1} cores for this configuration.",
     "566": "System has {0:.1f} GB memory which is less than the recommended minimum of {1:.1f} GB memory",
     "567": "Postgresql database connection detected but no governor installed. Please install governor or run the senzing-init-container container. Connection strings: {0}",
-    "695": "Unknown database scheme '{0}' in database url '{1}'",
+    "568": "Original and new database URLs do not match. Original URL: {0}; Reconstructed URL: {1}",
     "696": "Bad SENZING_SUBCOMMAND: {0}.",
     "697": "No processing done.",
     "698": "Program terminated with error.",
     "699": "{0}",
     "700": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "721": "Running low on workers.  May need to restart",
-    "722": "Kafka commit failed for {0} Error: {1}",
+    "722": "Kafka commit failed for DATA_SOURCE: {0}; RECORD_ID: {1}; Error: {2}",
     "723": "Kafka poll error: {0}",
-    "726": "Could not do performance test. G2 Translation error. Error: {0}",
     "727": "Could not do performance test. G2 module initialization error. Error: {0}",
     "728": "Could not do performance test. G2 generic exception. Error: {0}",
     "729": "Could not do performance test. Error: {0}",
     "730": "There are not enough safe characters to do the translation. Unsafe Characters: {0}; Safe Characters: {1}",
+    "731": "Unknown database scheme '{0}' in database url '{1}'",
     "750": "Invalid SQS URL config for {0}",
+    "751": "Unable to add record to failure queue.  DATA_SOURCE: {0}, RECORD_ID: {0}",
     "879": "Senzing SDK was not imported.",
     "880": "Unspecific error when {1}. Error: {0}",
     "881": "Could not G2Engine.primeEngine with '{0}'. Error: {1}",
     "885": "License has expired.",
-    "886": "G2Engine.addRecord() bad return code: {0}; JSON: {1}",
-    "888": "G2Engine.addRecord() G2ModuleNotInitialized: {0}; JSON: {1}",
-    "889": "G2Engine.addRecord() G2ModuleGenericException: {0}; JSON: {1}",
-    "890": "G2Engine.addRecord() Exception: {0}; JSON: {1}",
-    "891": "Original and new database URLs do not match. Original URL: {0}; Reconstructed URL: {1}",
     "892": "Could not initialize G2Product with '{0}'. Error: {1}",
-    "893": "Could not initialize G2Hasher with '{0}'. Error: {1}",
     "894": "Could not initialize G2Diagnostic with '{0}'. Error: {1}",
-    "895": "Could not initialize G2Audit with '{0}'. Error: {1}",
     "896": "Could not initialize G2ConfigMgr with '{0}'. Error: {1}",
     "897": "Could not initialize G2Config with '{0}'. Error: {1}",
     "898": "Could not initialize G2Engine with '{0}'. Error: {1}",
     "899": "{0}",
     "900": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}D",
     "901": "Queued: {0}",
-    "902": "Processed: {0}",
     "903": "Thread: {0} queued: {1}",
     "904": "Thread: {0} processed: {1}",
     "910": "Adding JSON to info queue: {0}",
@@ -1187,7 +1167,7 @@ def parse_database_url(original_senzing_database_url):
     ]
     test_senzing_database_url = urlunparse(url_parts)
     if test_senzing_database_url != original_senzing_database_url:
-        logging.warning(message_warning(891, original_senzing_database_url, test_senzing_database_url))
+        logging.warning(message_warning(568, original_senzing_database_url, test_senzing_database_url))
 
     # Return result.
 
@@ -1218,7 +1198,7 @@ def get_g2_database_url_specific(generic_database_url):
     elif scheme in ['mssql']:
         result = "{scheme}://{username}:{password}@{schema}".format(**parsed_database_url)
     else:
-        logging.error(message_error(695, scheme, generic_database_url))
+        logging.error(message_error(731, scheme, generic_database_url))
 
     return result
 
@@ -1451,18 +1431,31 @@ class WriteG2Thread(threading.Thread):
 
     def add_to_failure_queue(self, jsonline):
         '''Default behavior. This may be implemented in the subclass.'''
-        assert type(jsonline) == str
         logging.info(message_info(121, jsonline))
         return True
 
     def add_to_info_queue(self, jsonline):
         '''Default behavior. This may be implemented in the subclass.'''
-        assert type(jsonline) == str
         logging.info(message_info(128, jsonline))
         return True
 
-    def extract_primary_key(self, message_dict):
+    def extract_primary_key(self, message):
         '''Extract compound primary key.'''
+
+        # Create dictionary.
+
+        message_dict = {
+            "DATA_SOURCE": "unparsable",
+            "RECORD_ID": "unparsable"
+        }
+        try:
+            if isinstance(message, dict):
+                message_dict = message
+            elif isinstance(message, str):
+                message_dict = json.loads(message)
+        except:
+            pass
+
         data_source = str(message_dict.get('DATA_SOURCE', self.config.get("data_source")))
         record_id = message_dict.get('RECORD_ID')
         if record_id is not None:
@@ -1687,7 +1680,7 @@ class WriteG2Thread(threading.Thread):
 
         if method_name not in dir(self):
             logging.warning(message_warning(696, method_name))
-            self.add_to_failure_queue(str(jsonline))
+            self.add_to_failure_queue(jsonline)
             return False
 
         # Tricky code for calling method based on string.
@@ -1701,16 +1694,13 @@ class WriteG2Thread(threading.Thread):
                 try:
                     method_to_call(senzing_stream_loader_value, json_dictionary)
                 except Exception as err:
-                    logging.error(message_error(890, err, jsonline))
-                    self.add_to_failure_queue(str(jsonline))
+                    self.add_to_failure_queue(jsonline)
                     result = False
             else:
-                logging.error(message_error(890, err, jsonline))
-                self.add_to_failure_queue(str(jsonline))
+                self.add_to_failure_queue(jsonline)
                 result = False
 
         logging.debug(message_debug(904, threading.current_thread().name, jsonline))
-
         return result
 
     def send_jsonline_to_g2_engine_withinfo(self, jsonline, senzing_stream_loader_value_default={"action": 'addRecordWithInfo'}):
@@ -1751,18 +1741,19 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
         Support AWS SQS dead-letter queue.
         '''
 
+        logging.info(message_info(170, *self.extract_primary_key(jsonline)))
         result = True
-        assert type(jsonline) == str
+
         if self.failure_queue_enabled:
             try:
                 service_bus_message = ServiceBusMessage(jsonline)
                 self.failure_sender.send_messages(service_bus_message)
-                logging.info(message_info(911, jsonline))
             except Exception as err:
+                logging.error(message_error(751, *self.extract_primary_key(jsonline)))
                 result = False
-                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
         else:
-            logging.info(message_info(221, jsonline))
+            logging.info(message_info(121, jsonline))
+
         return result
 
     def run(self):
@@ -1785,7 +1776,6 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
                 try:
                     message_list = json.loads(str(queue_message))
                 except Exception as err:
-                    logging.info(message_debug(557, queue_message, err))
                     if self.add_to_failure_queue(queue_message):
                         self.receiver.complete_message(queue_message)
                     continue
@@ -1830,33 +1820,32 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
+        self.connection_string = config.get("azure_connection_string")
         self.data_source = self.config.get('data_source')
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
-        self.failure_queue_url = config.get("sqs_failure_queue_url")
-        self.info_queue_url = config.get("sqs_info_queue_url")
-        self.info_queue_delay_seconds = config.get("sqs_info_queue_delay_seconds")
-        self.queue_url = config.get("sqs_queue_url")
-        self.sqs_wait_time_seconds = config.get('sqs_wait_time_seconds')
+        self.failure_connection_string = config.get("azure_failure_connection_string")
+        self.failure_queue_enabled = False
+        self.failure_queue_name = config.get("azure_failure_queue_name")
+        self.info_connection_string = config.get("azure_info_connection_string")
+        self.info_queue_enabled = False
+        self.info_queue_name = config.get("azure_info_queue_name")
+        self.queue_name = config.get("azure_queue_name")
 
-        # Create sqs object.
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sqs.html
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html
+        # Create objects.
 
-        regular_expression = "^([^/]+://[^/]+)/"
-        regex = re.compile(regular_expression)
-        match = regex.match(self.queue_url)
-        if not match:
-            exit_error(750, self.queue_url)
-        endpoint_url = match.group(1)
-        self.sqs = boto3.client("sqs", endpoint_url=endpoint_url)
+        self.servicebus_client = ServiceBusClient.from_connection_string(self.connection_string)
+        self.receiver = self.servicebus_client.get_queue_receiver(queue_name=self.queue_name)
 
-        # See if there is a dead letter queue and set sqs_dead_letter_queue_enabled accordingly
+        if self.failure_connection_string and self.failure_queue_name:
+            self.failure_queue_enabled = True
+            self.failure_servicebus_client = ServiceBusClient.from_connection_string(self.failure_connection_string)
+            self.failure_sender = self.servicebus_client.get_queue_sender(queue_name=self.failure_queue_name)
 
-        response = self.sqs.get_queue_attributes(QueueUrl=self.queue_url, AttributeNames=['RedrivePolicy'])
-        self.sqs_dead_letter_queue_enabled = 'Attributes' in response.keys() and 'RedrivePolicy' in response['Attributes'].keys()
-        if self.sqs_dead_letter_queue_enabled:
-            logging.info(message_info(221, response['Attributes']['RedrivePolicy']))
+        if self.info_connection_string and self.info_queue_name:
+            self.info_queue_enabled = True
+            self.info_servicebus_client = ServiceBusClient.from_connection_string(self.info_connection_string)
+            self.info_sender = self.servicebus_client.get_queue_sender(queue_name=self.info_queue_name)
 
     def add_to_failure_queue(self, jsonline):
         '''
@@ -1865,27 +1854,95 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
         Support AWS SQS dead-letter queue.
         '''
 
+        logging.info(message_info(170, *self.extract_primary_key(jsonline)))
         result = True
+
+        if self.failure_queue_enabled:
+            try:
+                service_bus_message = ServiceBusMessage(jsonline)
+                self.failure_sender.send_messages(service_bus_message)
+            except Exception as err:
+                logging.error(message_error(751, *self.extract_primary_key(jsonline)))
+                result = False
+        else:
+            logging.info(message_info(121, jsonline))
+
         return result
 
     def add_to_info_queue(self, jsonline):
-        '''Overwrite superclass method.'''
-        pass
+        '''
+        Overwrite superclass method.
+        Returns true if actually sent to failure queue.
+        '''
+
+        result = True
+
+        if self.info_queue_enabled:
+            try:
+                service_bus_message = ServiceBusMessage(jsonline)
+                self.info_sender.send_messages(service_bus_message)
+            except Exception as err:
+                logging.error(message_error(751, *self.extract_primary_key(jsonline)))
+                result = False
+        else:
+            logging.info(message_info(128, jsonline))
+
+        return result
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
 
         logging.info(message_info(129, threading.current_thread().name))
 
-        # In a loop, get messages from Azure Queue.
+        # In a loop, get messages from AWS SQS.
 
         while True:
 
-            # Invoke Governor.
+            for queue_message in self.receiver:
 
-            self.govern()
+                # Invoke Governor.
 
-            # Get message from Azure queue.
+                self.govern()
+
+                # Verify that message is valid JSON.
+
+                try:
+                    message_list = json.loads(str(queue_message))
+                except Exception as err:
+                    if self.add_to_failure_queue(queue_message):
+                        self.receiver.complete_message(queue_message)
+                    continue
+
+                # Tricky code: If this is a dict, it's a single record. Make it an array for future processing.
+
+                if isinstance(message_list, dict):
+                    message_list = [message_list]
+
+                # Process each dictionary in list.
+
+                for message_dictionary in message_list:
+                    self.config['counter_queued_records'] += 1
+
+                    # If needed, modify JSON message.
+
+                    if 'DATA_SOURCE' not in message_dictionary:
+                        message_dictionary['DATA_SOURCE'] = self.data_source
+                    if 'ENTITY_TYPE' not in message_dictionary:
+                        message_dictionary['ENTITY_TYPE'] = self.entity_type
+                    message_string = json.dumps(message_dictionary, sort_keys=True)
+
+                    # Send valid JSON to Senzing.
+
+                    if self.send_jsonline_to_g2_engine_withinfo(message_string):
+
+                        # Record successful transfer to Senzing.
+
+                        self.config['counter_processed_records'] += 1
+
+                        # After importing into Senzing, tell Azure Queue we're done with message.
+                        # All the records are loaded or moved to the failure queue
+
+                        self.receiver.complete_message(queue_message)
 
 # -----------------------------------------------------------------------------
 # Class: ReadKafkaWriteG2Thread
@@ -1969,12 +2026,11 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
             try:
                 kafka_message_list = json.loads(kafka_message_string)
             except Exception as err:
-                logging.info(message_debug(557, kafka_message_string, err))
-                if self.add_to_failure_queue(str(kafka_message_string)):
+                if self.add_to_failure_queue(kafka_message_string):
                     try:
                         consumer.commit()
                     except Exception as err:
-                        logging.error(message_error(722, kafka_message_string, err))
+                        logging.error(message_error(722, *self.extract_primary_key(kafka_message_string), err))
                 continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
@@ -2006,7 +2062,7 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
             try:
                 consumer.commit()
             except Exception as err:
-                logging.error(message_error(722, kafka_message_string, err))
+                logging.error(message_error(722, *self.extract_primary_key(kafka_message_string), err))
 
         consumer.close()
 
@@ -2030,49 +2086,48 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         message_error = message.error()
         logging.debug(message_debug(103, message_topic, message_value, message_error, error))
         if error is not None:
-            logging.warning(message_warning(408, message_topic, message_value, message_error, error))
+            logging.warning(message_warning(408, message_topic, *self.extract_primary_key(message_value), message_error, error))
 
     def add_to_failure_queue(self, jsonline):
         '''
         Overwrite superclass method.
         Returns true if actually sent to failure queue.
         '''
-        assert type(jsonline) == str
 
+        logging.info(message_info(170, *self.extract_primary_key(jsonline)))
         result = True
+
         try:
             self.failure_producer.produce(self.failure_topic, jsonline, on_delivery=self.on_kafka_delivery)
-            logging.info(message_info(911, jsonline))
         except BufferError as err:
+            logging.warning(message_warning(404, self.failure_topic, err, *self.extract_primary_key(jsonline)))
             result = False
-            logging.warning(message_warning(404, self.failure_topic, err, jsonline))
         except KafkaException as err:
+            logging.warning(message_warning(405, self.failure_topic, err, *self.extract_primary_key(jsonline)))
             result = False
-            logging.warning(message_warning(405, self.failure_topic, err, jsonline))
         except NotImplementedError as err:
+            logging.warning(message_warning(406, self.failure_topic, err, *self.extract_primary_key(jsonline)))
             result = False
-            logging.warning(message_warning(406, self.failure_topic, err, jsonline))
         except Exception as err:
+            logging.warning(message_warning(407, self.failure_topic, err, *self.extract_primary_key(jsonline)))
             result = False
-            logging.warning(message_warning(407, self.failure_topic, err, jsonline))
 
         return result
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
-        assert type(jsonline) == str
 
         try:
             self.info_producer.produce(self.info_topic, jsonline, on_delivery=self.on_kafka_delivery)
             logging.debug(message_debug(910, jsonline))
         except BufferError as err:
-            logging.warning(message_warning(404, self.info_topic, err, jsonline))
+            logging.warning(message_warning(404, self.info_topic, err, *self.extract_primary_key(jsonline)))
         except KafkaException as err:
-            logging.warning(message_warning(405, self.info_topic, err, jsonline))
+            logging.warning(message_warning(405, self.info_topic, err, *self.extract_primary_key(jsonline)))
         except NotImplementedError as err:
-            logging.warning(message_warning(406, self.info_topic, err, jsonline))
+            logging.warning(message_warning(406, self.info_topic, err, *self.extract_primary_key(jsonline)))
         except Exception as err:
-            logging.warning(message_warning(407, self.info_topic, err, jsonline))
+            logging.warning(message_warning(407, self.info_topic, err, *self.extract_primary_key(jsonline)))
 
     def get_kafka_consumer_configuration(self):
         '''Construct configuration for Kafka reader.'''
@@ -2195,12 +2250,11 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             try:
                 kafka_message_list = json.loads(kafka_message_string)
             except Exception as err:
-                logging.info(message_debug(557, kafka_message_string, err))
-                if self.add_to_failure_queue(str(kafka_message_string)):
+                if self.add_to_failure_queue(kafka_message_string):
                     try:
                         consumer.commit()
                     except Exception as err:
-                        logging.error(message_error(722, kafka_message_string, err))
+                        logging.error(message_error(722, *self.extract_primary_key(kafka_message_string), err))
                 continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
@@ -2232,7 +2286,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             try:
                 consumer.commit()
             except Exception as err:
-                logging.error(message_error(722, kafka_message_string, err))
+                logging.error(message_error(722, *self.extract_primary_key(kafka_message_string), err))
 
         consumer.close()
 
@@ -2264,7 +2318,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             try:
                 rabbitmq_message_list = json.loads(message_str)
             except Exception as err:
-                logging.info(message_debug(557, message_str, err))
                 if self.add_to_failure_queue(message_str):
                     self.setup_ack(delivery_tag)
                 continue
@@ -2410,7 +2463,8 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
         Overwrite superclass method.
         Returns true if actually sent to failure queue.
         '''
-        assert type(jsonline) == str
+
+        logging.info(message_info(170, *self.extract_primary_key(jsonline)))
         result = True
 
         jsonline_bytes = jsonline.encode()
@@ -2428,19 +2482,24 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 )  # make message persistent
                 logging.debug(message_debug(911, jsonline))
 
-                # publish was successful so break out of rety loop
+                # Publish was successful so break out of retry loop.
+
                 break
             except pika.exceptions.StreamLostError as err:
                 logging.warning(message_warning(417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
 
-                # if we are out of retries, exit
+                # If we are out of retries, exit.
+
                 if retries_remaining == 0:
+                    logging.error(message_error(751, *self.extract_primary_key(jsonline)))
                     exit_error(message_error(418, self.config.get("rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
                 retries_remaining = retries_remaining - 1
             except Exception as err:
+                logging.error(message_error(751, *self.extract_primary_key(jsonline)))
                 exit_error(880, err, "failure_channel.basic_publish().")
 
-            # sleep to give the broker time to come back
+            # Sleep to give the broker time to come back.
+
             time.sleep(retry_delay)
             self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)[1]
 
@@ -2462,21 +2521,25 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                         delivery_mode=2
                     )
                 )  # make message persistent
+
                 logging.debug(message_debug(910, jsonline))
 
-                # publish was successful so break out of rety loop
+                # Publish was successful so break out of retry loop.
+
                 break
             except pika.exceptions.StreamLostError as err:
                 logging.warning(message_warning(417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
 
-                # if we are out of retries, exit
+                # If we are out of retries, exit.
+
                 if retries_remaining == 0:
                     exit_error(message_error(418, self.config.get("rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
                 retries_remaining = retries_remaining - 1
             except Exception as err:
                 exit_error(880, err, "info_channel.basic_publish().")
 
-            # sleep to give the broker time to come back
+            # Sleep to give the broker time to come back.
+
             time.sleep(retry_delay)
             self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)[1]
 
@@ -2487,7 +2550,8 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
         self.govern()
 
-        # Put record in queue to be processed later. This allows this thread to return to the RabbitMQ IOLoop and prevents heartbeat timeouts
+        # Put record in queue to be processed later. This allows this thread to return to the RabbitMQ IOLoop and prevents heartbeat timeouts.
+
         self.record_queue.put((method.delivery_tag, body))
 
     def worker(self):
@@ -2500,8 +2564,7 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             try:
                 rabbitmq_message_list = json.loads(message_str)
             except Exception as err:
-                logging.info(message_debug(557, message_str, err))
-                if self.add_to_failure_queue(str(message_str)):
+                if self.add_to_failure_queue(message_str):
                     self.setup_ack(delivery_tag)
                 return
 
@@ -2703,8 +2766,9 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
         Support AWS SQS dead-letter queue.
         '''
 
+        logging.info(message_info(170, *self.extract_primary_key(jsonline)))
         result = True
-        assert type(jsonline) == str
+
         if self.failure_queue_url:
             try:
                 self.sqs.send_message(
@@ -2713,15 +2777,13 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                     MessageAttributes={},
                     MessageBody=(jsonline),
                 )
-                logging.info(message_info(911, jsonline))
             except Exception as err:
+                logging.warning(message_warning(413, self.failure_queue_url, err, *self.extract_primary_key(jsonline)))
                 result = False
-                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
         elif self.sqs_dead_letter_queue_enabled:
             result = False
-            logging.warning(message_warning(416, jsonline))
         else:
-            logging.info(message_info(221, jsonline))
+            logging.info(message_info(121, jsonline))
         return result
 
     def run(self):
@@ -2774,8 +2836,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
             try:
                 sqs_message_list = json.loads(sqs_message_body)
             except Exception as err:
-                logging.info(message_debug(557, sqs_message_body, err))
-                if self.add_to_failure_queue(str(sqs_message_body)):
+                if self.add_to_failure_queue(sqs_message_body):
                     self.sqs.delete_message(
                         QueueUrl=self.queue_url,
                         ReceiptHandle=sqs_message_receipt_handle
@@ -2857,9 +2918,9 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
         Support AWS SQS dead-letter queue.
         '''
 
+        logging.info(message_info(170, *self.extract_primary_key(jsonline)))
         result = True
 
-        assert type(jsonline) == str
         if self.failure_queue_url:
             try:
                 self.sqs.send_message(
@@ -2868,16 +2929,13 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                     MessageAttributes={},
                     MessageBody=(jsonline),
                 )
-                logging.info(message_info(911, jsonline))
             except Exception as err:
+                logging.warning(message_warning(413, self.failure_queue_url, err, *self.extract_primary_key(jsonline)))
                 result = False
-                logging.warning(message_warning(413, self.failure_queue_url, err, jsonline))
         elif self.sqs_dead_letter_queue_enabled:
             result = False
-            logging.warning(message_warning(416, jsonline))
         else:
-            result = False
-            logging.info(message_info(221, jsonline))
+            logging.info(message_info(121, jsonline))
 
         return result
 
@@ -2893,7 +2951,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             )
             logging.debug(message_debug(910, jsonline))
         except Exception as err:
-            logging.warning(message_warning(413, self.info_queue_url, err, jsonline))
+            logging.warning(message_warning(413, self.info_queue_url, err, *self.extract_primary_key(jsonline)))
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -2945,8 +3003,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             try:
                 sqs_message_list = json.loads(sqs_message_body)
             except Exception as err:
-                logging.info(message_debug(557, sqs_message_body, err))
-                if self.add_to_failure_queue(str(sqs_message_body)):
+                if self.add_to_failure_queue(sqs_message_body):
                     self.sqs.delete_message(
                         QueueUrl=self.queue_url,
                         ReceiptHandle=sqs_message_receipt_handle

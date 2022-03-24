@@ -66,7 +66,7 @@ except:
 __all__ = []
 __version__ = "1.9.9"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-03-23'
+__updated__ = '2022-03-24'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -2479,19 +2479,24 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 )  # make message persistent
                 logging.debug(message_debug(911, jsonline))
 
-                # publish was successful so break out of rety loop
+                # Publish was successful so break out of retry loop.
+
                 break
             except pika.exceptions.StreamLostError as err:
                 logging.warning(message_warning(417, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key, retry_delay, err))
 
-                # if we are out of retries, exit
+                # If we are out of retries, exit.
+
                 if retries_remaining == 0:
+                    logging.error(message_error(751, *self.extract_primary_key(jsonline)))
                     exit_error(message_error(418, self.config.get("rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
                 retries_remaining = retries_remaining - 1
             except Exception as err:
+                logging.error(message_error(751, *self.extract_primary_key(jsonline)))
                 exit_error(880, err, "failure_channel.basic_publish().")
 
-            # sleep to give the broker time to come back
+            # Sleep to give the broker time to come back.
+
             time.sleep(retry_delay)
             self.failure_channel = self.connect(self.failure_credentials, self.rabbitmq_failure_host, self.rabbitmq_failure_port, self.rabbitmq_failure_virtual_host, self.rabbitmq_failure_queue, self.rabbitmq_heartbeat, self.rabbitmq_failure_exchange, self.rabbitmq_failure_routing_key)[1]
 
@@ -2765,8 +2770,8 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                     MessageBody=(jsonline),
                 )
             except Exception as err:
-                result = False
                 logging.warning(message_warning(413, self.failure_queue_url, err, *self.extract_primary_key(jsonline)))
+                result = False
         elif self.sqs_dead_letter_queue_enabled:
             result = False
         else:
@@ -2917,8 +2922,8 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                     MessageBody=(jsonline),
                 )
             except Exception as err:
-                result = False
                 logging.warning(message_warning(413, self.failure_queue_url, err, *self.extract_primary_key(jsonline)))
+                result = False
         elif self.sqs_dead_letter_queue_enabled:
             result = False
         else:

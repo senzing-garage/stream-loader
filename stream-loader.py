@@ -3573,7 +3573,7 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
         if config.get('senzing_sdk_version_major') == 2:
             result.init = result.initV2
 
-        # Initialize G2ConfigMgr.
+        # Initialize G2Config.
 
         result.init(g2_config_name, g2_configuration_json, config.get('debug'))
     except G2ModuleException as err:
@@ -3669,7 +3669,7 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
         if config.get('senzing_sdk_version_major') == 2:
             result.init = result.initV2
 
-        # Initialize G2Diagnostic.
+        # Initialize G2Product.
 
         result.init(g2_product_name, g2_configuration_json, config.get('debug'))
     except G2ModuleException as err:

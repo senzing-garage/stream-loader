@@ -3548,6 +3548,7 @@ def get_g2_configuration_dictionary(config):
 
 
 def get_g2_configuration_json(config):
+    ''' Return a JSON string with Senzing configuration. '''
     result = ""
     if config.get('engine_configuration_json'):
         result = config.get('engine_configuration_json')
@@ -3582,7 +3583,7 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
 
 
 def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G2-configuration-manager"):
-    '''Get the G2Config resource.'''
+    '''Get the G2ConfigMgr resource.'''
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)

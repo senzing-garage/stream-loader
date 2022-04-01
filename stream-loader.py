@@ -3571,6 +3571,7 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
 
         if config.get('senzing_sdk_version_major') == 2:
             result.init = result.initV2
+
         # Initialize G2ConfigMgr.
 
         result.init(g2_config_name, g2_configuration_json, config.get('debug'))

@@ -66,7 +66,7 @@ except:
 __all__ = []
 __version__ = "1.9.9"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-03-24'
+__updated__ = '2022-04-01'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -1514,10 +1514,7 @@ class WriteG2Thread(threading.Thread):
 
         # Apply new configuration to g2_engine.
 
-        if self.senzing_sdk_version_major == 2:
-            self.g2_engine.reinitV2(default_config_id)
-        else:
-            self.g2_engine.reinit(default_config_id)
+        self.g2_engine.reinit(default_config_id)
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_addRecord(self, message_metadata, message_dict):
@@ -3551,6 +3548,7 @@ def get_g2_configuration_dictionary(config):
 
 
 def get_g2_configuration_json(config):
+    ''' Return a JSON string with Senzing configuration. '''
     result = ""
     if config.get('engine_configuration_json'):
         result = config.get('engine_configuration_json')
@@ -3569,10 +3567,15 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Config()
-        if config.get("senzing_sdk_version_major") == 2:
-            result.initV2(g2_config_name, g2_configuration_json, config.get('debug'))
-        else:
-            result.init(g2_config_name, g2_configuration_json, config.get('debug'))
+
+        # Backport methods from earlier Senzing versions.
+
+        if config.get('senzing_sdk_version_major') == 2:
+            result.init = result.initV2
+
+        # Initialize G2Config.
+
+        result.init(g2_config_name, g2_configuration_json, config.get('debug'))
     except G2ModuleException as err:
         exit_error(897, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3580,15 +3583,20 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
 
 
 def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G2-configuration-manager"):
-    '''Get the G2Config resource.'''
+    '''Get the G2ConfigMgr resource.'''
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2ConfigMgr()
-        if config.get("senzing_sdk_version_major") == 2:
-            result.initV2(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
-        else:
-            result.init(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
+
+        # Backport methods from earlier Senzing versions.
+
+        if config.get('senzing_sdk_version_major') == 2:
+            result.init = result.initV2
+
+        # Initialize G2ConfigMgr.
+
+        result.init(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
     except G2ModuleException as err:
         exit_error(896, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3601,10 +3609,15 @@ def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Diagnostic()
-        if config.get("senzing_sdk_version_major") == 2:
-            result.initV2(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
-        else:
-            result.init(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
+
+        # Backport methods from earlier Senzing versions.
+
+        if config.get('senzing_sdk_version_major') == 2:
+            result.init = result.initV2
+
+        # Initialize G2Diagnostic.
+
+        result.init(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
     except G2ModuleException as err:
         exit_error(894, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3618,10 +3631,16 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Engine()
         logging.debug(message_debug(950, "g2_engine.init()"))
-        if config.get("senzing_sdk_version_major") == 2:
-            result.initV2(g2_engine_name, g2_configuration_json, config.get('debug'))
-        else:
-            result.init(g2_engine_name, g2_configuration_json, config.get('debug'))
+
+        # Backport methods from earlier Senzing versions.
+
+        if config.get('senzing_sdk_version_major') == 2:
+            result.init = result.initV2
+            result.reinit = result.reinitV2
+
+        # Initialize G2Engine.
+
+        result.init(g2_engine_name, g2_configuration_json, config.get('debug'))
         logging.debug(message_debug(951, "g2_engine.init()"))
         config['last_configuration_check'] = time.time()
     except G2ModuleException as err:
@@ -3644,10 +3663,15 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
     try:
         g2_configuration_json = get_g2_configuration_json(config)
         result = G2Product()
-        if config.get("senzing_sdk_version_major") == 2:
-            result.initV2(g2_product_name, g2_configuration_json, config.get('debug'))
-        else:
-            result.init(g2_product_name, g2_configuration_json, config.get('debug'))
+
+        # Backport methods from earlier Senzing versions.
+
+        if config.get('senzing_sdk_version_major') == 2:
+            result.init = result.initV2
+
+        # Initialize G2Product.
+
+        result.init(g2_product_name, g2_configuration_json, config.get('debug'))
     except G2ModuleException as err:
         exit_error(892, config.get('g2project_ini'), err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))

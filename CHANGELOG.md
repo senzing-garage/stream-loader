@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed in 1.9.10
 
- - Remove entire messages from log as they may contain Personally Identifieable Information (PII)
+ - Remove entire messages from log as they may contain Personally Identifiable Information (PII)
 
 ## [1.9.9] - 2022-03-18
 

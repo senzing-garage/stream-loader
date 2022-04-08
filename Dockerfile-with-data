@@ -51,10 +51,13 @@ RUN apt-get update \
  && apt-get -y install \
       ${SENZING_DATA_PACKAGE_NAME} \
  && apt-get clean \
- && rm -rf /var/lib/apt/lists/* \
- && mv /opt/senzing/data /opt/senzing/data.bak \
- && mkdir /opt/senzing/data \
- && cp -R /opt/senzing/data.bak/${SENZING_DATA_SUBDIRECTORY}/* /opt/senzing/data/
+ && rm -rf /var/lib/apt/lists/*
+
+
+# FIXME: May not be needed.
+# && mv /opt/senzing/data /opt/senzing/data.bak \
+# && mkdir /opt/senzing/data \
+# && cp -R /opt/senzing/data.bak/${SENZING_DATA_SUBDIRECTORY}/* /opt/senzing/data/
 
 # Create and activate virtual environment.
 
@@ -113,7 +116,7 @@ COPY ./stream-loader.py /app/
 # Copy python virtual environment and senzing data from the builder image.
 
 COPY --from=builder /app/venv /app/venv
-COPY --from=builder /opt/senzing/data/ /opt/senzing/data/
+COPY --from=builder /opt/senzing/data/${SENZING_DATA_SUBDIRECTORY}/ /opt/senzing/data/
 
 # Make non-root container.
 

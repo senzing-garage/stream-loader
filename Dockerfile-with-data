@@ -9,11 +9,10 @@ FROM ${BASE_IMAGE} AS builder
 ENV REFRESHED_AT=2022-04-08
 ARG SENZING_ACCEPT_EULA=no
 ARG SENZING_APT_REPOSITORY_URL=https://senzing-production-apt.s3.amazonaws.com/senzingrepo_1.0.0-1_amd64.deb
-
 ARG SENZING_DATA_PACKAGE_NAME=senzingdata-v3
 ARG SENZING_DATA_SUBDIRECTORY=3.0.0
 
-LABEL Name="senzing/stream-loader" \
+LABEL Name="senzing/stream-loader-builder-with-data" \
       Maintainer="support@senzing.com" \
       Version="1.10.0"
 
@@ -50,7 +49,7 @@ RUN curl \
 
 RUN apt-get update \
  && apt-get -y install \
-      senzingdata-v3 \
+      ${SENZING_DATA_PACKAGE_NAME} \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* \
  && mv /opt/senzing/data /opt/senzing/data.bak \
@@ -79,7 +78,7 @@ FROM ${BASE_IMAGE} AS runner
 
 ENV REFRESHED_AT=2022-04-08
 
-LABEL Name="senzing/stream-loader" \
+LABEL Name="senzing/stream-loader-with-data" \
       Maintainer="support@senzing.com" \
       Version="1.10.0"
 

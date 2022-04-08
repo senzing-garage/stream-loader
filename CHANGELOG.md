@@ -10,66 +10,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed in 1.10.0
 
- - Migrate from `senzingdata-v2` to `senzingdata-v3`
- - In `Dockerfile-with-data`, added docker build args to Dockerfile for more flexibility.
-     - SENZING_APT_REPOSITORY_URL
-     - SENZING_DATA_PACKAGE_NAME
-     - SENZING_DATA_SUBDIRECTORY
+- Migrate from `senzingdata-v2` to `senzingdata-v3`
+- In `Dockerfile-with-data`, added docker build args to Dockerfile for more flexibility.
+  - SENZING_APT_REPOSITORY_URL
+  - SENZING_DATA_PACKAGE_NAME
+  - SENZING_DATA_SUBDIRECTORY
 
 ## [1.9.10] - 2022-03-24
 
 ### Changed in 1.9.10
 
- - Remove entire messages from log as they may contain Personally Identifiable Information (PII)
+- Remove entire messages from log as they may contain Personally Identifiable Information (PII)
 
 ## [1.9.9] - 2022-03-18
 
 ### Changed in 1.9.9
 
- - Support for `libcrypto` and `libssl`
+- Support for `libcrypto` and `libssl`
 
 ## [1.9.8] - 2022-02-25
 
 ### Changed in 1.9.8
 
- - Support for enhanced v3 python package styles
+- Support for enhanced v3 python package styles
 
 ## [1.9.7] - 2022-02-11
 
 ### Changed in 1.9.7
 
- - Improved support for Senzing v2 and v3 python package styles
+- Improved support for Senzing v2 and v3 python package styles
 
-### Changed in 1.9.6
+### Added in 1.9.7
 
- - Added label to runner image
- - updated documentation
+- Added label to runner image
+- updated documentation
 
 ## [1.9.6] - 2022-02-09
 
 ### Changed in 1.9.6
 
- - Added label to runner image
- - updated documentation
+- Added label to runner image
+- updated documentation
 
 ## [1.9.5] - 2022-02-04
 
 ### Changed in 1.9.5
 
- - Support for Senzing v2 and v3 python package styles
+- Support for Senzing v2 and v3 python package styles
 
 ## [1.9.4] - 2022-01-26
 
 ### Added in 1.9.4
 
- - Updated base image to address vulnerabilities
- - Added support for Kafka configuration
+- Updated base image to address vulnerabilities
+- Added support for Kafka configuration
 
 ## [1.9.3] - 2021-12-13
 
 ### Fixed in 1.9.3
 
- - [Issue 253](https://github.com/Senzing/stream-loader/issues/253)
+- [Issue 253](https://github.com/Senzing/stream-loader/issues/253)
 
 ## [1.9.2] - 2021-11-04
 

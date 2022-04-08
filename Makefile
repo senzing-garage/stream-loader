@@ -32,10 +32,19 @@ docker-build:
 docker-build-with-data:
 	docker build \
 		--build-arg SENZING_ACCEPT_EULA=$(SENZING_ACCEPT_EULA) \
-		--build-arg SENZING_APT_REPOSITORY_URL=$(SENZING_APT_STAGING_REPOSITORY_URL) \
 		--file Dockerfile-with-data \
 		--tag $(DOCKER_IMAGE_NAME)-with-data \
 		--tag $(DOCKER_IMAGE_NAME)-with-data:$(GIT_VERSION) \
+		.
+
+.PHONY: docker-build-with-data-staging
+docker-build-with-data-staging:
+	docker build \
+		--build-arg SENZING_ACCEPT_EULA=$(SENZING_ACCEPT_EULA) \
+		--build-arg SENZING_APT_REPOSITORY_URL=$(SENZING_APT_STAGING_REPOSITORY_URL) \
+		--file Dockerfile-with-data \
+		--tag $(DOCKER_IMAGE_NAME)-with-data-staging \
+		--tag $(DOCKER_IMAGE_NAME)-with-data-staging:$(GIT_VERSION) \
 		.
 
 # -----------------------------------------------------------------------------
@@ -54,8 +63,14 @@ docker-rmi-for-build-with-data:
 		$(DOCKER_IMAGE_NAME)-with-data:$(GIT_VERSION) \
 		$(DOCKER_IMAGE_NAME)-with-data
 
+.PHONY: docker-rmi-for-build-with-data-staging
+docker-rmi-for-build-with-data-staging:
+	-docker rmi --force \
+		$(DOCKER_IMAGE_NAME)-with-data-staging:$(GIT_VERSION) \
+		$(DOCKER_IMAGE_NAME)-with-data-staging
+
 .PHONY: clean
-clean: docker-rmi-for-build docker-rmi-for-build-with-data
+clean: docker-rmi-for-build docker-rmi-for-build-with-data docker-rmi-for-build-with-data-staging
 
 # -----------------------------------------------------------------------------
 # Help

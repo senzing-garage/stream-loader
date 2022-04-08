@@ -9,7 +9,6 @@ FROM ${BASE_IMAGE} AS builder
 ENV REFRESHED_AT=2022-04-08
 ARG SENZING_ACCEPT_EULA=no
 ARG SENZING_APT_REPOSITORY_URL=https://senzing-production-apt.s3.amazonaws.com/senzingrepo_1.0.0-1_amd64.deb
-
 ARG SENZING_DATA_PACKAGE_NAME=senzingdata-v3
 ARG SENZING_DATA_SUBDIRECTORY=3.0.0
 

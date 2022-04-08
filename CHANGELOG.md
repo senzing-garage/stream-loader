@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed in 1.10.0
 
  - Migrate from `senzingdata-v2` to `senzingdata-v3`
+ - In `Dockerfile-with-data`, added docker build args to Dockerfile for more flexibility.
+     - SENZING_APT_REPOSITORY_URL
+     - SENZING_DATA_PACKAGE_NAME
+     - SENZING_DATA_SUBDIRECTORY
 
 ## [1.9.10] - 2022-03-24
 

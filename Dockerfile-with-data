@@ -12,7 +12,7 @@ ARG SENZING_APT_REPOSITORY_URL=https://senzing-production-apt.s3.amazonaws.com/s
 ARG SENZING_DATA_PACKAGE_NAME=senzingdata-v3
 ARG SENZING_DATA_SUBDIRECTORY=3.0.0
 
-LABEL Name="senzing/stream-loader-with-data" \
+LABEL Name="senzing/stream-loader-builder-with-data" \
       Maintainer="support@senzing.com" \
       Version="1.10.0"
 
@@ -78,7 +78,7 @@ FROM ${BASE_IMAGE} AS runner
 
 ENV REFRESHED_AT=2022-04-08
 
-LABEL Name="senzing/stream-loader" \
+LABEL Name="senzing/stream-loader-with-data" \
       Maintainer="support@senzing.com" \
       Version="1.10.0"
 

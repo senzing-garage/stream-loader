@@ -7,14 +7,14 @@ ARG BASE_IMAGE=debian:11.3-slim@sha256:78fd65998de7a59a001d792fe2d3a6d2ea25b6f3f
 FROM ${BASE_IMAGE} AS builder
 
 ENV REFRESHED_AT=2022-04-08
+ARG SENZING_ACCEPT_EULA=no
+ARG SENZING_APT_REPOSITORY_URL=https://senzing-production-apt.s3.amazonaws.com/senzingrepo_1.0.0-1_amd64.deb
+ARG SENZING_DATA_PACKAGE_NAME=senzingdata-v3
+ARG SENZING_DATA_SUBDIRECTORY=3.0.0
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
       Version="1.10.0"
-
-# SENZING_ACCEPT_EULA to be replaced by --build-arg
-
-ARG SENZING_ACCEPT_EULA=no
 
 # Run as "root" for system installation.
 
@@ -49,9 +49,12 @@ RUN curl \
 
 RUN apt-get update \
  && apt-get -y install \
-      senzingdata-v3 \
+      ${SENZING_DATA_PACKAGE_NAME} \
  && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && mv /opt/senzing/data /opt/senzing/data.bak \
+ && mkdir /opt/senzing/data \
+ && cp -R /opt/senzing/data.bak/${SENZING_DATA_SUBDIRECTORY}/* /opt/senzing/data/
 
 # Create and activate virtual environment.
 
@@ -110,7 +113,7 @@ COPY ./stream-loader.py /app/
 # Copy python virtual environment and senzing data from the builder image.
 
 COPY --from=builder /app/venv /app/venv
-COPY --from=builder /opt/senzing/data/2.0.0/ /opt/senzing/data/
+COPY --from=builder /opt/senzing/data/ /opt/senzing/data/
 
 # Make non-root container.
 

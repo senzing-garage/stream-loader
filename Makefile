@@ -8,6 +8,7 @@ GIT_VERSION := $(shell git describe --always --tags --long --dirty | sed -e 's/\
 DOCKER_IMAGE_TAG ?= $(GIT_REPOSITORY_NAME):$(GIT_VERSION)
 DOCKER_IMAGE_NAME := senzing/stream-loader
 SENZING_ACCEPT_EULA ?= no
+SENZING_APT_STAGING_REPOSITORY_URL=https://senzing-staging-apt.s3.amazonaws.com/senzingstagingrepo_1.0.0-1_amd64.deb
 
 # -----------------------------------------------------------------------------
 # The first "make" target runs as default.
@@ -36,6 +37,16 @@ docker-build-with-data:
 		--tag $(DOCKER_IMAGE_NAME)-with-data:$(GIT_VERSION) \
 		.
 
+.PHONY: docker-build-with-data-staging
+docker-build-with-data-staging:
+	docker build \
+		--build-arg SENZING_ACCEPT_EULA=$(SENZING_ACCEPT_EULA) \
+		--build-arg SENZING_APT_REPOSITORY_URL=$(SENZING_APT_STAGING_REPOSITORY_URL) \
+		--file Dockerfile-with-data \
+		--tag $(DOCKER_IMAGE_NAME)-with-data-staging \
+		--tag $(DOCKER_IMAGE_NAME)-with-data-staging:$(GIT_VERSION) \
+		.
+
 # -----------------------------------------------------------------------------
 # Clean up targets
 # -----------------------------------------------------------------------------
@@ -52,8 +63,14 @@ docker-rmi-for-build-with-data:
 		$(DOCKER_IMAGE_NAME)-with-data:$(GIT_VERSION) \
 		$(DOCKER_IMAGE_NAME)-with-data
 
+.PHONY: docker-rmi-for-build-with-data-staging
+docker-rmi-for-build-with-data-staging:
+	-docker rmi --force \
+		$(DOCKER_IMAGE_NAME)-with-data-staging:$(GIT_VERSION) \
+		$(DOCKER_IMAGE_NAME)-with-data-staging
+
 .PHONY: clean
-clean: docker-rmi-for-build docker-rmi-for-build-with-data
+clean: docker-rmi-for-build docker-rmi-for-build-with-data docker-rmi-for-build-with-data-staging
 
 # -----------------------------------------------------------------------------
 # Help

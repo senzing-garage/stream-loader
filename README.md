@@ -481,7 +481,7 @@ see [Environment Variables](https://github.com/Senzing/knowledge-base/blob/maste
     ```console
     sudo docker build \
       --tag senzing/stream-loader \
-      https://github.com/senzing/stream-loader.git
+      https://github.com/senzing/stream-loader.git#main
     ```
 
 1. **Option #2:** Using `docker` command and local repository.

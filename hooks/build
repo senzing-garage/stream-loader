@@ -1,45 +1,44 @@
 #!/bin/bash
 
+# List possible build ARGs.
+
+BUILD_ARGS=(
+    BASE_IMAGE
+    SENZING_ACCEPT_EULA
+    SENZING_APT_REPOSITORY_URL
+    SENZING_DATA_PACKAGE_NAME
+    SENZING_DATA_SUBDIRECTORY
+)
+
+# Print runtime environment.
+
 echo "==========================================================="
 echo "== stream-loader/hooks/build"
 echo "==   Building with file: $DOCKERFILE_PATH"
 echo "==   Environment variables:"
 env | sort | awk -F= '{ print "==     ", $0}'
-echo "==   Hook version: 1.0.0 - 2022-04-18a"
+
+# Build "build-args"
+
+BUILD_ARGS_STRING=""
+for BUILD_ARG in ${BUILD_ARGS[@]};
+do
+    if [ ! -z  ${!BUILD_ARG} ]; then
+        BUILD_ARGS_STRING="${BUILD_ARGS_STRING}--build-arg ${BUILD_ARG}=${!BUILD_ARG} "
+    fi
+done
+
+# Finish printing runtime environment.
+
+echo "=="
+echo "==   ${BUILD_ARGS_STRING} "
+echo "==   Hook version: 1.0.0 - 2022-04-18"
 echo "==========================================================="
 
-# Build with data.
+# Run docker build.
 
-if [ ${DOCKERFILE_PATH} == "Dockerfile-with-data" ]; then
-
-    # Build from staging with data.
-
-    if [ ! -z  ${SENZING_APT_REPOSITORY_URL} ]; then
-        echo "Build from staging with data."
-        docker build \
-            --build-arg SENZING_ACCEPT_EULA=${SENZING_ACCEPT_EULA} \
-            --build-arg SENZING_APT_REPOSITORY_URL=${SENZING_APT_REPOSITORY_URL} \
-            --file ${DOCKERFILE_PATH} \
-            --tag ${IMAGE_NAME} \
-            .
-
-    # Default build with data.
-
-    else
-        echo "Build from production with data."
-        docker build \
-            --build-arg SENZING_ACCEPT_EULA=${SENZING_ACCEPT_EULA} \
-            --file ${DOCKERFILE_PATH} \
-            --tag ${IMAGE_NAME} \
-            .
-    fi
-
-# Default build with no data.
-
-else
-    echo "Build from production."
-    docker build \
-        --file ${DOCKERFILE_PATH} \
-        --tag ${IMAGE_NAME} \
-        .
-fi
+docker build \
+    --file ${DOCKERFILE_PATH} \
+    --tag ${IMAGE_NAME} \
+    ${BUILD_ARGS_STRING} \
+    .

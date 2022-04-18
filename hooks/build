@@ -18,7 +18,7 @@ echo "==   Building with file: $DOCKERFILE_PATH"
 echo "==   Environment variables:"
 env | sort | awk -F= '{ print "==     ", $0}'
 
-# Build "build-args"
+# Build "build-args".
 
 BUILD_ARGS_STRING=""
 for BUILD_ARG in ${BUILD_ARGS[@]};

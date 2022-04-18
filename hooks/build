@@ -5,6 +5,7 @@ echo "== stream-loader/hooks/build"
 echo "==   Building with file: $DOCKERFILE_PATH"
 echo "==   Environment variables:"
 env | sort | awk -F= '{ print "==     ", $0}'
+echo "==   Hook version: 1.0.0 - 2022-04-18a"
 echo "==========================================================="
 
 # Build with data.
@@ -13,7 +14,7 @@ if [ ${DOCKERFILE_PATH} == "Dockerfile-with-data" ]; then
 
     # Build from staging with data.
 
-    if [ -z  ${SENZING_APT_REPOSITORY_URL} ]; then
+    if [ ! -z  ${SENZING_APT_REPOSITORY_URL} ]; then
         echo "Build from staging with data."
         docker build \
             --build-arg SENZING_ACCEPT_EULA=${SENZING_ACCEPT_EULA} \

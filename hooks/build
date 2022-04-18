@@ -1,5 +1,7 @@
 #!/bin/bash
 
+SENZING_GIT_REPOSITORY=stream-loader
+
 # List possible build ARGs.
 
 BUILD_ARGS=(
@@ -23,10 +25,10 @@ done
 # Print runtime environment.
 
 echo "==========================================================="
-echo "== stream-loader/hooks/build"
-echo "==   Building with file: $DOCKERFILE_PATH"
+echo "== ${SENZING_GIT_REPOSITORY}/hooks/build"
+echo "==   Building with file: ${DOCKERFILE_PATH}"
 echo "==   Environment variables:"
-env | sort | awk -F= '{ print "==     ", $0}'
+env | awk -F= '{ print "==     ", $0}'
 echo "=="
 echo "==   ${BUILD_ARGS_STRING} "
 echo "==   Hook version: 1.0.0 - 2022-04-18"

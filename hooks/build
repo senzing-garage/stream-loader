@@ -1,9 +1,0 @@
-#!/bin/bash
-
-echo "Building with file: $DOCKERFILE_PATH"
-
-if [ $DOCKERFILE_PATH == "Dockerfile-with-data" ]; then
-  docker build --build-arg SENZING_ACCEPT_EULA=$SENZING_ACCEPT_EULA -f $DOCKERFILE_PATH -t $IMAGE_NAME .
-else
-  docker build -f $DOCKERFILE_PATH -t $IMAGE_NAME .
-fi

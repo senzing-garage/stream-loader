@@ -1,0 +1,44 @@
+#!/bin/bash
+
+echo "==========================================================="
+echo "== stream-loader/hooks/build"
+echo "==   Building with file: $DOCKERFILE_PATH"
+echo "==   Environment variables:"
+env | sort | awk -F= '{ print "==     ", $0}'
+echo "==========================================================="
+
+# Build with data.
+
+if [ ${DOCKERFILE_PATH} == "Dockerfile-with-data" ]; then
+
+    # Build from staging with data.
+
+    if [ -z  ${SENZING_APT_REPOSITORY_URL} ]; then
+        echo "Build from staging with data."
+        docker build \
+            --build-arg SENZING_ACCEPT_EULA=${SENZING_ACCEPT_EULA} \
+            --build-arg SENZING_APT_REPOSITORY_URL=${SENZING_APT_REPOSITORY_URL} \
+            --file ${DOCKERFILE_PATH} \
+            --tag ${IMAGE_NAME} \
+            .
+
+    # Default build with data.
+
+    else
+        echo "Build from production with data."
+        docker build \
+            --build-arg SENZING_ACCEPT_EULA=${SENZING_ACCEPT_EULA} \
+            --file ${DOCKERFILE_PATH} \
+            --tag ${IMAGE_NAME} \
+            .
+    fi
+
+# Default build with no data.
+
+else
+    echo "Build from production."
+    docker build \
+        --file ${DOCKERFILE_PATH} \
+        --tag ${IMAGE_NAME} \
+        .
+fi

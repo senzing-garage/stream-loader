@@ -64,7 +64,7 @@ except:
 # Metadata
 
 __all__ = []
-__version__ = "1.10.0"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.10.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
 __updated__ = '2022-04-19'
 

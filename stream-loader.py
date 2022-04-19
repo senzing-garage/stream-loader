@@ -64,9 +64,9 @@ except:
 # Metadata
 
 __all__ = []
-__version__ = "1.10.0"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.10.1"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-04-08'
+__updated__ = '2022-04-19'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -1005,6 +1005,21 @@ message_dictionary = {
     "731": "Unknown database scheme '{0}' in database url '{1}'",
     "750": "Invalid SQS URL config for {0}",
     "751": "Unable to add record to failure queue.  DATA_SOURCE: {0}, RECORD_ID: {0}",
+    "801": "G2Engine.getActiveConfigID() error. Error: {0}",
+    "802": "G2ConfigurationManager.getDefaultConfigID() error. Default Configuration ID: {0}; Error: {1}",
+    "803": "G2Engine.reinit() error. Default Configuration ID: {0}; Error: {1}",
+    "804": "G2Engine.addRecord() error. Data source: {0}; Record ID: {1}; Error: {2}",
+    "805": "G2Engine.addRecordWithInfo() error. Data source: {0}; Record ID: {1};  Error: {2}",
+    "806": "G2Engine.deleteRecord() error. Data source: {0}; Record ID: {1};  Error: {2}",
+    "807": "G2Engine.deleteRecord() error. Data source: {0}; Record ID: {1}; Error: {2}",
+    "808": "G2Engine.reevaluateRecord() error. Data source: {0}; Record ID: {1}; Error: {2}",
+    "809": "G2Engine.reevaluateRecordWithInfo() error. Data source: {0}; Record ID: {1}; Error: {2}",
+    "810": "G2Engine.destroy() error. Error: {0}",
+    "811": "G2Engine.init() error. Engine Name: {0}; Configuration JSON: {1} Error: {2}",
+    "812": "G2Config.init() error. Configuration Name: {0}; Configuration JSON: {1} Error: {2}",
+    "813": "G2ConfigMgr.init() error. Configuration Manager Name: {0}; Configuration JSON: {1} Error: {2}",
+    "814": "G2Diagnostic.init() error. Diagnostic Name: {0}; Configuration JSON: {1} Error: {2}",
+    "815": "G2Product.init() error. Diagnostic Name: {0}; Configuration JSON: {1} Error: {2}",
     "879": "Senzing SDK was not imported.",
     "880": "Unspecific error when {1}. Error: {0}",
     "881": "Could not G2Engine.primeEngine with '{0}'. Error: {1}",
@@ -1484,7 +1499,12 @@ class WriteG2Thread(threading.Thread):
         # Get active Configuration ID being used by g2_engine.
 
         active_config_id = bytearray()
-        self.g2_engine.getActiveConfigID(active_config_id)
+
+        try:
+            self.g2_engine.getActiveConfigID(active_config_id)
+        except Exception as err:
+            logging.error(message_error(801, err))
+            raise err
 
         # Get most current Configuration ID from G2 database.
 
@@ -1496,6 +1516,7 @@ class WriteG2Thread(threading.Thread):
 
             result = active_config_id != default_config_id
         except Exception as err:
+            logging.error(message_error(802, default_config_id, err))
             result = False
 
         if result:
@@ -1514,7 +1535,12 @@ class WriteG2Thread(threading.Thread):
 
         # Apply new configuration to g2_engine.
 
-        self.g2_engine.reinit(default_config_id)
+        try:
+            self.g2_engine.reinit(default_config_id)
+        except Exception as err:
+            logging.error(message_error(803, default_config_id, err))
+            raise err
+
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_addRecord(self, message_metadata, message_dict):
@@ -1528,7 +1554,11 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        self.g2_engine.addRecord(data_source, record_id, jsonline)
+        try:
+            self.g2_engine.addRecord(data_source, record_id, jsonline)
+        except Exception as err:
+            logging.error(message_error(804, data_source, record_id, err))
+            raise err
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_addRecordWithInfo(self, message_metadata, message_dict):
@@ -1543,7 +1573,11 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
+        try:
+            self.g2_engine.addRecordWithInfo(data_source, record_id, jsonline, response_bytearray)
+        except Exception as err:
+            logging.error(message_error(805, data_source, record_id, err))
+            raise err
         response_json = response_bytearray.decode()
 
         # If successful, send "withInfo" information to queue.
@@ -1572,7 +1606,11 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        self.g2_engine.deleteRecord(data_source, record_id)
+        try:
+            self.g2_engine.deleteRecord(data_source, record_id)
+        except Exception as err:
+            logging.error(message_error(806, data_source, record_id, err))
+            raise err
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_deleteRecordWithInfo(self, message_metadata, message_dict):
@@ -1586,7 +1624,11 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        self.g2_engine.deleteRecordWithInfo(data_source, record_id, response_bytearray)
+        try:
+            self.g2_engine.deleteRecordWithInfo(data_source, record_id, response_bytearray)
+        except Exception as err:
+            logging.error(message_error(807, data_source, record_id, err))
+            raise err
         response_json = response_bytearray.decode()
 
         # If successful, send "withInfo" information to queue.
@@ -1616,7 +1658,11 @@ class WriteG2Thread(threading.Thread):
         # Call Senzing's G2Engine.
 
         flags = 0
-        self.g2_engine.reevaluateRecord(data_source, record_id, flags)
+        try:
+            self.g2_engine.reevaluateRecord(data_source, record_id, flags)
+        except Exception as err:
+            logging.error(message_error(808, data_source, record_id, err))
+            raise err
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
     def process_reevaluateRecordWithInfo(self, message_metadata, message_dict):
@@ -1630,7 +1676,11 @@ class WriteG2Thread(threading.Thread):
 
         # Call Senzing's G2Engine.
 
-        self.g2_engine.reevaluateRecordWithInfo(data_source, record_id, response_bytearray)
+        try:
+            self.g2_engine.reevaluateRecordWithInfo(data_source, record_id, response_bytearray)
+        except Exception as err:
+            logging.error(message_error(809, data_source, record_id, err))
+            raise err
         response_json = response_bytearray.decode()
 
         # If successful, send "withInfo" information to queue.
@@ -3093,7 +3143,11 @@ class UrlProcess(multiprocessing.Process):
 
         # Cleanup.
 
-        self.g2_engine.destroy()
+        try:
+            self.g2_engine.destroy()
+        except Exception as err:
+            logging.error(message_error(810, err))
+            raise err
 
 # -----------------------------------------------------------------------------
 # Class: ReadUrlWriteQueueThread
@@ -3575,7 +3629,11 @@ def get_g2_config(config, g2_config_name="loader-G2-config"):
 
         # Initialize G2Config.
 
-        result.init(g2_config_name, g2_configuration_json, config.get('debug'))
+        try:
+            result.init(g2_config_name, g2_configuration_json, config.get('debug'))
+        except Exception as err:
+            logging.error(message_error(812, g2_config_name, g2_configuration_json, err))
+            raise err
     except G2ModuleException as err:
         exit_error(897, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3596,7 +3654,11 @@ def get_g2_configuration_manager(config, g2_configuration_manager_name="loader-G
 
         # Initialize G2ConfigMgr.
 
-        result.init(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
+        try:
+            result.init(g2_configuration_manager_name, g2_configuration_json, config.get('debug'))
+        except Exception as err:
+            logging.error(message_error(813, g2_configuration_manager_name, g2_configuration_json, err))
+            raise err
     except G2ModuleException as err:
         exit_error(896, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3617,7 +3679,11 @@ def get_g2_diagnostic(config, g2_diagnostic_name="loader-G2-diagnostic"):
 
         # Initialize G2Diagnostic.
 
-        result.init(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
+        try:
+            result.init(g2_diagnostic_name, g2_configuration_json, config.get('debug'))
+        except Exception as err:
+            logging.error(message_error(814, g2_diagnostic_name, g2_configuration_json, err))
+            raise err
     except G2ModuleException as err:
         exit_error(894, g2_configuration_json, err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3640,7 +3706,11 @@ def get_g2_engine(config, g2_engine_name="loader-G2-engine"):
 
         # Initialize G2Engine.
 
-        result.init(g2_engine_name, g2_configuration_json, config.get('debug'))
+        try:
+            result.init(g2_engine_name, g2_configuration_json, config.get('debug'))
+        except Exception as err:
+            logging.error(message_error(811, g2_engine_name, g2_engine_name, err))
+            raise err
         logging.debug(message_debug(951, "g2_engine.init()"))
         config['last_configuration_check'] = time.time()
     except G2ModuleException as err:
@@ -3671,7 +3741,11 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
 
         # Initialize G2Product.
 
-        result.init(g2_product_name, g2_configuration_json, config.get('debug'))
+        try:
+            result.init(g2_product_name, g2_configuration_json, config.get('debug'))
+        except Exception as err:
+            logging.error(message_error(815, g2_product_name, g2_configuration_json, err))
+            raise err
     except G2ModuleException as err:
         exit_error(892, config.get('g2project_ini'), err)
     logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -3948,7 +4022,11 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 
     # Cleanup.
 
-    g2_engine.destroy()
+    try:
+        g2_engine.destroy()
+    except Exception as err:
+        logging.error(message_error(810, err))
+        raise err
 
     # Epilog.
 
@@ -4048,7 +4126,11 @@ def do_kafka(args):
 
     # Cleanup.
 
-    g2_engine.destroy()
+    try:
+        g2_engine.destroy()
+    except Exception as err:
+        logging.error(message_error(810, err))
+        raise err
 
     # Epilog.
 
@@ -4126,7 +4208,11 @@ def do_kafka_withinfo(args):
 
     # Cleanup.
 
-    g2_engine.destroy()
+    try:
+        g2_engine.destroy()
+    except Exception as err:
+        logging.error(message_error(810, err))
+        raise err
 
     # Epilog.
 
@@ -4193,7 +4279,11 @@ def do_rabbitmq(args):
 
     # Cleanup.
 
-    g2_engine.destroy()
+    try:
+        g2_engine.destroy()
+    except Exception as err:
+        logging.error(message_error(810, err))
+        raise err
 
     # Epilog.
 
@@ -4281,7 +4371,11 @@ def do_rabbitmq_withinfo(args):
 
     # Cleanup.
 
-    g2_engine.destroy()
+    try:
+        g2_engine.destroy()
+    except Exception as err:
+        logging.error(message_error(810, err))
+        raise err
 
     # Epilog.
 

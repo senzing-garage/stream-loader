@@ -905,7 +905,7 @@ def get_parser():
 # 3xx Warning (i.e. logging.warning())
 # 5xx User configuration issues (either logging.warning() or logging.err() for Client errors)
 # 7xx Internal error (i.e. logging.error for Server errors)
-# 999 Debugging (i.e. logging.debug())
+# 9xx Debugging (i.e. logging.debug())
 
 
 MESSAGE_INFO = 100

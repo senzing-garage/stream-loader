@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed in 1.10.2
 
 - Added `poll()` calls for Kafka's output and failure queues
+- Terminate on failure to deliver to info or failure queues.
 
 ## [1.10.1] - 2022-04-19
 

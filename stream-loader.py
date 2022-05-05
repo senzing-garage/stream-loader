@@ -64,9 +64,9 @@ except:
 # Metadata
 
 __all__ = []
-__version__ = "1.10.1"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.10.2"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-04-19'
+__updated__ = '2022-05-05'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/master/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -2146,6 +2146,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
         try:
             self.failure_producer.produce(self.failure_topic, jsonline, on_delivery=self.on_kafka_delivery)
+            self.failure_producer.poll(0)
         except BufferError as err:
             logging.warning(message_warning(404, self.failure_topic, err, *self.extract_primary_key(jsonline)))
             result = False
@@ -2166,6 +2167,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
         try:
             self.info_producer.produce(self.info_topic, jsonline, on_delivery=self.on_kafka_delivery)
+            self.info_producer.poll(0)
             logging.debug(message_debug(910, jsonline))
         except BufferError as err:
             logging.warning(message_warning(404, self.info_topic, err, *self.extract_primary_key(jsonline)))

@@ -35,6 +35,7 @@ from azure.servicebus import ServiceBusClient, ServiceBusMessage
 import boto3
 import confluent_kafka
 import pika
+import psutil
 
 # Determine "Major" version of Senzing SDK.
 
@@ -46,7 +47,7 @@ try:
     from senzing import G2Config, G2ConfigMgr, G2Diagnostic, G2Engine, G2ModuleException, G2ModuleGenericException, G2ModuleNotInitialized, G2Product
     senzing_sdk_version_major = 3
 
-except:
+except Exception:
 
     # Fall back to pre-Senzing-Python-SDK style of imports.
 
@@ -58,7 +59,7 @@ except:
         from G2Exception import G2ModuleException, G2ModuleGenericException, G2ModuleNotInitialized
         from G2Product import G2Product
         senzing_sdk_version_major = 2
-    except:
+    except Exception:
         senzing_sdk_version_major = None
 
 # Metadata
@@ -169,6 +170,11 @@ configuration_locator = {
         "default": False,
         "env": "SENZING_EXIT_ON_EMPTY_QUEUE",
         "cli": "exit-on-empty-queue"
+    },
+    "exit_on_exception": {
+        "default": True,
+        "env": "SENZING_EXIT_ON_EXCEPTION",
+        "cli": "exit-on-exception"
     },
     "expiration_warning_in_days": {
         "default": 30,
@@ -870,14 +876,14 @@ def get_parser():
 
     # Augment "subcommands" variable with arguments specified by aspects.
 
-    for subcommand, subcommand_value in subcommands.items():
+    for subcommand_value in subcommands.values():
         if 'argument_aspects' in subcommand_value:
             for aspect in subcommand_value['argument_aspects']:
-                if 'arguments' not in subcommands[subcommand]:
-                    subcommands[subcommand]['arguments'] = {}
+                if 'arguments' not in subcommand_value:
+                    subcommand_value['arguments'] = {}
                 arguments = argument_aspects.get(aspect, {})
                 for argument, argument_value in arguments.items():
-                    subcommands[subcommand]['arguments'][argument] = argument_value
+                    subcommand_value['arguments'][argument] = argument_value
 
     parser = argparse.ArgumentParser(prog="stream-loader.py", description="Initialize Senzing installation. For subcommand help, run 'stream-loader.py <subcommand> --help' For more information, see https://github.com/Senzing/stream-loader")
     subparsers = parser.add_subparsers(dest='subcommand', help='Subcommands (SENZING_SUBCOMMAND):')
@@ -899,7 +905,7 @@ def get_parser():
 # 3xx Warning (i.e. logging.warning())
 # 5xx User configuration issues (either logging.warning() or logging.err() for Client errors)
 # 7xx Internal error (i.e. logging.error for Server errors)
-# 9xx Debugging (i.e. logging.debug())
+# 999 Debugging (i.e. logging.debug())
 
 
 MESSAGE_INFO = 100
@@ -1004,7 +1010,10 @@ message_dictionary = {
     "730": "There are not enough safe characters to do the translation. Unsafe Characters: {0}; Safe Characters: {1}",
     "731": "Unknown database scheme '{0}' in database url '{1}'",
     "750": "Invalid SQS URL config for {0}",
-    "751": "Unable to add record to failure queue.  DATA_SOURCE: {0}, RECORD_ID: {0}",
+    "751": "Unable to add record to failure queue.  DATA_SOURCE: {0}, RECORD_ID: {1}",
+    "752": "Unable to add record to info queue.  DATA_SOURCE: {0}, RECORD_ID: {1}",
+    "755": "SENZING_EXIT_ON_EXCEPTION = true. Unable to send message to Failure Queue. DATA_SOURCE: {0}, RECORD_ID: {1}",
+    "756": "SENZING_EXIT_ON_EXCEPTION = true. Unable to send message to Info Queue. DATA_SOURCE: {0}, RECORD_ID: {1}",
     "801": "G2Engine.getActiveConfigID() error. Error: {0}",
     "802": "G2ConfigurationManager.getDefaultConfigID() error. Default Configuration ID: {0}; Error: {1}",
     "803": "G2Engine.reinit() error. Default Configuration ID: {0}; Error: {1}",
@@ -1094,9 +1103,9 @@ def get_exception():
 # -----------------------------------------------------------------------------
 
 
-def translate(map, astring):
+def translate(mapping, astring):
     new_string = str(astring)
-    for key, value in map.items():
+    for key, value in mapping.items():
         new_string = new_string.replace(key, value)
     return new_string
 
@@ -1272,6 +1281,7 @@ def get_configuration(args):
         'debug',
         'delay_randomized',
         'exit_on_empty_queue',
+        'exit_on_exception',
         'prime_engine',
         'rabbitmq_use_existing_entities',
         'skip_database_performance_test',
@@ -1387,7 +1397,7 @@ def redact_configuration(config):
     for key in keys_to_redact:
         try:
             result.pop(key)
-        except:
+        except Exception:
             pass
     return result
 
@@ -1411,7 +1421,7 @@ class Governor:
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, atype, value, traceback):
         self.close()
 
 # -----------------------------------------------------------------------------
@@ -1443,6 +1453,7 @@ class WriteG2Thread(threading.Thread):
         self.info_filter = InfoFilter(g2_engine=g2_engine)
         self.senzing_sdk_version_major = config.get('senzing_sdk_version_major')
         self.stream_loader_directive_name = config.get('stream_loader_directive_name')
+        self.exit_on_exception = config.get('exit_on_exception')
 
     def add_to_failure_queue(self, jsonline):
         '''Default behavior. This may be implemented in the subclass.'''
@@ -1468,17 +1479,19 @@ class WriteG2Thread(threading.Thread):
                 message_dict = message
             elif isinstance(message, str):
                 message_dict = json.loads(message)
-        except:
+        except Exception:
             pass
 
         data_source = str(message_dict.get('DATA_SOURCE', self.config.get("data_source")))
         record_id = message_dict.get('RECORD_ID')
         if record_id is not None:
             record_id = str(record_id)
+        else:
+            record_id = message
         return data_source, record_id
 
     def filter_info_message(self, message=None):
-        assert type(message) == str
+        assert isinstance(message, str)
         return self.info_filter.filter(message=message)
 
     def govern(self):
@@ -1591,7 +1604,8 @@ class WriteG2Thread(threading.Thread):
             # Put "info" on info queue.
 
             if filtered_response_json:
-                self.add_to_info_queue(filtered_response_json)
+                if (not self.add_to_info_queue(filtered_response_json)) and self.exit_on_exception:
+                    exit_error(756, *self.extract_primary_key(filtered_response_json))
                 logging.debug(message_debug(904, threading.current_thread().name, filtered_response_json))
 
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -1642,7 +1656,8 @@ class WriteG2Thread(threading.Thread):
             # Put "info" on info queue.
 
             if filtered_response_json:
-                self.add_to_info_queue(filtered_response_json)
+                if (not self.add_to_info_queue(filtered_response_json)) and self.exit_on_exception:
+                    exit_error(756, *self.extract_primary_key(filtered_response_json))
                 logging.debug(message_debug(904, threading.current_thread().name, filtered_response_json))
 
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -1694,7 +1709,8 @@ class WriteG2Thread(threading.Thread):
             # Put "info" on info queue.
 
             if filtered_response_json:
-                self.add_to_info_queue(filtered_response_json)
+                if (not self.add_to_info_queue(filtered_response_json)) and self.exit_on_exception:
+                    exit_error(756, *self.extract_primary_key(filtered_response_json))
                 logging.debug(message_debug(904, threading.current_thread().name, filtered_response_json))
 
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
@@ -1704,7 +1720,7 @@ class WriteG2Thread(threading.Thread):
            Returns True if jsonline delivered to Senzing
            or to Failure Queue.
         '''
-        assert type(jsonline) == str
+        assert isinstance(jsonline, str)
         result = True
 
         # Periodically, check for configuration update.
@@ -1727,7 +1743,8 @@ class WriteG2Thread(threading.Thread):
 
         if method_name not in dir(self):
             logging.warning(message_warning(696, method_name))
-            self.add_to_failure_queue(jsonline)
+            if (not self.add_to_failure_queue(jsonline)) and self.exit_on_exception:
+                exit_error(755, *self.extract_primary_key(jsonline))
             return False
 
         # Tricky code for calling method based on string.
@@ -1735,16 +1752,18 @@ class WriteG2Thread(threading.Thread):
         try:
             method_to_call = getattr(self, method_name)
             method_to_call(senzing_stream_loader_value, json_dictionary)
-        except Exception as err:
+        except Exception:
             if self.is_g2_default_configuration_changed():
                 self.update_active_g2_configuration()
                 try:
                     method_to_call(senzing_stream_loader_value, json_dictionary)
-                except Exception as err:
-                    self.add_to_failure_queue(jsonline)
+                except Exception:
+                    if (not self.add_to_failure_queue(jsonline)) and self.exit_on_exception:
+                        exit_error(755, *self.extract_primary_key(jsonline))
                     result = False
             else:
-                self.add_to_failure_queue(jsonline)
+                if (not self.add_to_failure_queue(jsonline)) and self.exit_on_exception:
+                    exit_error(755, *self.extract_primary_key(jsonline))
                 result = False
 
         logging.debug(message_debug(904, threading.current_thread().name, jsonline))
@@ -1795,7 +1814,7 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
             try:
                 service_bus_message = ServiceBusMessage(jsonline)
                 self.failure_sender.send_messages(service_bus_message)
-            except Exception as err:
+            except Exception:
                 logging.error(message_error(751, *self.extract_primary_key(jsonline)))
                 result = False
         else:
@@ -1822,9 +1841,11 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
 
                 try:
                     message_list = json.loads(str(queue_message))
-                except Exception as err:
+                except Exception:
                     if self.add_to_failure_queue(queue_message):
                         self.receiver.complete_message(queue_message)
+                    elif self.exit_on_exception:
+                        exit_error(755, *self.extract_primary_key(str(queue_message)))
                     continue
 
                 # Tricky code: If this is a dict, it's a single record. Make it an array for future processing.
@@ -1908,7 +1929,7 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
             try:
                 service_bus_message = ServiceBusMessage(jsonline)
                 self.failure_sender.send_messages(service_bus_message)
-            except Exception as err:
+            except Exception:
                 logging.error(message_error(751, *self.extract_primary_key(jsonline)))
                 result = False
         else:
@@ -1928,8 +1949,8 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
             try:
                 service_bus_message = ServiceBusMessage(jsonline)
                 self.info_sender.send_messages(service_bus_message)
-            except Exception as err:
-                logging.error(message_error(751, *self.extract_primary_key(jsonline)))
+            except Exception:
+                logging.error(message_error(752, *self.extract_primary_key(jsonline)))
                 result = False
         else:
             logging.info(message_info(128, jsonline))
@@ -1955,9 +1976,11 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
 
                 try:
                     message_list = json.loads(str(queue_message))
-                except Exception as err:
+                except Exception:
                     if self.add_to_failure_queue(queue_message):
                         self.receiver.complete_message(queue_message)
+                    elif self.exit_on_exception:
+                        exit_error(755, *self.extract_primary_key(str(queue_message)))
                     continue
 
                 # Tricky code: If this is a dict, it's a single record. Make it an array for future processing.
@@ -1997,9 +2020,6 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
 
 
 class ReadKafkaWriteG2Thread(WriteG2Thread):
-
-    def __init__(self, config, g2_engine, g2_configuration_manager, governor):
-        super().__init__(config, g2_engine, g2_configuration_manager, governor)
 
     def get_kafka_consumer_configuration(self):
 
@@ -2057,9 +2077,8 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
             if kafka_message.error():
                 if kafka_message.error().code() == confluent_kafka.KafkaError._PARTITION_EOF:
                     continue
-                else:
-                    logging.error(message_error(723, kafka_message.error()))
-                    continue
+                logging.error(message_error(723, kafka_message.error()))
+                continue
 
             # Construct and verify Kafka message.
 
@@ -2078,6 +2097,10 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
                         consumer.commit()
                     except Exception as err:
                         logging.error(message_error(722, *self.extract_primary_key(kafka_message_string), err))
+                        if self.exit_on_exception:
+                            exit_error(755, *self.extract_primary_key(kafka_message_string))
+                elif self.exit_on_exception:
+                    exit_error(755, *self.extract_primary_key(kafka_message_string))
                 continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
@@ -2150,7 +2173,7 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         except BufferError as err:
             logging.warning(message_warning(404, self.failure_topic, err, *self.extract_primary_key(jsonline)))
             result = False
-        except KafkaException as err:
+        except confluent_kafka.KafkaException as err:
             logging.warning(message_warning(405, self.failure_topic, err, *self.extract_primary_key(jsonline)))
             result = False
         except NotImplementedError as err:
@@ -2165,18 +2188,26 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
 
+        result = True
+
         try:
             self.info_producer.produce(self.info_topic, jsonline, on_delivery=self.on_kafka_delivery)
             self.info_producer.poll(0)
             logging.debug(message_debug(910, jsonline))
         except BufferError as err:
             logging.warning(message_warning(404, self.info_topic, err, *self.extract_primary_key(jsonline)))
-        except KafkaException as err:
+            result = False
+        except confluent_kafka.KafkaException as err:
             logging.warning(message_warning(405, self.info_topic, err, *self.extract_primary_key(jsonline)))
+            result = False
         except NotImplementedError as err:
             logging.warning(message_warning(406, self.info_topic, err, *self.extract_primary_key(jsonline)))
+            result = False
         except Exception as err:
             logging.warning(message_warning(407, self.info_topic, err, *self.extract_primary_key(jsonline)))
+            result = False
+
+        return result
 
     def get_kafka_consumer_configuration(self):
         '''Construct configuration for Kafka reader.'''
@@ -2283,9 +2314,8 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
             if kafka_message.error():
                 if kafka_message.error().code() == confluent_kafka.KafkaError._PARTITION_EOF:
                     continue
-                else:
-                    logging.error(message_error(723, kafka_message.error()))
-                    continue
+                logging.error(message_error(723, kafka_message.error()))
+                continue
 
             # Construct and verify Kafka message.
 
@@ -2304,6 +2334,10 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
                         consumer.commit()
                     except Exception as err:
                         logging.error(message_error(722, *self.extract_primary_key(kafka_message_string), err))
+                        if self.exit_on_exception:
+                            exit_error(755, *self.extract_primary_key(kafka_message_string))
+                elif self.exit_on_exception:
+                    exit_error(755, *self.extract_primary_key(kafka_message_string))
                 continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
@@ -2346,9 +2380,6 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
 class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
-    def __init__(self, config, g2_engine, g2_configuration_manager, governor):
-        super().__init__(config, g2_engine, g2_configuration_manager, governor)
-
     def callback(self, _channel, method, _header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
 
@@ -2366,9 +2397,11 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
             message_str = body.decode("utf-8")
             try:
                 rabbitmq_message_list = json.loads(message_str)
-            except Exception as err:
+            except Exception:
                 if self.add_to_failure_queue(message_str):
                     self.setup_ack(delivery_tag)
+                elif self.exit_on_exception:
+                    exit_error(755, *self.extract_primary_key(message_str))
                 continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
@@ -2556,7 +2589,9 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
-        assert type(jsonline) == str
+
+        result = True
+        assert isinstance(jsonline, str)
         jsonline_bytes = jsonline.encode()
         retries_remaining = self.config.get("rabbitmq_reconnect_number_of_retries")
         retry_delay = self.config.get("rabbitmq_reconnect_delay_in_seconds")
@@ -2582,15 +2617,19 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
                 # If we are out of retries, exit.
 
                 if retries_remaining == 0:
+                    result = False
                     exit_error(message_error(418, self.config.get("rabbitmq_reconnect_number_of_retries"), self.rabbitmq_info_host, self.rabbitmq_info_port))
                 retries_remaining = retries_remaining - 1
             except Exception as err:
+                result = False
                 exit_error(880, err, "info_channel.basic_publish().")
 
             # Sleep to give the broker time to come back.
 
             time.sleep(retry_delay)
             self.info_channel = self.connect(self.info_credentials, self.rabbitmq_info_host, self.rabbitmq_info_port, self.rabbitmq_info_virtual_host, self.rabbitmq_info_queue, self.rabbitmq_heartbeat, self.rabbitmq_info_exchange, self.rabbitmq_info_routing_key)[1]
+
+        return result
 
     def callback(self, _channel, method, _header, body):
         logging.debug(message_debug(903, threading.current_thread().name, body))
@@ -2612,10 +2651,12 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
             message_str = body.decode("utf-8")
             try:
                 rabbitmq_message_list = json.loads(message_str)
-            except Exception as err:
+            except Exception:
                 if self.add_to_failure_queue(message_str):
                     self.setup_ack(delivery_tag)
-                return
+                elif self.exit_on_exception:
+                    exit_error(755, *self.extract_primary_key(message_str))
+                continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
 
@@ -2868,10 +2909,9 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                 if self.exit_on_empty_queue:
                     logging.info(message_info(191, threading.current_thread().name, self.queue_url))
                     break
-                else:
-                    logging.info(message_info(190, threading.current_thread().name, self.queue_url))
-                    delay(self.config, threading.current_thread().name)
-                    continue
+                logging.info(message_info(190, threading.current_thread().name, self.queue_url))
+                delay(self.config, threading.current_thread().name)
+                continue
 
             # Construct and verify SQS message.
 
@@ -2884,12 +2924,14 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
             try:
                 sqs_message_list = json.loads(sqs_message_body)
-            except Exception as err:
+            except Exception:
                 if self.add_to_failure_queue(sqs_message_body):
                     self.sqs.delete_message(
                         QueueUrl=self.queue_url,
                         ReceiptHandle=sqs_message_receipt_handle
                     )
+                elif self.exit_on_exception:
+                    exit_error(755, *self.extract_primary_key(sqs_message_body))
                 continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
@@ -2990,7 +3032,9 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
     def add_to_info_queue(self, jsonline):
         '''Overwrite superclass method.'''
-        assert type(jsonline) == str
+
+        result = True
+        assert isinstance(jsonline, str)
         try:
             self.sqs.send_message(
                 QueueUrl=self.info_queue_url,
@@ -3001,6 +3045,8 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             logging.debug(message_debug(910, jsonline))
         except Exception as err:
             logging.warning(message_warning(413, self.info_queue_url, err, *self.extract_primary_key(jsonline)))
+            result = False
+        return result
 
     def run(self):
         '''Process for reading lines from Kafka and feeding them to a process_function() function'''
@@ -3031,14 +3077,14 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
             if sqs_response is None:
                 continue
             sqs_messages = sqs_response.get("Messages", [])
+
             if not sqs_messages:
                 if self.exit_on_empty_queue:
                     logging.info(message_info(191, threading.current_thread().name, self.queue_url))
                     break
-                else:
-                    logging.info(message_info(190, threading.current_thread().name, self.queue_url))
-                    delay(self.config, threading.current_thread().name)
-                    continue
+                logging.info(message_info(190, threading.current_thread().name, self.queue_url))
+                delay(self.config, threading.current_thread().name)
+                continue
 
             # Construct and verify SQS message.
 
@@ -3051,12 +3097,14 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
             try:
                 sqs_message_list = json.loads(sqs_message_body)
-            except Exception as err:
+            except Exception:
                 if self.add_to_failure_queue(sqs_message_body):
                     self.sqs.delete_message(
                         QueueUrl=self.queue_url,
                         ReceiptHandle=sqs_message_receipt_handle
                     )
+                elif self.exit_on_exception:
+                    exit_error(755, *self.extract_primary_key(sqs_message_body))
                 continue
 
             # if this is a dict, it's a single record. Throw it in an array so it works with the code below
@@ -3182,7 +3230,7 @@ class ReadUrlWriteQueueThread(threading.Thread):
                 if line:
                     output_line_function(self, line)
                 else:
-                    reading = False  # FIXME: Not sure if this is the best method of exiting.
+                    reading = False  # TODO: Not sure if this is the best method of exiting.
 
         def input_lines_from_file(self, output_line_function):
             '''Process for reading lines from a file and feeding them to a output_line_function() function'''
@@ -3762,22 +3810,22 @@ def log_license(config):
     '''Capture the license and version info in the log.'''
 
     g2_product = get_g2_product(config)
-    license = json.loads(g2_product.license())
+    g2_license = json.loads(g2_product.license())
     version = json.loads(g2_product.version())
 
     logging.info(message_info(160, '-' * 20))
     if 'VERSION' in version:
         logging.info(message_info(161, version['VERSION'], version['BUILD_DATE']))
-    if 'customer' in license:
-        logging.info(message_info(162, license['customer']))
-    if 'licenseType' in license:
-        logging.info(message_info(163, license['licenseType']))
-    if 'expireDate' in license:
-        logging.info(message_info(164, license['expireDate']))
+    if 'customer' in g2_license:
+        logging.info(message_info(162, g2_license['customer']))
+    if 'licenseType' in g2_license:
+        logging.info(message_info(163, g2_license['licenseType']))
+    if 'expireDate' in g2_license:
+        logging.info(message_info(164, g2_license['expireDate']))
 
         # Calculate days remaining.
 
-        expire_date = datetime.datetime.strptime(license['expireDate'], '%Y-%m-%d')
+        expire_date = datetime.datetime.strptime(g2_license['expireDate'], '%Y-%m-%d')
         today = datetime.datetime.today()
         remaining_time = expire_date - today
         if remaining_time.days > 0:
@@ -3788,19 +3836,19 @@ def log_license(config):
         else:
             logging.info(message_info(168, abs(remaining_time.days)))
 
-        # Issue warning if license is about to expire.
+        # Issue warning if g2_license is about to expire.
 
-    if 'recordLimit' in license:
-        logging.info(message_info(166, license['recordLimit']))
-    if 'contract' in license:
-        logging.info(message_info(167, license['contract']))
+    if 'recordLimit' in g2_license:
+        logging.info(message_info(166, g2_license['recordLimit']))
+    if 'contract' in g2_license:
+        logging.info(message_info(167, g2_license['contract']))
     logging.info(message_info(299, '-' * 49))
 
     # Garbage collect g2_product.
 
     g2_product.destroy()
 
-    # If license has expired, exit with error.
+    # If g2_license has expired, exit with error.
 
     if remaining_time.days < 0:
         exit_error(885)
@@ -3886,8 +3934,6 @@ def log_performance(config):
 def log_memory():
     '''Write total and available memory to log.  Check if it meets minimums.'''
     try:
-        import psutil
-
         total_memory = psutil.virtual_memory().total
         available_memory = psutil.virtual_memory().available
 

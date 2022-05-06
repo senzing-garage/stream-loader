@@ -6,11 +6,11 @@ ARG BASE_IMAGE=debian:11.3-slim@sha256:78fd65998de7a59a001d792fe2d3a6d2ea25b6f3f
 
 FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2022-05-05
+ENV REFRESHED_AT=2022-05-06
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.10.2"
+      Version="1.10.3"
 
 # Run as "root" for system installation.
 
@@ -48,11 +48,11 @@ RUN pip3 install --upgrade pip \
 
 FROM ${BASE_IMAGE} AS runner
 
-ENV REFRESHED_AT=2022-05-05
+ENV REFRESHED_AT=2022-05-06
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.10.2"
+      Version="1.10.3"
 
 # Define health check.
 
@@ -67,6 +67,7 @@ USER root
 RUN apt-get update \
  && apt-get -y install \
       libaio1 \
+      libodbc1 \
       librdkafka-dev \
       libssl1.1 \
       libxml2 \

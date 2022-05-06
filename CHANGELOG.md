@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.3] - 2022-05-06
+
+### Changed in 1.10.3
+
+- Added `libodbc1` to Dockerfile
+
 ## [1.10.2] - 2022-05-05
 
 ### Changed in 1.10.2

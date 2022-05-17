@@ -64,7 +64,7 @@
         ```console
         curl -X GET \
             --output /path/on/local/system/senzing_governor.py \
-             https://raw.githubusercontent.com/Senzing/governor-postgresql-transaction-id/master/senzing_governor.py
+             https://raw.githubusercontent.com/Senzing/governor-postgresql-transaction-id/main/senzing_governor.py
         ```
 
     1. Copy the downloaded `senzing_governor.py` file to a directory listed in the `PYTHONPATH` environment variable on the machine running Senzing.

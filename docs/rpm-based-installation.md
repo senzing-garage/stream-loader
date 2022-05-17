@@ -76,4 +76,4 @@ image.
 ### Create SENZING_DIR
 
 If you do not already have an `/opt/senzing` directory on your local system, visit
-[HOWTO - Create SENZING_DIR](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/create-senzing-dir.md).
+[HOWTO - Create SENZING_DIR](https://github.com/Senzing/knowledge-base/blob/main/HOWTO/create-senzing-dir.md).

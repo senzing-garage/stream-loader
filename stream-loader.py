@@ -65,9 +65,9 @@ except Exception:
 # Metadata
 
 __all__ = []
-__version__ = "1.10.3"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.10.5"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-05-06'
+__updated__ = '2022-06-15'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -1483,11 +1483,9 @@ class WriteG2Thread(threading.Thread):
             pass
 
         data_source = str(message_dict.get('DATA_SOURCE', self.config.get("data_source")))
-        record_id = message_dict.get('RECORD_ID')
+        record_id = message_dict.get('RECORD_ID', None)
         if record_id is not None:
             record_id = str(record_id)
-        else:
-            record_id = message
         return data_source, record_id
 
     def filter_info_message(self, message=None):

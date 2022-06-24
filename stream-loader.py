@@ -3442,14 +3442,10 @@ class MonitorThread(threading.Thread):
 
                 # Log engine statistics with sorted JSON keys.
 
-                logging.info(message_info(999, ">>>>>>>>>>>>>>>>>>"))
-
                 g2_engine_stats_response = bytearray()
                 self.g2_engine.stats(g2_engine_stats_response)
                 g2_engine_stats_dictionary = json.loads(g2_engine_stats_response.decode())
                 logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
-
-                logging.info(message_info(999, "<<<<<<<<<<<<<<<<<<"))
 
                 # If requested, debug stacks.
 

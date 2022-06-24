@@ -6,7 +6,7 @@ ARG BASE_IMAGE=debian:11.3-slim@sha256:06a93cbdd49a265795ef7b24fe374fee670148a79
 
 FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2022-06-15
+ENV REFRESHED_AT=2022-06-15b
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
@@ -48,7 +48,7 @@ RUN pip3 install --upgrade pip \
 
 FROM ${BASE_IMAGE} AS runner
 
-ENV REFRESHED_AT=2022-06-15
+ENV REFRESHED_AT=2022-06-15b
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \

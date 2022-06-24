@@ -3240,7 +3240,7 @@ class ReadUrlWriteQueueThread(threading.Thread):
             '''Process for reading lines from a file and feeding them to a output_line_function() function'''
             input_url = self.config.get('input_url')
             file_url = urlparse(input_url)
-            with open(file_url.path, 'r',  encoding="utf-8") as input_file:
+            with open(file_url.path, 'r', encoding="utf-8") as input_file:
                 line = input_file.readline()
                 while line:
                     self.config['counter_queued_records'] += 1
@@ -3409,6 +3409,7 @@ class MonitorThread(threading.Thread):
             # Log license periodically to show days left in license.
 
             if log_monitoring_elapsed_time > self.monitoring_period_in_seconds:
+
                 last_log_monitoring_time = now
 
                 # Calculate rates.

@@ -3367,8 +3367,8 @@ class MonitorThread(threading.Thread):
         self.g2_engine = g2_engine
         self.log_level_parameter = config.get("log_level_parameter")
         self.log_license_period_in_seconds = config.get("log_license_period_in_seconds")
-        self.log_monitoring_period_in_seconds = config.get('monitoring_period_in_seconds')
-        self.sleep_time_in_seconds = config.get('monitoring_check_frequency_in_seconds')
+        self.monitoring_period_in_seconds = config.get('monitoring_period_in_seconds')
+        self.monitoring_check_frequency_in_seconds = config.get('monitoring_check_frequency_in_seconds')
         self.workers = workers
 
     def run(self):
@@ -3408,7 +3408,7 @@ class MonitorThread(threading.Thread):
 
             # Log license periodically to show days left in license.
 
-            if log_monitoring_elapsed_time > self.log_monitoring_period_in_seconds:
+            if log_monitoring_elapsed_time > self.monitoring_period_in_seconds:
                 last_log_monitoring_time = now
 
                 # Calculate rates.
@@ -3442,10 +3442,14 @@ class MonitorThread(threading.Thread):
 
                 # Log engine statistics with sorted JSON keys.
 
+                logging.info(message_info(999, ">>>>>>>>>>>>>>>>>>"))
+
                 g2_engine_stats_response = bytearray()
                 self.g2_engine.stats(g2_engine_stats_response)
                 g2_engine_stats_dictionary = json.loads(g2_engine_stats_response.decode())
                 logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
+
+                logging.info(message_info(999, "<<<<<<<<<<<<<<<<<<"))
 
                 # If requested, debug stacks.
 
@@ -3459,7 +3463,7 @@ class MonitorThread(threading.Thread):
 
             # Sleep for the monitoring period.
 
-            time.sleep(self.sleep_time_in_seconds)
+            time.sleep(self.monitoring_check_frequency_in_seconds)
 
             # Calculate active Threads.
 

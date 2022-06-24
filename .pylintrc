@@ -7,6 +7,7 @@ disable=
     consider-using-with,
     dangerous-default-value,
     global-statement,
+    global-variable-undefined,
     import-error,
     invalid-name,
     keyword-arg-before-vararg,

@@ -3364,13 +3364,10 @@ class MonitorThread(threading.Thread):
     def __init__(self, config, g2_engine, workers):
         threading.Thread.__init__(self)
         self.config = config
-        self.digits_regex_pattern = re.compile(':\d+$')
         self.g2_engine = g2_engine
-        self.in_regex_pattern = re.compile('\sin\s')
         self.log_level_parameter = config.get("log_level_parameter")
         self.log_license_period_in_seconds = config.get("log_license_period_in_seconds")
         self.log_monitoring_period_in_seconds = config.get('monitoring_period_in_seconds')
-        self.pstack_pid = config.get("pstack_pid")
         self.sleep_time_in_seconds = config.get('monitoring_check_frequency_in_seconds')
         self.workers = workers
 
@@ -3453,53 +3450,7 @@ class MonitorThread(threading.Thread):
                 # If requested, debug stacks.
 
                 if self.log_level_parameter == "debug":
-                    completed_process = None
-                    try:
-
-                        # Run gdb to get stacks.
-
-                        completed_process = subprocess.run(
-                            ["gdb", "-q", "-p", self.pstack_pid, "-batch", "-ex", "thread apply all bt"],
-                            capture_output=True)
-
-                    except Exception as err:
-                        logging.warning(message_warning(999, err))
-
-                    if completed_process is not None:
-
-                        # Process gdb output.
-
-                        counter = 0
-                        stdout_dict = {}
-                        stdout_lines = str(completed_process.stdout).split('\\n')
-                        for stdout_line in stdout_lines:
-
-                            # Filter lines.
-
-                            if self.digits_regex_pattern.search(stdout_line) is not None and self.in_regex_pattern.search(stdout_line) is not None:
-
-                                # Format lines.
-
-                                counter += 1
-                                line_parts = stdout_line.split()
-                                output_line = "{0:<3} {1} {2}".format(line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
-                                stdout_dict[str(counter).zfill(4)] = output_line
-
-                        # Log STDOUT.
-
-                        stdout_json = json.dumps(stdout_dict)
-                        logging.debug(message_debug(920, stdout_json))
-
-                        # Log STDERR.
-
-                        counter = 0
-                        stderr_dict = {}
-                        stderr_lines = str(completed_process.stderr).split('\\n')
-                        for stderr_line in stderr_lines:
-                            counter += 1
-                            stderr_dict[str(counter).zfill(4)] = stderr_line
-                        stderr_json = json.dumps(stderr_dict)
-                        logging.debug(message_debug(921, stderr_json))
+                    log_gdb(self.config)
 
                 # Store values for next iteration of loop.
 
@@ -3813,6 +3764,61 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
 # -----------------------------------------------------------------------------
 # Log information.
 # -----------------------------------------------------------------------------
+
+
+def log_gdb(config):
+
+    completed_process = None
+    digits_regex_pattern = re.compile(':\d+$')
+    in_regex_pattern = re.compile('\sin\s')
+    pstack_pid = config.get("pstack_pid")
+
+    try:
+
+        # Run gdb to get stacks.
+
+        completed_process = subprocess.run(
+            ["gdb", "-q", "-p", pstack_pid, "-batch", "-ex", "thread apply all bt"],
+            capture_output=True)
+
+    except Exception as err:
+        logging.warning(message_warning(999, err))
+
+    if completed_process is not None:
+
+        # Process gdb output.
+
+        counter = 0
+        stdout_dict = {}
+        stdout_lines = str(completed_process.stdout).split('\\n')
+        for stdout_line in stdout_lines:
+
+            # Filter lines.
+
+            if digits_regex_pattern.search(stdout_line) is not None and in_regex_pattern.search(stdout_line) is not None:
+
+                # Format lines.
+
+                counter += 1
+                line_parts = stdout_line.split()
+                output_line = "{0:<3} {1} {2}".format(line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
+                stdout_dict[str(counter).zfill(4)] = output_line
+
+        # Log STDOUT.
+
+        stdout_json = json.dumps(stdout_dict)
+        logging.debug(message_debug(920, stdout_json))
+
+        # Log STDERR.
+
+        counter = 0
+        stderr_dict = {}
+        stderr_lines = str(completed_process.stderr).split('\\n')
+        for stderr_line in stderr_lines:
+            counter += 1
+            stderr_dict[str(counter).zfill(4)] = stderr_line
+        stderr_json = json.dumps(stderr_dict)
+        logging.debug(message_debug(921, stderr_json))
 
 
 def log_license(config):
@@ -4570,7 +4576,7 @@ if __name__ == "__main__":
         args = argparse.Namespace(subcommand=subcommand)
     else:
         parser.print_help()
-        if len(os.getenv("SENZING_DOCKER_LAUNCHED", "")):
+        if len(os.getenv("SENZING_DOCKER_LAUNCHED", "")) > 0:
             subcommand = "sleep"
             args = argparse.Namespace(subcommand=subcommand)
             do_sleep(args)

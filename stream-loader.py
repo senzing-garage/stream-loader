@@ -3769,8 +3769,8 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
 def log_gdb(config):
 
     completed_process = None
-    digits_regex_pattern = re.compile(':\d+$')
-    in_regex_pattern = re.compile('\sin\s')
+    digits_regex_pattern = re.compile(r':\d+$')
+    in_regex_pattern = re.compile(r'\sin\s')
     pstack_pid = config.get("pstack_pid")
 
     try:
@@ -3779,7 +3779,8 @@ def log_gdb(config):
 
         completed_process = subprocess.run(
             ["gdb", "-q", "-p", pstack_pid, "-batch", "-ex", "thread apply all bt"],
-            capture_output=True)
+            capture_output=True,
+            check=True)
 
     except Exception as err:
         logging.warning(message_warning(999, err))

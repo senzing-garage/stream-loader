@@ -1,12 +1,11 @@
 [pylint]
 disable=
-    anomalous-backslash-in-string,
     attribute-defined-outside-init,
     broad-except,
     consider-using-f-string,
-    consider-using-with,
     dangerous-default-value,
     global-statement,
+    global-variable-undefined,
     import-error,
     invalid-name,
     keyword-arg-before-vararg,
@@ -17,7 +16,6 @@ disable=
     no-self-use,
     protected-access,
     redefined-outer-name,
-    subprocess-run-check,
     too-few-public-methods,
     too-many-arguments,
     too-many-branches,
@@ -25,7 +23,6 @@ disable=
     too-many-lines,
     too-many-locals,
     too-many-statements,
-    unspecified-encoding,
     unused-argument,
 ignore=
     __init__.py,

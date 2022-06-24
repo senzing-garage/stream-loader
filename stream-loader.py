@@ -65,9 +65,9 @@ except Exception:
 # Metadata
 
 __all__ = []
-__version__ = "1.10.5"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.10.6"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-06-15'
+__updated__ = '2022-06-24'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -248,6 +248,11 @@ configuration_locator = {
         "default": 60 * 60 * 24,
         "env": "SENZING_LOG_LICENSE_PERIOD_IN_SECONDS",
         "cli": "log-license-period-in-seconds"
+    },
+    "monitoring_check_frequency_in_seconds": {
+        "default": 20,
+        "env": "SENZING_MONITORING_CHECK_FREQUENCY_IN_SECONDS",
+        "cli": "monitoring-check-frequency-in-seconds",
     },
     "monitoring_period_in_seconds": {
         "default": 60 * 10,
@@ -1304,12 +1309,13 @@ def get_configuration(args):
         'delay_in_seconds',
         'expiration_warning_in_days',
         'log_license_period_in_seconds',
+        'monitoring_check_frequency_in_seconds',
         'monitoring_period_in_seconds',
         'queue_maxsize',
         'rabbitmq_heartbeat_in_seconds',
         'rabbitmq_prefetch_count',
-        'rabbitmq_reconnect_number_of_retries',
         'rabbitmq_reconnect_delay_in_seconds',
+        'rabbitmq_reconnect_number_of_retries',
         'sleep_time_in_seconds',
         'sqs_info_queue_delay_seconds',
         'sqs_wait_time_seconds',
@@ -3234,7 +3240,7 @@ class ReadUrlWriteQueueThread(threading.Thread):
             '''Process for reading lines from a file and feeding them to a output_line_function() function'''
             input_url = self.config.get('input_url')
             file_url = urlparse(input_url)
-            with open(file_url.path, 'r') as input_file:
+            with open(file_url.path, 'r', encoding="utf-8") as input_file:
                 line = input_file.readline()
                 while line:
                     self.config['counter_queued_records'] += 1
@@ -3245,11 +3251,11 @@ class ReadUrlWriteQueueThread(threading.Thread):
         def input_lines_from_url(self, output_line_function):
             '''Process for reading lines from a URL and feeding them to a output_line_function() function'''
             input_url = self.config.get('input_url')
-            data = urlopen(input_url)
-            for line in data:
-                self.config['counter_queued_records'] += 1
-                logging.debug(message_debug(901, line))
-                output_line_function(self, line)
+            with urlopen(input_url) as data:
+                for line in data:
+                    self.config['counter_queued_records'] += 1
+                    logging.debug(message_debug(901, line))
+                    output_line_function(self, line)
 
         # If no file, input comes from STDIN.
 
@@ -3358,13 +3364,11 @@ class MonitorThread(threading.Thread):
     def __init__(self, config, g2_engine, workers):
         threading.Thread.__init__(self)
         self.config = config
-        self.digits_regex_pattern = re.compile(':\d+$')
         self.g2_engine = g2_engine
-        self.in_regex_pattern = re.compile('\sin\s')
         self.log_level_parameter = config.get("log_level_parameter")
         self.log_license_period_in_seconds = config.get("log_license_period_in_seconds")
-        self.pstack_pid = config.get("pstack_pid")
-        self.sleep_time_in_seconds = config.get('monitoring_period_in_seconds')
+        self.monitoring_period_in_seconds = config.get('monitoring_period_in_seconds')
+        self.monitoring_check_frequency_in_seconds = config.get('monitoring_check_frequency_in_seconds')
         self.workers = workers
 
     def run(self):
@@ -3372,8 +3376,8 @@ class MonitorThread(threading.Thread):
 
         last_processed_records = 0
         last_queued_records = 0
-        last_time = time.time()
-        last_log_license = time.time()
+        last_log_license_time = time.time()
+        last_log_monitoring_time = time.time()
 
         # Sleep-monitor loop.
 
@@ -3393,111 +3397,70 @@ class MonitorThread(threading.Thread):
 
             now = time.time()
             uptime = now - self.config.get('start_time', now)
-            elapsed_time = now - last_time
-            elapsed_log_license = now - last_log_license
+            log_license_elapsed_time = now - last_log_license_time
+            log_monitoring_elapsed_time = now - last_log_monitoring_time
 
             # Log license periodically to show days left in license.
 
-            if elapsed_log_license > self.log_license_period_in_seconds:
+            if log_license_elapsed_time > self.log_license_period_in_seconds:
+                last_log_license_time = now
                 log_license(self.config)
-                last_log_license = now
 
-            # Calculate rates.
+            # Log license periodically to show days left in license.
 
-            processed_records_total = self.config['counter_processed_records']
-            processed_records_interval = processed_records_total - last_processed_records
-            rate_processed_total = int(processed_records_total / uptime)
-            rate_processed_interval = int(processed_records_interval / elapsed_time)
+            if log_monitoring_elapsed_time > self.monitoring_period_in_seconds:
 
-            queued_records_total = self.config['counter_queued_records']
-            queued_records_interval = queued_records_total - last_queued_records
-            rate_queued_total = int(queued_records_total / uptime)
-            rate_queued_interval = int(queued_records_interval / elapsed_time)
+                last_log_monitoring_time = now
 
-            # Construct and log monitor statistics.
+                # Calculate rates.
 
-            stats = {
-                "processed_records_interval": processed_records_interval,
-                "processed_records_total": processed_records_total,
-                "queued_records_interval": queued_records_interval,
-                "queued_records_total": queued_records_total,
-                "rate_processed_interval": rate_processed_interval,
-                "rate_processed_total": rate_processed_total,
-                "rate_queued_interval": rate_queued_interval,
-                "rate_queued_total": rate_queued_total,
-                "uptime": int(uptime),
-                "workers_total": len(self.workers),
-                "workers_active": active_workers,
-            }
-            logging.info(message_info(127, json.dumps(stats, sort_keys=True)))
+                processed_records_total = self.config['counter_processed_records']
+                processed_records_interval = processed_records_total - last_processed_records
+                rate_processed_total = int(processed_records_total / uptime)
+                rate_processed_interval = int(processed_records_interval / log_monitoring_elapsed_time)
 
-            # Log engine statistics with sorted JSON keys.
+                queued_records_total = self.config['counter_queued_records']
+                queued_records_interval = queued_records_total - last_queued_records
+                rate_queued_total = int(queued_records_total / uptime)
+                rate_queued_interval = int(queued_records_interval / log_monitoring_elapsed_time)
 
-            g2_engine_stats_response = bytearray()
-            self.g2_engine.stats(g2_engine_stats_response)
-            g2_engine_stats_dictionary = json.loads(g2_engine_stats_response.decode())
-            logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
+                # Construct and log monitor statistics.
 
-            # If requested, debug stacks.
+                stats = {
+                    "processed_records_interval": processed_records_interval,
+                    "processed_records_total": processed_records_total,
+                    "queued_records_interval": queued_records_interval,
+                    "queued_records_total": queued_records_total,
+                    "rate_processed_interval": rate_processed_interval,
+                    "rate_processed_total": rate_processed_total,
+                    "rate_queued_interval": rate_queued_interval,
+                    "rate_queued_total": rate_queued_total,
+                    "uptime": int(uptime),
+                    "workers_total": len(self.workers),
+                    "workers_active": active_workers,
+                }
+                logging.info(message_info(127, json.dumps(stats, sort_keys=True)))
 
-            if self.log_level_parameter == "debug":
-                completed_process = None
-                try:
+                # Log engine statistics with sorted JSON keys.
 
-                    # Run gdb to get stacks.
+                g2_engine_stats_response = bytearray()
+                self.g2_engine.stats(g2_engine_stats_response)
+                g2_engine_stats_dictionary = json.loads(g2_engine_stats_response.decode())
+                logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
 
-                    completed_process = subprocess.run(
-                        ["gdb", "-q", "-p", self.pstack_pid, "-batch", "-ex", "thread apply all bt"],
-                        capture_output=True)
+                # If requested, debug stacks.
 
-                except Exception as err:
-                    logging.warning(message_warning(999, err))
+                if self.log_level_parameter == "debug":
+                    log_gdb(self.config)
 
-                if completed_process is not None:
+                # Store values for next iteration of loop.
 
-                    # Process gdb output.
-
-                    counter = 0
-                    stdout_dict = {}
-                    stdout_lines = str(completed_process.stdout).split('\\n')
-                    for stdout_line in stdout_lines:
-
-                        # Filter lines.
-
-                        if self.digits_regex_pattern.search(stdout_line) is not None and self.in_regex_pattern.search(stdout_line) is not None:
-
-                            # Format lines.
-
-                            counter += 1
-                            line_parts = stdout_line.split()
-                            output_line = "{0:<3} {1} {2}".format(line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
-                            stdout_dict[str(counter).zfill(4)] = output_line
-
-                    # Log STDOUT.
-
-                    stdout_json = json.dumps(stdout_dict)
-                    logging.debug(message_debug(920, stdout_json))
-
-                    # Log STDERR.
-
-                    counter = 0
-                    stderr_dict = {}
-                    stderr_lines = str(completed_process.stderr).split('\\n')
-                    for stderr_line in stderr_lines:
-                        counter += 1
-                        stderr_dict[str(counter).zfill(4)] = stderr_line
-                    stderr_json = json.dumps(stderr_dict)
-                    logging.debug(message_debug(921, stderr_json))
-
-            # Store values for next iteration of loop.
-
-            last_processed_records = processed_records_total
-            last_queued_records = queued_records_total
-            last_time = now
+                last_processed_records = processed_records_total
+                last_queued_records = queued_records_total
 
             # Sleep for the monitoring period.
 
-            time.sleep(self.sleep_time_in_seconds)
+            time.sleep(self.monitoring_check_frequency_in_seconds)
 
             # Calculate active Threads.
 
@@ -3802,6 +3765,62 @@ def get_g2_product(config, g2_product_name="loader-G2-product"):
 # -----------------------------------------------------------------------------
 # Log information.
 # -----------------------------------------------------------------------------
+
+
+def log_gdb(config):
+
+    completed_process = None
+    digits_regex_pattern = re.compile(r':\d+$')
+    in_regex_pattern = re.compile(r'\sin\s')
+    pstack_pid = config.get("pstack_pid")
+
+    try:
+
+        # Run gdb to get stacks.
+
+        completed_process = subprocess.run(
+            ["gdb", "-q", "-p", pstack_pid, "-batch", "-ex", "thread apply all bt"],
+            capture_output=True,
+            check=True)
+
+    except Exception as err:
+        logging.warning(message_warning(999, err))
+
+    if completed_process is not None:
+
+        # Process gdb output.
+
+        counter = 0
+        stdout_dict = {}
+        stdout_lines = str(completed_process.stdout).split('\\n')
+        for stdout_line in stdout_lines:
+
+            # Filter lines.
+
+            if digits_regex_pattern.search(stdout_line) is not None and in_regex_pattern.search(stdout_line) is not None:
+
+                # Format lines.
+
+                counter += 1
+                line_parts = stdout_line.split()
+                output_line = "{0:<3} {1} {2}".format(line_parts[0], line_parts[3], line_parts[-1].rsplit('/', 1)[-1])
+                stdout_dict[str(counter).zfill(4)] = output_line
+
+        # Log STDOUT.
+
+        stdout_json = json.dumps(stdout_dict)
+        logging.debug(message_debug(920, stdout_json))
+
+        # Log STDERR.
+
+        counter = 0
+        stderr_dict = {}
+        stderr_lines = str(completed_process.stderr).split('\\n')
+        for stderr_line in stderr_lines:
+            counter += 1
+            stderr_dict[str(counter).zfill(4)] = stderr_line
+        stderr_json = json.dumps(stderr_dict)
+        logging.debug(message_debug(921, stderr_json))
 
 
 def log_license(config):
@@ -4559,7 +4578,7 @@ if __name__ == "__main__":
         args = argparse.Namespace(subcommand=subcommand)
     else:
         parser.print_help()
-        if len(os.getenv("SENZING_DOCKER_LAUNCHED", "")):
+        if len(os.getenv("SENZING_DOCKER_LAUNCHED", "")) > 0:
             subcommand = "sleep"
             args = argparse.Namespace(subcommand=subcommand)
             do_sleep(args)

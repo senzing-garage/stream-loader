@@ -7,7 +7,6 @@ disable=
     global-variable-undefined,
     import-error,
     invalid-name,
-    keyword-arg-before-vararg,
     line-too-long,
     missing-class-docstring,
     missing-function-docstring,

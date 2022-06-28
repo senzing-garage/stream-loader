@@ -1401,7 +1401,7 @@ def redact_configuration(config):
 
 class Governor:
 
-    def __init__(self, g2_engine=None, hint=None, *args, **kwargs):
+    def __init__(self, *args, g2_engine=None, hint=None, **kwargs):
         self.g2_engine = g2_engine
         self.hint = hint
 
@@ -1424,10 +1424,10 @@ class Governor:
 
 class InfoFilter:
 
-    def __init__(self, g2_engine=None, *args, **kwargs):
+    def __init__(self, *args, g2_engine=None, **kwargs):
         self.g2_engine = g2_engine
 
-    def filter(self, message=None, *args, **kwargs):
+    def filter(self, *args, message=None, **kwargs):
         return message
 
 # -----------------------------------------------------------------------------

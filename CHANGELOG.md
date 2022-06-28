@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.6] - 2022-06-28
+
+### Changed in 1.10.6
+
+- Remove support for `SENZING_DATA_SOURCE` parameter
+- Upgrade `Dockerfile` to `debian:11.3-slim@sha256:f6957458017ec31c4e325a76f39d6323c4c21b0e31572efa006baa927a160891`
+- Increase monitoring check frequency
+
 ## [1.10.5] - 2022-06-15
 
 ### Changed in 1.10.5

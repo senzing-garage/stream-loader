@@ -1706,13 +1706,16 @@ class WriteG2Thread(threading.Thread):
 
         logging.debug(message_debug(951, sys._getframe().f_code.co_name))
 
-    def send_jsonline_to_g2_engine(self, jsonline, senzing_stream_loader_value_default={"action": 'addRecord'}):
+    def send_jsonline_to_g2_engine(self, jsonline, senzing_stream_loader_value_default=None):
         '''Send the JSONline to G2 engine.
            Returns True if jsonline delivered to Senzing
            or to Failure Queue.
         '''
         assert isinstance(jsonline, str)
         result = True
+
+        if senzing_stream_loader_value_default is None:
+            senzing_stream_loader_value_default = {"action": 'addRecord'}
 
         # Periodically, check for configuration update.
 
@@ -1760,7 +1763,9 @@ class WriteG2Thread(threading.Thread):
         logging.debug(message_debug(904, threading.current_thread().name, jsonline))
         return result
 
-    def send_jsonline_to_g2_engine_withinfo(self, jsonline, senzing_stream_loader_value_default={"action": 'addRecordWithInfo'}):
+    def send_jsonline_to_g2_engine_withinfo(self, jsonline, senzing_stream_loader_value_default=None):
+        if senzing_stream_loader_value_default is None:
+            senzing_stream_loader_value_default = {"action": 'addRecordWithInfo'}
         return self.send_jsonline_to_g2_engine(jsonline, senzing_stream_loader_value_default)
 
 # -----------------------------------------------------------------------------

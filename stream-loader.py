@@ -67,7 +67,7 @@ except Exception:
 __all__ = []
 __version__ = "1.10.6"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-06-24'
+__updated__ = '2022-06-28'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -130,11 +130,6 @@ configuration_locator = {
         "default": 60,
         "env": "SENZING_CONFIGURATION_CHECK_FREQUENCY",
         "cli": "configuration-check-frequency"
-    },
-    "data_source": {
-        "default": None,
-        "env": "SENZING_DATA_SOURCE",
-        "cli": "data-source"
     },
     "g2_database_url_generic": {
         "default": "sqlite3://na:na@/var/opt/senzing/sqlite/G2C.db",
@@ -733,11 +728,6 @@ def get_parser():
 
     argument_aspects = {
         "common": {
-            "--data-source": {
-                "dest": "data_source",
-                "metavar": "SENZING_DATA_SOURCE",
-                "help": "Data Source."
-            },
             "--debug": {
                 "dest": "debug",
                 "action": "store_true",
@@ -1365,9 +1355,6 @@ def validate_configuration(config):
 
     if subcommand in ['stdin']:
 
-        if not config.get('data_source'):
-            user_warning_messages.append(message_warning(552))
-
         if not config.get('entity_type'):
             user_warning_messages.append(message_warning(553))
 
@@ -1786,7 +1773,6 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
         self.connection_string = config.get("azure_connection_string")
-        self.data_source = self.config.get('data_source')
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_connection_string = config.get("azure_failure_connection_string")
@@ -1864,8 +1850,6 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
 
                     # If needed, modify JSON message.
 
-                    if 'DATA_SOURCE' not in message_dictionary:
-                        message_dictionary['DATA_SOURCE'] = self.data_source
                     if 'ENTITY_TYPE' not in message_dictionary:
                         message_dictionary['ENTITY_TYPE'] = self.entity_type
                     message_string = json.dumps(message_dictionary, sort_keys=True)
@@ -1893,7 +1877,6 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
         self.connection_string = config.get("azure_connection_string")
-        self.data_source = self.config.get('data_source')
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_connection_string = config.get("azure_failure_connection_string")
@@ -1999,8 +1982,6 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
 
                     # If needed, modify JSON message.
 
-                    if 'DATA_SOURCE' not in message_dictionary:
-                        message_dictionary['DATA_SOURCE'] = self.data_source
                     if 'ENTITY_TYPE' not in message_dictionary:
                         message_dictionary['ENTITY_TYPE'] = self.entity_type
                     message_string = json.dumps(message_dictionary, sort_keys=True)
@@ -2058,7 +2039,6 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
         # Data to be inserted into messages.
 
-        data_source = self.config.get('data_source')
         entity_type = self.config.get('entity_type')
 
         # In a loop, get messages from Kafka.
@@ -2117,8 +2097,6 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
                 # If needed, modify JSON message.
 
-                if 'DATA_SOURCE' not in kafka_message_dictionary:
-                    kafka_message_dictionary['DATA_SOURCE'] = data_source
                 if 'ENTITY_TYPE' not in kafka_message_dictionary:
                     kafka_message_dictionary['ENTITY_TYPE'] = entity_type
                 kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
@@ -2295,7 +2273,6 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
         # Data to be inserted into messages.
 
-        data_source = self.config.get('data_source')
         entity_type = self.config.get('entity_type')
 
         # In a loop, get messages from Kafka.
@@ -2354,8 +2331,6 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
                 # If needed, modify JSON message.
 
-                if 'DATA_SOURCE' not in kafka_message_dictionary:
-                    kafka_message_dictionary['DATA_SOURCE'] = data_source
                 if 'ENTITY_TYPE' not in kafka_message_dictionary:
                     kafka_message_dictionary['ENTITY_TYPE'] = entity_type
                 kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
@@ -2418,8 +2393,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
                 # If needed, modify JSON message.
 
-                if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
-                    rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
                 if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
                     rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
                 rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
@@ -2464,7 +2437,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_port = self.config.get("rabbitmq_port")
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
         rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
-        self.data_source = self.config.get("data_source")
         self.entity_type = self.config.get("entity_type")
         reconnect_delay = self.config.get("rabbitmq_reconnect_delay_in_seconds")
 
@@ -2538,7 +2510,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
-        self.data_source = self.config.get("data_source")
         self.entity_type = self.config.get("entity_type")
         self.rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
         self.info_channel = None
@@ -2672,8 +2643,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
                 # If needed, modify JSON message.
 
-                if 'DATA_SOURCE' not in rabbitmq_message_dictionary:
-                    rabbitmq_message_dictionary['DATA_SOURCE'] = self.data_source
                 if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
                     rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
                 rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
@@ -2827,7 +2796,6 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
-        self.data_source = self.config.get('data_source')
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
@@ -2948,8 +2916,6 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
                 # If needed, modify JSON message.
 
-                if 'DATA_SOURCE' not in sqs_message_dictionary:
-                    sqs_message_dictionary['DATA_SOURCE'] = self.data_source
                 if 'ENTITY_TYPE' not in sqs_message_dictionary:
                     sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
                 sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
@@ -2978,7 +2944,6 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
-        self.data_source = self.config.get('data_source')
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
@@ -3121,8 +3086,6 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
                 # If needed, modify JSON message.
 
-                if 'DATA_SOURCE' not in sqs_message_dictionary:
-                    sqs_message_dictionary['DATA_SOURCE'] = self.data_source
                 if 'ENTITY_TYPE' not in sqs_message_dictionary:
                     sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
                 sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
@@ -3274,48 +3237,8 @@ class ReadUrlWriteQueueThread(threading.Thread):
     def create_output_line_function_factory(self):
         '''Tricky code.  Uses currying and factory techniques. Create a function for output_line_function(line).'''
 
-        # Indicators of which function to return from factory.
-
-        data_source = self.config.get('data_source')
-        entity_type = self.config.get('entity_type')
-
-        # Candidate functions to return from factory.
-
-        def result_function_1(self, line):
-            '''Simply put line into the queue.'''
+        def result_function(self, line):
             self.queue.put(line.strip())
-
-        def result_function_2(self, line):
-            line_dictionary = json.loads(line)
-            if 'DATA_SOURCE' not in line_dictionary:
-                line_dictionary['DATA_SOURCE'] = data_source
-            self.queue.put(json.dumps(line_dictionary, sort_keys=True))
-
-        def result_function_3(self, line):
-            line_dictionary = json.loads(line)
-            if 'ENTITY_TYPE' not in line_dictionary:
-                line_dictionary['ENTITY_TYPE'] = entity_type
-            self.queue.put(json.dumps(line_dictionary, sort_keys=True))
-
-        def result_function_4(self, line):
-            line_dictionary = json.loads(line)
-            if 'DATA_SOURCE' not in line_dictionary:
-                line_dictionary['DATA_SOURCE'] = data_source
-            if 'ENTITY_TYPE' not in line_dictionary:
-                line_dictionary['ENTITY_TYPE'] = entity_type
-            self.queue.put(json.dumps(line_dictionary, sort_keys=True))
-
-        # Determine which function to return.
-
-        result_function = None
-        if data_source is not None and entity_type is not None:
-            result_function = result_function_4
-        elif entity_type is not None:
-            result_function = result_function_3
-        elif data_source is not None:
-            result_function = result_function_2
-        else:
-            result_function = result_function_1
 
         return result_function
 

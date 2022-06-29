@@ -244,11 +244,6 @@ configuration_locator = {
         "env": "SENZING_LOG_LICENSE_PERIOD_IN_SECONDS",
         "cli": "log-license-period-in-seconds"
     },
-    "log_license_period_in_seconds": {
-        "default": 60 * 60 * 24,
-        "env": "SENZING_LOG_LICENSE_PERIOD_IN_SECONDS",
-        "cli": "log-license-period-in-seconds"
-    },
     "monitoring_check_frequency_in_seconds": {
         "default": 20,
         "env": "SENZING_MONITORING_CHECK_FREQUENCY_IN_SECONDS",

@@ -3543,7 +3543,7 @@ def get_g2_configuration_dictionary(config):
         }
     }
     license_base64_encoded = config.get("license_base64_encoded")
-    if license_base64_encoded is not None:
+    if license_base64_encoded:
         result["PIPELINE"]["LICENSESTRINGBASE64"] = license_base64_encoded
     return result
 

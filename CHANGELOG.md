@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.7] - 2022-06-29
+
+### Changed in 1.10.7
+
+- Add Support for `SENZING_LICENSE_BASE64_ENCODED`
+- Remove support for `SENZING_ENTITY_TYPE`
+
 ## [1.10.6] - 2022-06-28
 
 ### Changed in 1.10.6

@@ -65,9 +65,9 @@ except Exception:
 # Metadata
 
 __all__ = []
-__version__ = "1.10.6"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "1.10.7"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-06-28'
+__updated__ = '2022-06-30'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -233,6 +233,11 @@ configuration_locator = {
     },
     "ld_library_path": {
         "env": "LD_LIBRARY_PATH"
+    },
+    "license_base64_encoded": {
+        "default": None,
+        "env": "SENZING_LICENSE_BASE64_ENCODED",
+        "cli": "license-base64-encoded"
     },
     "log_level_parameter": {
         "default": "info",
@@ -747,6 +752,11 @@ def get_parser():
                 "dest": "entity_type",
                 "metavar": "SENZING_ENTITY_TYPE",
                 "help": "Entity type."
+            },
+            "--license-base64-encoded": {
+                "dest": "license_base64_encoded",
+                "metavar": "SENZING_LICENSE_BASE64_ENCODED",
+                "help": "Base64 encoding of a Senzing license. Default: none"
             },
             "--monitoring-period-in-seconds": {
                 "dest": "monitoring_period_in_seconds",
@@ -3537,6 +3547,9 @@ def get_g2_configuration_dictionary(config):
             "CONNECTION": config.get("g2_database_url_specific"),
         }
     }
+    license_base64_encoded = config.get("license_base64_encoded")
+    if license_base64_encoded:
+        result["PIPELINE"]["LICENSESTRINGBASE64"] = license_base64_encoded
     return result
 
 

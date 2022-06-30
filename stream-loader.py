@@ -239,6 +239,11 @@ configuration_locator = {
         "env": "SENZING_LICENSE_BASE64_ENCODED",
         "cli": "license-base64-encoded"
     },
+    "log_level_parameter": {
+        "default": "info",
+        "env": "SENZING_LOG_LEVEL",
+        "cli": "log-level-parameter"
+    },
     "log_license_period_in_seconds": {
         "default": 60 * 60 * 24,
         "env": "SENZING_LOG_LICENSE_PERIOD_IN_SECONDS",

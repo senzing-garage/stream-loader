@@ -18,14 +18,15 @@ USER root
 
 # Install packages via apt.
 
-RUN apt-get update \
- && apt-get -y install \
+RUN apt update \
+ && apt -y install \
+      curl \
       libaio1 \
       python3 \
       python3-dev \
       python3-pip \
       python3-venv \
- && apt-get clean \
+ && apt clean \
  && rm -rf /var/lib/apt/lists/*
 
 # Create and activate virtual environment.
@@ -39,6 +40,12 @@ COPY requirements.txt .
 RUN pip3 install --upgrade pip \
  && pip3 install -r requirements.txt \
  && rm /requirements.txt
+
+# Install senzing_governor.py.
+
+RUN curl -X GET \
+    --output /opt/senzing/g2/sdk/python/senzing_governor.py \
+    https://raw.githubusercontent.com/Senzing/governor-postgresql-transaction-id/main/senzing_governor.py
 
 # -----------------------------------------------------------------------------
 # Stage: Final
@@ -64,8 +71,8 @@ USER root
 
 # Install packages via apt.
 
-RUN apt-get update \
- && apt-get -y install \
+RUN apt update \
+ && apt -y install \
       libaio1 \
       libodbc1 \
       librdkafka-dev \
@@ -74,7 +81,7 @@ RUN apt-get update \
       python3 \
       python3-venv \
       unixodbc \
- && apt-get clean \
+ && apt clean \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy files from repository.
@@ -85,6 +92,7 @@ COPY ./stream-loader.py /app/
 # Copy python virtual environment from the builder image.
 
 COPY --from=builder /app/venv /app/venv
+COPY --from=builder /opt/senzing/g2/sdk/python/senzing_governor.py /opt/senzing/g2/sdk/python/senzing_governor.py
 
 # Make non-root container.
 
@@ -99,10 +107,9 @@ ENV PATH="/app/venv/bin:${PATH}"
 
 ENV LD_LIBRARY_PATH=/opt/senzing/g2/lib:/opt/senzing/g2/lib/debian:/opt/IBM/db2/clidriver/lib
 ENV PATH=${PATH}:/opt/senzing/g2/python:/opt/IBM/db2/clidriver/adm:/opt/IBM/db2/clidriver/bin
-ENV PYTHONPATH=/opt/senzing/g2/python
+ENV PYTHONPATH=/opt/senzing/g2/sdk/python
 ENV PYTHONUNBUFFERED=1
 ENV SENZING_DOCKER_LAUNCHED=true
-ENV SENZING_ETC_PATH=/etc/opt/senzing
 
 # Runtime execution.
 

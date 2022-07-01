@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=debian:11.3-slim@sha256:f6957458017ec31c4e325a76f39d6323c4c21b0e31572efa006baa927a160891
+ARG BASE_IMAGE=senzing/senzingapi-runtime:0.1.0
 
 # -----------------------------------------------------------------------------
 # Stage: builder
@@ -6,11 +6,11 @@ ARG BASE_IMAGE=debian:11.3-slim@sha256:f6957458017ec31c4e325a76f39d6323c4c21b0e3
 
 FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2022-06-27
+ENV REFRESHED_AT=2022-07-01
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.10.5"
+      Version="2.0.0"
 
 # Run as "root" for system installation.
 
@@ -48,11 +48,11 @@ RUN pip3 install --upgrade pip \
 
 FROM ${BASE_IMAGE} AS runner
 
-ENV REFRESHED_AT=2022-06-27
+ENV REFRESHED_AT=2022-07-01
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="1.10.5"
+      Version="2.0.0"
 
 # Define health check.
 
@@ -69,7 +69,6 @@ RUN apt-get update \
       libaio1 \
       libodbc1 \
       librdkafka-dev \
-      libssl1.1 \
       libxml2 \
       postgresql-client \
       python3 \

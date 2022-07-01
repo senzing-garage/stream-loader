@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed in 2.0.0
 
-- Migrated to `senzing/senzingapi-runtime` as Docker base images
+- Migrated to `senzing/senzingapi-runtime` as Docker base image
 
 ## [1.10.7] - 2022-06-30
 

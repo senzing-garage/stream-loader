@@ -75,5 +75,5 @@ see [Environment Variables](https://github.com/Senzing/knowledge-base/blob/main/
 
     ```console
     export LD_LIBRARY_PATH=${SENZING_G2_DIR}/lib:${SENZING_G2_DIR}/lib/debian:$LD_LIBRARY_PATH
-    export PYTHONPATH=${SENZING_G2_DIR}/python
+    export PYTHONPATH=${SENZING_G2_DIR}/sdk/python
     ```

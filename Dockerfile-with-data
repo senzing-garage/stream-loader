@@ -129,7 +129,7 @@ ENV PATH="/app/venv/bin:${PATH}"
 
 ENV LD_LIBRARY_PATH=/opt/senzing/g2/lib:/opt/senzing/g2/lib/debian:/opt/IBM/db2/clidriver/lib
 ENV PATH=${PATH}:/opt/senzing/g2/python:/opt/IBM/db2/clidriver/adm:/opt/IBM/db2/clidriver/bin
-ENV PYTHONPATH=/opt/senzing/g2/python
+ENV PYTHONPATH=/opt/senzing/g2/sdk/python
 ENV PYTHONUNBUFFERED=1
 ENV SENZING_DOCKER_LAUNCHED=true
 ENV SENZING_ETC_PATH=/etc/opt/senzing

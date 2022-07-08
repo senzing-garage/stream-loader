@@ -1,5 +1,5 @@
 azure-servicebus==7.8.0
-boto3==1.24.24
+boto3==1.24.25
 confluent-kafka==1.9.0
 pika==1.3.0
 psutil==5.9.1

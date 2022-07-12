@@ -42,7 +42,7 @@ image.
     export GIT_REPOSITORY_DIR="${GIT_ACCOUNT_DIR}/${GIT_REPOSITORY}"
     export GIT_REPOSITORY_URL="https://github.com/${GIT_ACCOUNT}/${GIT_REPOSITORY}.git"
     export LD_LIBRARY_PATH=${SENZING_DIR}/g2/lib:$LD_LIBRARY_PATH
-    export PYTHONPATH=${SENZING_DIR}/g2/python
+    export PYTHONPATH=${SENZING_DIR}/g2/sdk/python
     ```
 
 ## Clone repository

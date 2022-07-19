@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=senzing/senzingapi-runtime:3.1.0
+ARG BASE_IMAGE=senzing/senzingapi-runtime:3.1.1
 
 # -----------------------------------------------------------------------------
 # Stage: builder

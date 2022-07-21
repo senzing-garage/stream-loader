@@ -1,5 +1,4 @@
-name: identify_customer
-
+name: identify-customer.yaml
 on:
   issues:
     types:
@@ -13,9 +12,9 @@ env:
   TOKEN: ${{ secrets.SENZING_SLACK_BEARER_TOKEN }}
   REPO_URL: ${{ github.repository }}
   SLACK_HASHES: ${{ secrets.SENZING_GITHUB_SLACK_MAP }}
-
 jobs:
   check-membership:
+    name: Determine if customer
     runs-on: ubuntu-latest
     steps:
     - name: run script
@@ -24,6 +23,7 @@ jobs:
       if: ${{ env.BOOL == 'false' }}
       uses: Senzing/github-action-identify-customer@main
   automate-issues-labels:
+    name: Add customer-submission label
     runs-on: ubuntu-latest
     steps:
       - name: initial labeling

@@ -1,4 +1,4 @@
-name: Pull request tests
+name: Build Docker container
 
 on:
   pull_request:
@@ -8,7 +8,7 @@ on:
 jobs:
 
   buildDockerContainer:
-    name: Build the Docker container
+#   name: Build the Docker container
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

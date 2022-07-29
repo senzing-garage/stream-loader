@@ -525,7 +525,7 @@ Configuration values specified by environment variable or command line parameter
 - **[AWS_DEFAULT_REGION](https://github.com/Senzing/knowledge-base/blob/main/lists/environment-variables.md#aws_default_region)**
 - **[AWS_SECRET_ACCESS_KEY](https://github.com/Senzing/knowledge-base/blob/main/lists/environment-variables.md#aws_secret_access_key)**
 - **[PYTHONPATH](https://github.com/Senzing/knowledge-base/blob/main/lists/environment-variables.md#python_path)**
-- **[SENZING_AZURE_CONNECTION_STRING](https://github.com/Senzing/knowledge-base/blob/main/lists/environment-variables.md#senzing_azure_connection_string)**
+- **[SENZING_AZURE_QUEUE_CONNECTION_STRING](https://github.com/Senzing/knowledge-base/blob/main/lists/environment-variables.md#SENZING_AZURE_QUEUE_CONNECTION_STRING)**
 - **[SENZING_AZURE_FAILURE_CONNECTION_STRING](https://github.com/Senzing/knowledge-base/blob/main/lists/environment-variables.md#senzing_azure_failure_connection_string)**
 - **[SENZING_AZURE_FAILURE_QUEUE_NAME](https://github.com/Senzing/knowledge-base/blob/main/lists/environment-variables.md#senzing_azure_failure_queue_name)**
 - **[SENZING_AZURE_INFO_CONNECTION_STRING](https://github.com/Senzing/knowledge-base/blob/main/lists/environment-variables.md#senzing_azure_info_connection_string)**

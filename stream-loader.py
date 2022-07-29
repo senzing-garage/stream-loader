@@ -65,9 +65,9 @@ except Exception:
 # Metadata
 
 __all__ = []
-__version__ = "2.0.1"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "2.0.2"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-07-20'
+__updated__ = '2022-07-29'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -91,11 +91,6 @@ reserved_character_list = [';', ',', '/', '?', ':', '@', '=', '&']
 # 1) Command line options, 2) Environment variables, 3) Configuration files, 4) Default values
 
 configuration_locator = {
-    "azure_connection_string": {
-        "default": None,
-        "env": "SENZING_AZURE_CONNECTION_STRING",
-        "cli": "azure-connection-string"
-    },
     "azure_failure_connection_string": {
         "default": None,
         "env": "SENZING_AZURE_FAILURE_CONNECTION_STRING",
@@ -115,6 +110,11 @@ configuration_locator = {
         "default": None,
         "env": "SENZING_AZURE_INFO_QUEUE_NAME",
         "cli": "azure-info-queue-name"
+    },
+    "azure_queue_connection_string": {
+        "default": None,
+        "env": "SENZING_AZURE_QUEUE_CONNECTION_STRING",
+        "cli": "azure-queue-connection-string"
     },
     "azure_queue_name": {
         "default": None,
@@ -775,9 +775,9 @@ def get_parser():
             },
         },
         "azure_queue_base": {
-            "--azure-connection-string": {
-                "dest": "azure_connection_string",
-                "metavar": "SENZING_AZURE_CONNECTION_STRING",
+            "--azure-queue-connection-string": {
+                "dest": "azure_queue_connection_string",
+                "metavar": "SENZING_AZURE_QUEUE_CONNECTION_STRING",
                 "help": "Azure Service Bus Queue connection string. Default: none"
             },
             "--azure-queue-name": {
@@ -1787,7 +1787,7 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
-        self.connection_string = config.get("azure_connection_string")
+        self.connection_string = config.get("azure_queue_connection_string")
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_connection_string = config.get("azure_failure_connection_string")
@@ -1891,7 +1891,7 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
-        self.connection_string = config.get("azure_connection_string")
+        self.connection_string = config.get("azure_queue_connection_string")
         self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_connection_string = config.get("azure_failure_connection_string")

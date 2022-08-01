@@ -67,7 +67,7 @@ except Exception:
 __all__ = []
 __version__ = "2.0.2"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-07-29'
+__updated__ = '2022-08-01'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -155,11 +155,6 @@ configuration_locator = {
         "default": None,
         "env": "SENZING_ENGINE_CONFIGURATION_JSON",
         "cli": "engine-configuration-json"
-    },
-    "entity_type": {
-        "default": None,
-        "env": "SENZING_ENTITY_TYPE",
-        "cli": "entity-type"
     },
     "exit_on_empty_queue": {
         "default": False,
@@ -748,11 +743,6 @@ def get_parser():
                 "metavar": "SENZING_ENGINE_CONFIGURATION_JSON",
                 "help": "Advanced Senzing engine configuration. Default: none"
             },
-            "--entity-type": {
-                "dest": "entity_type",
-                "metavar": "SENZING_ENTITY_TYPE",
-                "help": "Entity type."
-            },
             "--license-base64-encoded": {
                 "dest": "license_base64_encoded",
                 "metavar": "SENZING_LICENSE_BASE64_ENCODED",
@@ -989,7 +979,6 @@ message_dictionary = {
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "551": "Missing G2 database URL.",
     "552": "SENZING_DATA_SOURCE not set.",
-    "553": "SENZING_ENTITY_TYPE not set.",
     "554": "Running with less than the recommended total memory of {0} GiB.",
     "555": "Running with less than the recommended available memory of {0} GiB.",
     "556": "SENZING_KAFKA_BOOTSTRAP_SERVER not set. See ./stream-loader.py kafka --help.",
@@ -1362,11 +1351,6 @@ def validate_configuration(config):
 
         if not config.get('python_path'):
             user_error_messages.append(message_error(559))
-
-    if subcommand in ['stdin']:
-
-        if not config.get('entity_type'):
-            user_warning_messages.append(message_warning(553))
 
     if subcommand in ['kafka']:
 
@@ -1788,7 +1772,6 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
         self.connection_string = config.get("azure_queue_connection_string")
-        self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_connection_string = config.get("azure_failure_connection_string")
         self.failure_queue_name = config.get("azure_failure_queue_name")
@@ -1862,11 +1845,6 @@ class ReadAzureQueueWriteG2Thread(WriteG2Thread):
 
                 for message_dictionary in message_list:
                     self.config['counter_queued_records'] += 1
-
-                    # If needed, modify JSON message.
-
-                    if 'ENTITY_TYPE' not in message_dictionary:
-                        message_dictionary['ENTITY_TYPE'] = self.entity_type
                     message_string = json.dumps(message_dictionary, sort_keys=True)
 
                     # Send valid JSON to Senzing.
@@ -1892,7 +1870,6 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
         self.connection_string = config.get("azure_queue_connection_string")
-        self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_connection_string = config.get("azure_failure_connection_string")
         self.failure_queue_enabled = False
@@ -1994,11 +1971,6 @@ class ReadAzureQueueWriteG2WithInfoThread(WriteG2Thread):
 
                 for message_dictionary in message_list:
                     self.config['counter_queued_records'] += 1
-
-                    # If needed, modify JSON message.
-
-                    if 'ENTITY_TYPE' not in message_dictionary:
-                        message_dictionary['ENTITY_TYPE'] = self.entity_type
                     message_string = json.dumps(message_dictionary, sort_keys=True)
 
                     # Send valid JSON to Senzing.
@@ -2051,10 +2023,6 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
         logging.debug(message_debug(930, 'ReadKafkaWriteG2Thread', kafka_consumer_configuration))
         consumer = confluent_kafka.Consumer(kafka_consumer_configuration)
         consumer.subscribe([self.config.get("kafka_topic")])
-
-        # Data to be inserted into messages.
-
-        entity_type = self.config.get('entity_type')
 
         # In a loop, get messages from Kafka.
 
@@ -2109,11 +2077,6 @@ class ReadKafkaWriteG2Thread(WriteG2Thread):
 
             for kafka_message_dictionary in kafka_message_list:
                 self.config['counter_queued_records'] += 1
-
-                # If needed, modify JSON message.
-
-                if 'ENTITY_TYPE' not in kafka_message_dictionary:
-                    kafka_message_dictionary['ENTITY_TYPE'] = entity_type
                 kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
 
                 # Send valid JSON to Senzing.
@@ -2286,10 +2249,6 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
         logging.debug(message_debug(930, 'ReadKafkaWriteG2WithInfoThread.failureProducer', kafka_failure_producer_configuration))
         self.failure_producer = confluent_kafka.Producer(kafka_failure_producer_configuration)
 
-        # Data to be inserted into messages.
-
-        entity_type = self.config.get('entity_type')
-
         # In a loop, get messages from Kafka.
 
         while True:
@@ -2343,11 +2302,6 @@ class ReadKafkaWriteG2WithInfoThread(WriteG2Thread):
 
             for kafka_message_dictionary in kafka_message_list:
                 self.config['counter_queued_records'] += 1
-
-                # If needed, modify JSON message.
-
-                if 'ENTITY_TYPE' not in kafka_message_dictionary:
-                    kafka_message_dictionary['ENTITY_TYPE'] = entity_type
                 kafka_message_string = json.dumps(kafka_message_dictionary, sort_keys=True)
 
                 # Send valid JSON to Senzing.
@@ -2405,11 +2359,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
 
             for rabbitmq_message_dictionary in rabbitmq_message_list:
                 self.config['counter_queued_records'] += 1
-
-                # If needed, modify JSON message.
-
-                if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
-                    rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
                 rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
 
                 if self.send_jsonline_to_g2_engine(rabbitmq_message_string):
@@ -2452,7 +2401,6 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
         rabbitmq_port = self.config.get("rabbitmq_port")
         rabbitmq_prefetch_count = self.config.get("rabbitmq_prefetch_count")
         rabbitmq_heartbeat = self.config.get("rabbitmq_heartbeat_in_seconds")
-        self.entity_type = self.config.get("entity_type")
         reconnect_delay = self.config.get("rabbitmq_reconnect_delay_in_seconds")
 
         # create record_queue.
@@ -2525,7 +2473,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
-        self.entity_type = self.config.get("entity_type")
         self.rabbitmq_info_queue = self.config.get("rabbitmq_info_queue")
         self.info_channel = None
         self.failure_channel = None
@@ -2655,11 +2602,6 @@ class ReadRabbitMQWriteG2WithInfoThread(WriteG2Thread):
 
             for rabbitmq_message_dictionary in rabbitmq_message_list:
                 self.config['counter_queued_records'] += 1
-
-                # If needed, modify JSON message.
-
-                if 'ENTITY_TYPE' not in rabbitmq_message_dictionary:
-                    rabbitmq_message_dictionary['ENTITY_TYPE'] = self.entity_type
                 rabbitmq_message_string = json.dumps(rabbitmq_message_dictionary, sort_keys=True)
 
                 # Send valid JSON to Senzing.
@@ -2811,7 +2753,6 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
-        self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.queue_url = config.get("sqs_queue_url")
@@ -2928,11 +2869,6 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
 
             for sqs_message_dictionary in sqs_message_list:
                 self.config['counter_queued_records'] += 1
-
-                # If needed, modify JSON message.
-
-                if 'ENTITY_TYPE' not in sqs_message_dictionary:
-                    sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
                 sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
 
                 # Send valid JSON to Senzing.
@@ -2959,7 +2895,6 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
     def __init__(self, config, g2_engine, g2_configuration_manager, governor):
         super().__init__(config, g2_engine, g2_configuration_manager, governor)
-        self.entity_type = self.config.get('entity_type')
         self.exit_on_empty_queue = self.config.get('exit_on_empty_queue')
         self.failure_queue_url = config.get("sqs_failure_queue_url")
         self.info_queue_url = config.get("sqs_info_queue_url")
@@ -3098,11 +3033,6 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
 
             for sqs_message_dictionary in sqs_message_list:
                 self.config['counter_queued_records'] += 1
-
-                # If needed, modify JSON message.
-
-                if 'ENTITY_TYPE' not in sqs_message_dictionary:
-                    sqs_message_dictionary['ENTITY_TYPE'] = self.entity_type
                 sqs_message_string = json.dumps(sqs_message_dictionary, sort_keys=True)
 
                 # Send valid JSON to Senzing.

@@ -3736,12 +3736,6 @@ def log_license(config):
 
     g2_product.destroy()
 
-    # If g2_license has expired, exit with error.
-
-    if remaining_time.days < 0:
-        exit_error(885)
-
-
 def log_performance(config):
     '''Log performance estimates.'''
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))

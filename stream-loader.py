@@ -240,7 +240,7 @@ configuration_locator = {
         "cli": "log-level-parameter"
     },
     "log_license_period_in_seconds": {
-        "default": 60 * 60 * 24,
+        "default": 60 * 30,
         "env": "SENZING_LOG_LICENSE_PERIOD_IN_SECONDS",
         "cli": "log-license-period-in-seconds"
     },

@@ -44,7 +44,7 @@ senzing_sdk_version_major = None
 # Import from Senzing.
 
 try:
-    from senzing import G2Config, G2ConfigMgr, G2Diagnostic, G2Engine, G2ModuleException, G2ModuleGenericException, G2ModuleNotInitialized, G2Product
+    from senzing import G2Config, G2ConfigMgr, G2Diagnostic, G2Engine, G2RetryableException, G2ModuleException, G2ModuleGenericException, G2ModuleNotInitialized, G2Product
     senzing_sdk_version_major = 3
 
 except Exception:
@@ -2430,8 +2430,8 @@ class ReadRabbitMQWriteG2Thread(WriteG2Thread):
                 logging.info(message_info(130, threading.current_thread().name, err))
             except pika.exceptions.ConnectionClosed as err:
                 logging.info(message_info(131, threading.current_thread().name, err))
-            except Exception as err:
-                logging.info(message_info(880, err, "channel.start_consuming()"))
+            except G2RetryableException as err:
+                logging.info(message_info(880, err, "channel.start_consuming(): G2RetryableException"))
 
             logging.info(message_info(133, reconnect_delay))
             time.sleep(reconnect_delay)

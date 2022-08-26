@@ -8,7 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+-
+
+## [2.1.0] - 2022-08-26
+
+### Changed in 2.1.0
+
+- In `Dockerfile`, bump from `senzing/senzingapi-runtime:3.1.1` to `senzing/senzingapi-runtime:3.2.0`
+- Updated python dependencies
+
+### Deleted in 2.1.0
+
 - Removed support for `SENZING_DEFAULT_ENTITY_TYPE`
+- Deleted `Dockerfile-with-data`
 
 ## [2.0.2] - 2022-07-29
 

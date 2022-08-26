@@ -67,7 +67,7 @@ except Exception:
 __all__ = []
 __version__ = "2.0.2"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-08-01'
+__updated__ = '2022-08-26'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'

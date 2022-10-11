@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
+## [2.1.2] - 2022-10-11
+
+### Changed in 2.1.2
+
+- In `Dockerfile`, updated FROM instruction to `senzing/senzingapi-runtime:3.3.1`
+- In `requirements.txt`, updated:
+  - boto3==1.24.89
+  - psycopg2-binary==2.9.4
+
 ## [2.1.1] - 2022-09-28
 
 ### Changed in 2.1.1

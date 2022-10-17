@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
+## [2.2.0] - 2022-10-18
+
+### Added in 2.2.0
+
+- Added `rabbitmq-custom` subcommand
+
 ## [2.1.2] - 2022-10-11
 
 ### Changed in 2.1.2

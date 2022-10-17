@@ -84,7 +84,6 @@ GIGABYTES = 1024 * MEGABYTES
 MINIMUM_TOTAL_MEMORY_IN_GIGABYTES = 8
 MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES = 6
 
-
 # Constants for Pika
 
 MSG_FRAME = 0
@@ -1004,7 +1003,6 @@ message_dictionary = {
     "222": "WithInfo result: {0}",
     "223": "Processed {0} add records at a rate of {1} records per second",
     "224": "Total records added: {0}",
-
     "292": "Configuration change detected.  Old: {0} New: {1}",
     "293": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
     "294": "Version: {0}  Updated: {1}",
@@ -1027,7 +1025,6 @@ message_dictionary = {
     "421": "Still processing a long running record. Duration {0:.3g}; Rejected: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
     "422": "Threads are stuck on long running records.  Number of threads: {0}",
     "423": "Running recovery.",
-
     "499": "{0}",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
     "551": "Missing G2 database URL.",
@@ -1080,7 +1077,6 @@ message_dictionary = {
     "821": "G2Engine.addRecordWithInfo() error. Message: {0} Error: {1}",
     "822": "Error from future. Error type: {0} Error: {1}",
     "823": "Shutting down due to error.  Error type: {0} Error: {1}",
-
     "879": "Senzing SDK was not imported.",
     "880": "Unspecific error when {1}. Error: {0}",
     "881": "Could not G2Engine.primeEngine with '{0}'. Error: {1}",
@@ -1458,7 +1454,7 @@ class Governor:
         self.hint = hint
 
     def govern(self, *args, **kwargs):
-        return
+        return 0
 
     def close(self):
         return
@@ -3794,6 +3790,7 @@ def log_license(config):
 
     g2_product.destroy()
 
+
 def log_performance(config):
     '''Log performance estimates.'''
     logging.debug(message_debug(950, sys._getframe().f_code.co_name))
@@ -4029,6 +4026,7 @@ def process_rabbitmq_message(g2engine, message):
         logging.error(message_error(820, message, err))
         raise
 
+
 def process_rabbitmq_message_withinfo(g2engine, message):
     try:
         record = orjson.loads(message)
@@ -4038,7 +4036,6 @@ def process_rabbitmq_message_withinfo(g2engine, message):
         logging.error(message_error(821, message, err))
         raise
     return response.decode()
-
 
 # -----------------------------------------------------------------------------
 # do_* functions
@@ -4298,9 +4295,12 @@ def do_rabbitmq(args):
     logging.info(exit_template(config))
 
 
-
 def do_rabbitmq_custom(args):
     ''' Read from rabbitmq. '''
+
+    # Keep Pika logging to a minimum.
+
+    logging.getLogger("pika").setLevel(logging.WARNING)
 
     # Get context from CLI, environment variables, and ini files.
 
@@ -4327,7 +4327,7 @@ def do_rabbitmq_custom(args):
     g2_engine = get_g2_engine(config)
     governor = Governor(g2_engine=g2_engine, hint="stream-loader")
 
-    # Construct Pika parameters
+    # Construct Pika parameters.
 
     if amqp_url:
         pika_parameters = pika.URLParameters(amqp_url)
@@ -4354,22 +4354,35 @@ def do_rabbitmq_custom(args):
         channel.queue_declare(queue=rabbitmq_queue, passive=True)
         with concurrent.futures.ThreadPoolExecutor(max_workers) as executor:
             try:
-                channel.basic_qos(prefetch_count=executor._max_workers) # always have 1 record prefetched for each thread
+                channel.basic_qos(prefetch_count=executor._max_workers)  # always have 1 record prefetched for each thread
                 while True:
                     loop_start_time = time.time()
+
+                    # If any futures exist, process the completed futures.
+
                     if futures:
                         completed_futures, _ = concurrent.futures.wait(futures, timeout=10, return_when=concurrent.futures.FIRST_COMPLETED)
 
+                        # Handle completed futures.
+
                         for future in completed_futures:
+
+                            # TODO:  Handle WithInfo results better.
+
                             result = future.result()
                             if result:
                                 logging.info(message_info(222, result))
+
+                            # Remove completed future from list of futures.
+
                             message = futures.pop(future)
-                            if not message[TUPLE_ACKED]: # if we rejected a message before we should not ack it here
+                            if not message[TUPLE_ACKED]:  # if we rejected a message before we should not ack it here
                                 channel.basic_ack(message[TUPLE_MSG][MSG_FRAME].delivery_tag)
                             message_count += 1
 
-                            if message_count%message_interval == 0: # display rate stats
+                            # Periodically, log statistics.
+
+                            if message_count % message_interval == 0:  # display rate stats
                                 time_difference = loop_start_time - last_message_time
                                 speed = -1
                                 if time_difference > 0.0:
@@ -4377,7 +4390,9 @@ def do_rabbitmq_custom(args):
                                 logging.info(message_info(223, message_count, speed))
                                 last_message_time = loop_start_time
 
-                        if last_message_time > log_check_time + (long_record/2): # log long running records
+                        # Periodically log G2Engine statistics and handle Stuck or Rejected records.
+
+                        if last_message_time > log_check_time + (long_record / 2):  # log long running records
                             log_check_time = loop_start_time
 
                             # Log G2Engine statistics
@@ -4387,14 +4402,14 @@ def do_rabbitmq_custom(args):
                             g2_engine_stats_dictionary = json.loads(g2_engine_stats_response.decode())
                             logging.info(message_info(125, json.dumps(g2_engine_stats_dictionary, sort_keys=True)))
 
-                            # Determine stuck or rejected records.
+                            # Handle stuck or rejected records.
 
                             number_stuck = 0
                             number_rejected = 0
                             for future, message in futures.items():
                                 if not future.done():
                                     duration = loop_start_time - message[TUPLE_STARTTIME]
-                                    if duration > 2 * long_record: # a record taking this long should be rejected to the dead letter queue
+                                    if duration > 2 * long_record:  # a record taking this long should be rejected to the dead letter queue
                                         number_rejected += 1
                                         if not message[TUPLE_ACKED]:
                                             logging.warning(message_warning(420, record["DATA_SOURCE"], record["RECORD_ID"]))
@@ -4404,30 +4419,34 @@ def do_rabbitmq_custom(args):
                                     if duration > long_record:
                                         number_stuck += 1
                                         record = orjson.loads(message[TUPLE_MSG][MSG_BODY])
-                                        logging.warning(message_warning(421, duration/60, message[TUPLE_ACKED], record["DATA_SOURCE"], record["RECORD_ID"]))
+                                        logging.warning(message_warning(421, duration / 60, message[TUPLE_ACKED], record["DATA_SOURCE"], record["RECORD_ID"]))
                                 if number_stuck >= executor._max_workers:
                                     logging.warning(message_warning(422, executor._max_workers))
                                 if number_rejected >= executor._max_workers:
                                     logging.warning(message_warning(423))
-                                    channel.basic_recover() # supposedly this causes unacked messages to redeliver, should prevent the server from disconnecting us
+                                    channel.basic_recover()  # supposedly this causes unacked messages to redeliver, should prevent the server from disconnecting us
 
-                    # Really want something that forces an "I'm alive" to the server
+                    # Perform governance on system.
+
                     pause_seconds = governor.govern()
-                    # either governor fully triggered or our executor is full
-                    # not going to get more messages
+
+                    # Really want something that forces an "I'm alive" to the server.
+                    # Either governor fully triggered or our executor is full
+                    # not going to get more messages.
                     if pause_seconds < 0.0:
-                        connection.sleep(1) # process rabbitmq protocol for 1s
+                        connection.sleep(1)  # process rabbitmq protocol for 1s
                         continue
                     if len(futures) >= executor._max_workers:
-                        connection.sleep(1) # process rabbitmq protocol for 1s
+                        connection.sleep(1)  # process rabbitmq protocol for 1s
                         continue
                     if pause_seconds > 0.0:
                         connection.sleep(pause_seconds)
 
+                    # When needed, generate more workers.
+
                     while len(futures) < executor._max_workers:
                         try:
-                            message = channel.basic_get(args.queue)
-                            #print(msg)
+                            message = channel.basic_get(rabbitmq_queue)
                             if not message[MSG_FRAME] and len(futures) > 0:
                                 connection.sleep(.1)
                                 break
@@ -4437,7 +4456,6 @@ def do_rabbitmq_custom(args):
                             raise
                     logging.error(message_error(224, message_count))
 
-
             except Exception as err:
                 logging.error(message_error(823, type(err).__name__, err))
                 traceback.print_exc()
@@ -4446,8 +4464,7 @@ def do_rabbitmq_custom(args):
                     if not future.done():
                         duration = loop_start_time - message[TUPLE_STARTTIME]
                         record = orjson.loads(message[TUPLE_MSG][MSG_BODY])
-                        logging.warning(message_warning(421, duration/60, message[TUPLE_ACKED], record["DATA_SOURCE"], record["RECORD_ID"]))
-
+                        logging.warning(message_warning(421, duration / 60, message[TUPLE_ACKED], record["DATA_SOURCE"], record["RECORD_ID"]))
                 executor.shutdown()
                 connection.close()
                 sys.exit(-1)
@@ -4463,6 +4480,7 @@ def do_rabbitmq_custom(args):
     # Epilog.
 
     logging.info(exit_template(config))
+
 
 def do_rabbitmq_withinfo(args):
     ''' Read from rabbitmq. '''

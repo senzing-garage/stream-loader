@@ -92,7 +92,7 @@ COPY ./stream-loader.py /app/
 # Copy python virtual environment from the builder image.
 
 COPY --from=builder /app/venv /app/venv
-# COPY --from=builder /opt/senzing/g2/sdk/python/senzing_governor.py /opt/senzing/g2/sdk/python/senzing_governor.py
+COPY --from=builder /opt/senzing/g2/sdk/python/senzing_governor.py /opt/senzing/g2/sdk/python/senzing_governor.py
 
 # Make non-root container.
 

@@ -70,7 +70,7 @@ except Exception:
 __all__ = []
 __version__ = "2.2.0"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2022-10-17'
+__updated__ = '2022-10-18'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
@@ -84,7 +84,7 @@ GIGABYTES = 1024 * MEGABYTES
 MINIMUM_TOTAL_MEMORY_IN_GIGABYTES = 8
 MINIMUM_AVAILABLE_MEMORY_IN_GIGABYTES = 6
 
-# Constants for Pika
+# Constants for stream-loader.py rabbitmq-custom.
 
 MSG_FRAME = 0
 MSG_BODY = 2
@@ -4021,6 +4021,7 @@ def dohelper_thread_runner(args, threadClass, options_to_defaults_map):
 def process_rabbitmq_message(g2engine, message):
     try:
         record = orjson.loads(message)
+        assert isinstance(record, dict), f'Message must be a JSON Object, not a JSON list. Message: {message}'
         g2engine.addRecord(record['DATA_SOURCE'], record['RECORD_ID'], message.decode())
     except Exception as err:
         logging.error(message_error(820, message, err))
@@ -4030,6 +4031,7 @@ def process_rabbitmq_message(g2engine, message):
 def process_rabbitmq_message_withinfo(g2engine, message):
     try:
         record = orjson.loads(message)
+        assert isinstance(record, dict), f'Message must be a JSON Object, not a JSON list. Message: {message}'
         response = bytearray()
         g2engine.addRecordWithInfo(record['DATA_SOURCE'], record['RECORD_ID'], message.decode(), response)
     except Exception as err:
@@ -4447,8 +4449,9 @@ def do_rabbitmq_custom(args):
                     while len(futures) < executor._max_workers:
                         try:
                             message = channel.basic_get(rabbitmq_queue)
-                            if not message[MSG_FRAME] and len(futures) > 0:
-                                connection.sleep(.1)
+                            if not message[MSG_FRAME]:
+                                if len(futures) > 0:
+                                    connection.sleep(.1)
                                 break
                             futures[executor.submit(process_rabbitmq_message, g2_engine, message[MSG_BODY])] = (message, time.time(), False)
                         except Exception as err:

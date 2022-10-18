@@ -103,6 +103,11 @@ reserved_character_list = [';', ',', '/', '?', ':', '@', '=', '&']
 # 1) Command line options, 2) Environment variables, 3) Configuration files, 4) Default values
 
 configuration_locator = {
+    "add_record_withinfo": {
+        "default": False,
+        "env": "SENZING_ADD_RECORD_WITHINFO",
+        "cli": "add-record-withinfo"
+    },
     "amqp_url": {
         "default": None,
         "env": "SENZING_AMQP_URL",
@@ -619,10 +624,30 @@ def get_parser():
             "help": 'Read JSON Lines from RabbitMQ queue.',
             "argument_aspects": ["common", "rabbitmq_base"],
             "arguments": {
+                "--add-record-withinfo": {
+                    "dest": "add_record_withinfo",
+                    "action": "store_true",
+                    "help": "Return withInfo when adding record. (SENZING_ADD_RECORD_WITHINFO) Default: False"
+                },
                 "--amqp-url": {
                     "dest": "rabbitmq_failure_exchange",
                     "metavar": "SENZING_AMQP_URL",
                     "help": "AMQP URL for attaching to RabbitMQ. Default: none"
+                },
+                "--long-record": {
+                    "dest": "long_record",
+                    "metavar": "SENZING_LONG_RECORD",
+                    "help": "Number of bytes that define a long record. Default: 300"
+                },
+                "--max-workers": {
+                    "dest": "max_workers",
+                    "metavar": "SENZING_MAX_WORKERS",
+                    "help": "Number of bytes that define a long record. Default: none"
+                },
+                "--message-interval": {
+                    "dest": "message_interval",
+                    "metavar": "SENZING_MESSAGE_INTERVAL",
+                    "help": "Number of bytes that define a long record. Default: 10,000"
                 },
             }
         },
@@ -1326,6 +1351,7 @@ def get_configuration(args):
     # Special case: Change boolean strings to booleans.
 
     booleans = [
+        'add_record_withinfo',
         'debug',
         'delay_randomized',
         'exit_on_empty_queue',
@@ -1352,6 +1378,9 @@ def get_configuration(args):
         'delay_in_seconds',
         'expiration_warning_in_days',
         'log_license_period_in_seconds',
+        'long_message',
+        'max_workers',
+        'message_interval',
         'monitoring_check_frequency_in_seconds',
         'monitoring_period_in_seconds',
         'queue_maxsize',
@@ -4319,6 +4348,7 @@ def do_rabbitmq_custom(args):
     message_interval = config.get('message_interval')
     rabbitmq_queue = config.get('rabbitmq_queue')
     threads_per_process = config.get('threads_per_process')
+    add_record_withinfo = config.get('add_record_withinfo')
 
     max_workers = config.get('max_workers')
     if threads_per_process:
@@ -4453,7 +4483,10 @@ def do_rabbitmq_custom(args):
                                 if len(futures) > 0:
                                     connection.sleep(.1)
                                 break
-                            futures[executor.submit(process_rabbitmq_message, g2_engine, message[MSG_BODY])] = (message, time.time(), False)
+                            if add_record_withinfo:
+                                futures[executor.submit(process_rabbitmq_message_withinfo, g2_engine, message[MSG_BODY])] = (message, time.time(), False)
+                            else:
+                                futures[executor.submit(process_rabbitmq_message, g2_engine, message[MSG_BODY])] = (message, time.time(), False)
                         except Exception as err:
                             logging.error(message_error(822, {type(err).__name__}, err))
                             raise

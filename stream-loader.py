@@ -1047,7 +1047,7 @@ message_dictionary = {
     "417": "RabbitMQ exchange: {0} routing key {1}: Lost connection to server. Waiting {2} seconds and attempting to reconnect. Message: {3}",
     "418": "Exceeded the requested number of attempts ({0}) to reconnect to RabbitMQ broker at {1}:{2} with no success. Exiting.",
     "420": "Rejecting a long running record.  DATA_SOURCE: {0}; RECORD_ID: {1}",
-    "421": "Still processing a long running record. Duration {0:.3g}; Rejected: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
+    "421": "Still processing a long running record. Duration {0:.3g} minutes; Rejected: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
     "422": "Threads are stuck on long running records.  Number of threads: {0}",
     "423": "Running recovery.",
     "499": "{0}",

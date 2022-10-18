@@ -1567,7 +1567,8 @@ class WriteG2Thread(threading.Thread):
         return self.info_filter.filter(message=message)
 
     def govern(self):
-        return self.governor.govern()
+        sleep_time = self.governor.govern()
+        time.sleep(sleep_time)
 
     def is_time_to_check_g2_configuration(self):
         now = time.time()

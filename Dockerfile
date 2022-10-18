@@ -6,7 +6,7 @@ ARG BASE_IMAGE=senzing/senzingapi-runtime:3.3.1
 
 FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2022-10-18
+ENV REFRESHED_AT=2022-10-19
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \

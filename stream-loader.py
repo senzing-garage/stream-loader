@@ -4457,7 +4457,7 @@ def do_rabbitmq_custom(args):
                         except Exception as err:
                             logging.error(message_error(822, {type(err).__name__}, err))
                             raise
-                    logging.error(message_error(224, message_count))
+                logging.error(message_error(224, message_count))
 
             except Exception as err:
                 logging.error(message_error(823, type(err).__name__, err))

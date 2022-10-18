@@ -1378,8 +1378,7 @@ def get_configuration(args):
         'delay_in_seconds',
         'expiration_warning_in_days',
         'log_license_period_in_seconds',
-        'long_message',
-        'max_workers',
+        'long_record',
         'message_interval',
         'monitoring_check_frequency_in_seconds',
         'monitoring_period_in_seconds',
@@ -1396,6 +1395,11 @@ def get_configuration(args):
     for integer in integers:
         integer_string = result.get(integer)
         result[integer] = int(integer_string)
+
+    # Special case:  Null or integer
+
+    if result.get('max_workers') is not None:
+        result['max_workers'] = int(result.get('max_workers'))
 
     # Special case:  Tailored database URL
 

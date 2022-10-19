@@ -6,11 +6,11 @@ ARG BASE_IMAGE=senzing/senzingapi-runtime:3.3.1
 
 FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2022-10-11
+ENV REFRESHED_AT=2022-10-19
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="2.1.2"
+      Version="2.2.0"
 
 # Run as "root" for system installation.
 
@@ -55,11 +55,11 @@ RUN curl -X GET \
 
 FROM ${BASE_IMAGE} AS runner
 
-ENV REFRESHED_AT=2022-10-11
+ENV REFRESHED_AT=2022-10-18
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="2.1.0"
+      Version="2.2.0"
 
 # Define health check.
 

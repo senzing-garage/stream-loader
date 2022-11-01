@@ -55,7 +55,7 @@ RUN curl -X GET \
 
 FROM ${BASE_IMAGE} AS runner
 
-ENV REFRESHED_AT=2022-110-01
+ENV REFRESHED_AT=2022-11-01
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \

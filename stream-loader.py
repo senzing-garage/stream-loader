@@ -4449,6 +4449,7 @@ def do_rabbitmq_custom(args):
                                     if duration > 2 * long_record:  # a record taking this long should be rejected to the dead letter queue
                                         number_rejected += 1
                                         if not message[TUPLE_ACKED]:
+                                            record = orjson.loads(message[TUPLE_MSG][MSG_BODY])
                                             logging.warning(message_warning(420, record["DATA_SOURCE"], record["RECORD_ID"]))
                                             channel.basic_reject(message[TUPLE_MSG][MSG_FRAME].delivery_tag, requeue=False)
                                             futures[future] = (message[TUPLE_MSG], message[TUPLE_STARTTIME], True)

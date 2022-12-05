@@ -1048,7 +1048,7 @@ message_dictionary = {
     "418": "Exceeded the requested number of attempts ({0}) to reconnect to RabbitMQ broker at {1}:{2} with no success. Exiting.",
     "420": "Rejecting a long running record.  DATA_SOURCE: {0}; RECORD_ID: {1}",
     "421": "Still processing a long running record. Duration {0:.3g} minutes; Rejected: {1}; DATA_SOURCE: {2}; RECORD_ID: {3}",
-    "422": "Threads are stuck on long running records.  Number of threads: {0}",
+    "422": "All threads are stuck on long running records.  Number of threads: {0}",
     "423": "Running recovery.",
     "499": "{0}",
     "500": "senzing-" + SENZING_PRODUCT_ID + "{0:04d}E",
@@ -4460,9 +4460,10 @@ def do_rabbitmq_custom(args):
                                         logging.warning(message_warning(421, duration / 60, message[TUPLE_ACKED], record["DATA_SOURCE"], record["RECORD_ID"]))
                                 if number_stuck >= executor._max_workers:
                                     logging.warning(message_warning(422, executor._max_workers))
-                                if number_rejected >= executor._max_workers:
-                                    logging.warning(message_warning(423))
-                                    channel.basic_recover()  # supposedly this causes unacked messages to redeliver, should prevent the server from disconnecting us
+                                # basic_recover comes back as NOT IMPLEMENTED on RabbitMQ
+                                #if number_rejected >= executor._max_workers:
+                                #    logging.warning(message_warning(423))
+                                #    channel.basic_recover()  # supposedly this causes unacked messages to redeliver, should prevent the server from disconnecting us
 
                     # Perform governance on system.
 

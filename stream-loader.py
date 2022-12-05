@@ -4429,7 +4429,7 @@ def do_rabbitmq_custom(args):
 
                         # Periodically log G2Engine statistics and handle Stuck or Rejected records.
 
-                        if last_message_time > log_check_time + (long_record / 2):  # log long running records
+                        if loop_start_time > log_check_time + (long_record / 2):  # log long running records
                             log_check_time = loop_start_time
 
                             # Log G2Engine statistics
@@ -4486,7 +4486,7 @@ def do_rabbitmq_custom(args):
                         try:
                             message = channel.basic_get(rabbitmq_queue)
                             if not message[MSG_FRAME]:
-                                if len(futures) > 0:
+                                if len(futures) == 0:
                                     connection.sleep(.1)
                                 break
                             if add_record_withinfo:

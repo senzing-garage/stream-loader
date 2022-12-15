@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
+## [2.2.3] - 2022-12-14
+
+### Changed in 2.2.3
+
+- Updated SQS visibility timeout from 30s to 30m
+
 ## [2.2.2] - 2022-11-01
 
 ### Changed in 2.2.2

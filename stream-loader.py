@@ -2912,7 +2912,7 @@ class ReadSqsWriteG2Thread(WriteG2Thread):
                 AttributeNames=[],
                 MaxNumberOfMessages=1,
                 MessageAttributeNames=[],
-                VisibilityTimeout=30,
+                VisibilityTimeout=900,
                 WaitTimeSeconds=self.sqs_wait_time_seconds
             )
 
@@ -3075,7 +3075,7 @@ class ReadSqsWriteG2WithInfoThread(WriteG2Thread):
                 AttributeNames=[],
                 MaxNumberOfMessages=1,
                 MessageAttributeNames=[],
-                VisibilityTimeout=30,
+                VisibilityTimeout=900,
                 WaitTimeSeconds=self.sqs_wait_time_seconds
             )
 

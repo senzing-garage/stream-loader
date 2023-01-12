@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=senzing/senzingapi-runtime:3.3.2
+ARG BASE_IMAGE=senzing/senzingapi-runtime:3.4.0
 
 # -----------------------------------------------------------------------------
 # Stage: builder
@@ -6,7 +6,7 @@ ARG BASE_IMAGE=senzing/senzingapi-runtime:3.3.2
 
 FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2022-11-01
+ENV REFRESHED_AT=2023-01-12
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
@@ -55,7 +55,7 @@ RUN curl -X GET \
 
 FROM ${BASE_IMAGE} AS runner
 
-ENV REFRESHED_AT=2022-11-01
+ENV REFRESHED_AT=2023-01-12
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \

@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
+## [2.2.4] - 2023-01-12
+
+### Changed in 2.2.4
+
+- In `Dockerfile`, updated FROM instruction to `senzing/senzingapi-runtime:3.4.0`
+- In `requirements.txt`, updated:
+  - boto3==1.26.48
+  - orjson==3.8.5
+
 ## [2.2.3] - 2022-12-14
 
 ### Changed in 2.2.3

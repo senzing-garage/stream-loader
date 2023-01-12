@@ -10,7 +10,7 @@ ENV REFRESHED_AT=2023-01-12
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="2.2.2"
+      Version="2.2.4"
 
 # Run as "root" for system installation.
 
@@ -59,7 +59,7 @@ ENV REFRESHED_AT=2023-01-12
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="2.2.2"
+      Version="2.2.4"
 
 # Define health check.
 

@@ -68,9 +68,9 @@ except Exception:
 # Metadata
 
 __all__ = []
-__version__ = "2.2.4"  # See https://www.python.org/dev/peps/pep-0396/
+__version__ = "2.2.5"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
-__updated__ = '2023-01-12'
+__updated__ = '2023-04-03'
 
 SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'

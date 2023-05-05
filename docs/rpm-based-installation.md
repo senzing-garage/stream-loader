@@ -72,8 +72,3 @@ image.
     ```console
     sudo pip install -r ${GIT_REPOSITORY_DIR}/requirements.txt
     ```
-
-### Create SENZING_DIR
-
-If you do not already have an `/opt/senzing` directory on your local system, visit
-[HOWTO - Create SENZING_DIR](https://github.com/Senzing/knowledge-base/blob/main/HOWTO/create-senzing-dir.md).

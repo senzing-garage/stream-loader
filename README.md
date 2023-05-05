@@ -111,8 +111,6 @@ These are "one-time tasks" which may already have been completed.
        [Support Db2](https://github.com/Senzing/knowledge-base/blob/main/HOWTO/support-db2.md).
     1. **MS SQL:** See
        [Support MS SQL](https://github.com/Senzing/knowledge-base/blob/main/HOWTO/support-mssql.md).
-1. [Configure Senzing database](https://github.com/Senzing/knowledge-base/blob/main/HOWTO/configure-senzing-database.md)
-1. [Configure Senzing](https://github.com/Senzing/knowledge-base/blob/main/HOWTO/configure-senzing.md)
 
 ### Download
 
@@ -206,11 +204,7 @@ These are "one-time tasks" which may already have been completed.
 
 1. The following software programs need to be installed:
     1. [docker](https://github.com/Senzing/knowledge-base/blob/main/WHATIS/docker.md)
-1. [Install Senzing using Docker](https://github.com/Senzing/knowledge-base/blob/main/HOWTO/install-senzing-using-docker.md)
-    1. If using Docker with a previous "system install" of Senzing,
-       see [how to use Docker with system install](https://github.com/Senzing/knowledge-base/blob/main/HOWTO/use-docker-with-system-install.md).
 1. [Configure Senzing database using Docker](https://github.com/Senzing/knowledge-base/blob/main/HOWTO/configure-senzing-database-using-docker.md)
-1. [Configure Senzing using Docker](https://github.com/Senzing/knowledge-base/blob/main/HOWTO/configure-senzing-using-docker.md)
 
 ### Database support
 

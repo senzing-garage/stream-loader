@@ -1,4 +1,4 @@
-# Errors, Warnings, and Info messages
+# stream-loader errors
 
 ## senzing-50010404W
 

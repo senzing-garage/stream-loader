@@ -57,11 +57,6 @@ see [Environment Variables](https://github.com/Senzing/knowledge-base/blob/main/
     sudo pip install -r ${GIT_REPOSITORY_DIR}/requirements.txt
     ```
 
-### Senzing install
-
-1. If Senzing has not been installed, visit
-   [HOWTO - Initialize Senzing](https://github.com/Senzing/knowledge-base/blob/main/HOWTO/initialize-senzing.md).
-
 ## Set Environment variables
 
 1. :pencil2: Location of Senzing G2 directory.

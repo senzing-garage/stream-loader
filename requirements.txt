@@ -1,4 +1,4 @@
-azure-servicebus==7.9.0
+azure-servicebus==7.10.0
 boto3==1.26.130
 confluent-kafka==2.1.1
 orjson==3.8.12

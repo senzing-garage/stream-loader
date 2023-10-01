@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=senzing/senzingapi-runtime:3.6.0
+ARG BASE_IMAGE=senzing/senzingapi-runtime:3.7.1
 
 # -----------------------------------------------------------------------------
 # Stage: builder
@@ -6,11 +6,11 @@ ARG BASE_IMAGE=senzing/senzingapi-runtime:3.6.0
 
 FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2023-06-29
+ENV REFRESHED_AT=2023-09-29
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="2.2.8"
+      Version="2.2.9"
 
 # Run as "root" for system installation.
 
@@ -55,11 +55,11 @@ RUN curl -X GET \
 
 FROM ${BASE_IMAGE} AS runner
 
-ENV REFRESHED_AT=2023-06-29
+ENV REFRESHED_AT=2023-09-29
 
 LABEL Name="senzing/stream-loader" \
       Maintainer="support@senzing.com" \
-      Version="2.2.8"
+      Version="2.2.9"
 
 # Define health check.
 

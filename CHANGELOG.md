@@ -10,6 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
+## [2.2.9] - 2023-09-30
+
+### Changed in 2.2.9
+
+- In `Dockerfile`, updated FROM instruction to `senzing/senzingapi-runtime:3.7.1`
+- In `requirements.txt`, updated:
+  - azure-servicebus==7.11.2
+  - boto3==1.28.57
+  - confluent-kafka==2.2.0
+  - orjson==3.9.7
+  - psycopg2-binary==2.9.8
+
 ## [2.2.8] - 2023-06-29
 
 ### Changed in 2.2.8

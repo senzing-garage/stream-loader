@@ -23,6 +23,7 @@ disable=
     too-many-nested-blocks,
     too-many-statements,
     unused-argument,
+    used-before-assignment,
 ignore=
     __init__.py,
 notes=

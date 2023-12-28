@@ -72,7 +72,7 @@ __version__ = "2.2.10"  # See https://www.python.org/dev/peps/pep-0396/
 __date__ = '2018-10-29'
 __updated__ = '2023-11-15'
 
-SENZING_PRODUCT_ID = "5001"  # See https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
+SENZING_PRODUCT_ID = "5001"  # See https://github.com/senzing-garage/knowledge-base/blob/main/lists/senzing-product-ids.md
 log_format = '%(asctime)s %(message)s'
 
 # Working with bytes.
@@ -948,7 +948,7 @@ def get_parser():
                 for argument, argument_value in arguments.items():
                     subcommand_value['arguments'][argument] = argument_value
 
-    parser = argparse.ArgumentParser(prog="stream-loader.py", description="Initialize Senzing installation. For subcommand help, run 'stream-loader.py <subcommand> --help' For more information, see https://github.com/Senzing/stream-loader")
+    parser = argparse.ArgumentParser(prog="stream-loader.py", description="Initialize Senzing installation. For subcommand help, run 'stream-loader.py <subcommand> --help' For more information, see https://github.com/senzing-garage/stream-loader")
     subparsers = parser.add_subparsers(dest='subcommand', help='Subcommands (SENZING_SUBCOMMAND):')
 
     for subcommand_key, subcommand_values in subcommands.items():
@@ -1029,7 +1029,7 @@ message_dictionary = {
     "223": "Processed {0} add records at a rate of {1} records per second",
     "224": "Total records added: {0}",
     "292": "Configuration change detected.  Old: {0} New: {1}",
-    "293": "For information on warnings and errors, see https://github.com/Senzing/stream-loader#errors",
+    "293": "For information on warnings and errors, see https://github.com/senzing-garage/stream-loader#errors",
     "294": "Version: {0}  Updated: {1}",
     "295": "Sleeping infinitely.",
     "296": "Sleeping {0} seconds.",

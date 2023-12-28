@@ -274,7 +274,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed in 1.9.3
 
-- [Issue 253](https://github.com/Senzing/stream-loader/issues/253)
+- [Issue 253](https://github.com/senzing-garage/stream-loader/issues/253)
 
 ## [1.9.2] - 2021-11-04
 

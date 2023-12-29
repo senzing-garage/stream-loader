@@ -54,8 +54,8 @@
 1. Error
     1. When using a PostgreSQL database, `senzing_governor.py` is not found anywhere in `PYTHONPATH`.
 1. Problem
-    1. The `senzing_governor.py` script was not downloaded from [Senzing/governor-postgresql-transaction-id](https://github.com/Senzing/governor-postgresql-transaction-id) and placed somewhere in the `PYTHONPATH`.
-    1. This is done automatically by [init-container.py](https://github.com/Senzing/docker-init-container).
+    1. The `senzing_governor.py` script was not downloaded from [Senzing/governor-postgresql-transaction-id](https://github.com/senzing-garage/governor-postgresql-transaction-id) and placed somewhere in the `PYTHONPATH`.
+    1. This is done automatically by [init-container.py](https://github.com/senzing-garage/docker-init-container).
     1. In an air-gapped environment, the downloading of `senzing_governor.py` is blocked.
 1. Solution
     1. Download `senzing_governor.py` locally.

@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
+## [2.2.12] - 2024-05-22
+
+### Changed in 2.2.12
+
+- In `Dockerfile`, updated FROM instruction to `senzing/senzingapi-runtime:3.10.1`
+- In `requirements.txt`, updated:
+  - azure-servicebus==7.12.2
+  - boto3==1.34.110
+  - confluent-kafka==2.4.0
+  - orjson==3.10.3
+
 ## [2.2.11] - 2024-03-18
 
 ### Changed in 2.2.11

@@ -55,7 +55,7 @@ ENV REFRESHED_AT=2024-05-22
 
 LABEL Name="senzing/stream-loader" \
   Maintainer="support@senzing.com" \
-  Version="2.2.11"
+  Version="2.2.12"
 
 # Define health check.
 

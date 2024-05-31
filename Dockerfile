@@ -12,17 +12,17 @@ ENV REFRESHED_AT=2024-05-22
 
 USER root
 
-# Install packages via apt.
+# Install packages via apt-get.
 
-RUN apt update \
-  && apt -y install \
+RUN apt-get update \
+  && apt-get -y install \
   curl \
   libaio1 \
   python3 \
   python3-dev \
   python3-pip \
   python3-venv \
-  && apt clean \
+  && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
 # Create and activate virtual environment.
@@ -65,10 +65,10 @@ HEALTHCHECK CMD ["/app/healthcheck.sh"]
 
 USER root
 
-# Install packages via apt.
+# Install packages via apt-get.
 
-RUN apt update \
-  && apt -y install \
+RUN apt-get update \
+  && apt-get -y install \
   libaio1 \
   libodbc1 \
   librdkafka-dev \
@@ -77,7 +77,7 @@ RUN apt update \
   python3 \
   python3-venv \
   unixodbc \
-  && apt clean \
+  && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy files from repository.

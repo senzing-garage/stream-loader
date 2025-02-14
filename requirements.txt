@@ -3,5 +3,5 @@ boto3==1.36.20
 confluent-kafka==2.8.0
 orjson==3.10.15
 pika==1.3.2
-psutil==6.1.1
+psutil==7.0.0
 psycopg2-binary==2.9.10

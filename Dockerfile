@@ -40,8 +40,8 @@ RUN pip3 install --upgrade pip \
 # Install senzing_governor.py.
 
 RUN curl -X GET \
-  --output /opt/senzing/g2/sdk/python/senzing_governor.py \
-  https://raw.githubusercontent.com/Senzing/governor-postgresql-transaction-id/main/senzing_governor.py
+  --output /opt/senzing/er/sdk/python/senzing_governor.py \
+  https://raw.githubusercontent.com/Senzing/governor-postgresql-transaction-id/refs/heads/main/senzing_governor.py
 
 # -----------------------------------------------------------------------------
 # Stage: Final
@@ -88,7 +88,7 @@ COPY ./stream-loader.py /app/
 # Copy python virtual environment from the builder image.
 
 COPY --from=builder /app/venv /app/venv
-COPY --from=builder /opt/senzing/g2/sdk/python/senzing_governor.py /opt/senzing/g2/sdk/python/senzing_governor.py
+COPY --from=builder /opt/senzing/er/sdk/python/senzing_governor.py /opt/senzing/er/sdk/python/senzing_governor.py
 
 # Make non-root container.
 
@@ -101,9 +101,9 @@ ENV PATH="/app/venv/bin:${PATH}"
 
 # Runtime environment variables.
 
-ENV LD_LIBRARY_PATH=/opt/senzing/g2/lib:/opt/senzing/g2/lib/debian:/opt/IBM/db2/clidriver/lib
-ENV PATH=${PATH}:/opt/senzing/g2/python:/opt/IBM/db2/clidriver/adm:/opt/IBM/db2/clidriver/bin
-ENV PYTHONPATH=/opt/senzing/g2/sdk/python
+ENV LD_LIBRARY_PATH=/opt/senzing/er/lib:/opt/senzing/er/lib/debian:/opt/IBM/db2/clidriver/lib
+ENV PATH=${PATH}:/opt/senzing/er/python:/opt/IBM/db2/clidriver/adm:/opt/IBM/db2/clidriver/bin
+ENV PYTHONPATH=/opt/senzing/er/sdk/python
 ENV PYTHONUNBUFFERED=1
 ENV SENZING_DOCKER_LAUNCHED=true
 

@@ -103,4 +103,8 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# Visual Studio code
+.vscode/*
+!.vscode/cspell.json
+*.code-workspace
 .history

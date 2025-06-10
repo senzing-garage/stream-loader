@@ -338,7 +338,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added in 1.8.3
 
-- Added performace timing for G2 load
+- Added performance timing for G2 load
 
 ## [1.8.2] - 2021-07-15
 
@@ -404,7 +404,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added in 1.7.0
 
-- RabbitMQ, Kafka, and SQS loading subcommands (including withinfo variations) now support multiple records per message when formated as a json array.
+- RabbitMQ, Kafka, and SQS loading subcommands (including withinfo variations) now support multiple records per message when formatted as a json array.
 
 ## [1.6.5] - 2020-11-05
 
@@ -510,14 +510,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed in 1.3.3
 
-- Governor:  Improve filename to avoid import conflict.
+- Governor: Improve filename to avoid import conflict.
 
 ## [1.3.2] - 2020-01-27
 
 ### Added in 1.3.2
 
 - Support for `SENZING_RABBITMQ_PREFETCH_COUNT`
-- Governor:  A "hook" for an external class called before record is consumed
+- Governor: A "hook" for an external class called before record is consumed
 
 ## [1.3.1] - 2020-01-09
 

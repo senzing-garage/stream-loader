@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=senzing/senzingapi-runtime:3.10.3
+ARG BASE_IMAGE=senzing/senzingapi-runtime:3.12.8
 
 # -----------------------------------------------------------------------------
 # Stage: builder
@@ -6,7 +6,7 @@ ARG BASE_IMAGE=senzing/senzingapi-runtime:3.10.3
 
 FROM ${BASE_IMAGE} AS builder
 
-ENV REFRESHED_AT=2024-06-24
+ENV REFRESHED_AT=2024-07-28
 
 # Run as "root" for system installation.
 
@@ -41,7 +41,7 @@ RUN pip3 install --upgrade pip \
 
 RUN curl -X GET \
   --output /opt/senzing/g2/sdk/python/senzing_governor.py \
-  https://raw.githubusercontent.com/Senzing/governor-postgresql-transaction-id/main/senzing_governor.py
+  https://raw.githubusercontent.com/Senzing/governor-postgresql-transaction-id/main/src/senzing_governor.py
 
 # -----------------------------------------------------------------------------
 # Stage: Final
@@ -51,7 +51,7 @@ RUN curl -X GET \
 
 FROM ${BASE_IMAGE} AS runner
 
-ENV REFRESHED_AT=2024-06-24
+ENV REFRESHED_AT=2024-07-28
 
 LABEL Name="senzing/stream-loader" \
   Maintainer="support@senzing.com" \

@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
+## [2.2.14] - 2024-07-28
+
+### Changed in 2.2.14
+
+- In `Dockerfile`, updated location of `senzing_governor.py`
+- In `Dockerfile`, updated FROM instruction to `senzing/senzingapi-runtime:3.12.8`
+
 ## [2.2.13] - 2024-06-24
 
 ### Changed in 2.2.13

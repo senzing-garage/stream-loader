@@ -1,5 +1,9 @@
 # stream-loader
 
+## :no_entry: Deprecated
+
+[![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
+
 If you are beginning your journey with [Senzing],
 please start with [Senzing Quick Start guides].
 
@@ -528,7 +532,6 @@ with any relevant licenses for all software contained within.
 [SENZING_RABBITMQ_FAILURE_USERNAME]: https://github.com/senzing-garage/knowledge-base/blob/main/lists/environment-variables.md#senzing_rabbitmq_failure_username
 [SENZING_RABBITMQ_FAILURE_VIRTUAL_HOST]: https://github.com/senzing-garage/knowledge-base/blob/main/lists/environment-variables.md#senzing_rabbitmq_failure_virtual_host
 [SENZING_RABBITMQ_HEARTBEAT_IN_SECONDS]: https://github.com/senzing-garage/knowledge-base/blob/main/lists/environment-variables.md#senzing_rabbitmq_heartbeat_in_seconds
-[SENZING_RABBITMQ_HEARTBEAT_IN_SECONDS]: https://github.com/senzing-garage/knowledge-base/blob/main/lists/environment-variables.md#senzing_rabbitmq_heartbeat_in_seconds
 [SENZING_RABBITMQ_HOST]: https://github.com/senzing-garage/knowledge-base/blob/main/lists/environment-variables.md#senzing_rabbitmq_host
 [SENZING_RABBITMQ_INFO_EXCHANGE]: https://github.com/senzing-garage/knowledge-base/blob/main/lists/environment-variables.md#senzing_rabbitmq_info_exchange
 [SENZING_RABBITMQ_INFO_HOST]: https://github.com/senzing-garage/knowledge-base/blob/main/lists/environment-variables.md#senzing_rabbitmq_info_host
@@ -565,8 +568,6 @@ with any relevant licenses for all software contained within.
 [senzingapi]: https://github.com/senzing-garage/knowledge-base/blob/main/HOWTO/install-senzing-api.md
 [stream-loader.py]: stream-loader.py
 [Support Db2]: https://github.com/senzing-garage/knowledge-base/blob/main/HOWTO/support-db2.md
-[Support Db2]: https://github.com/senzing-garage/knowledge-base/blob/main/HOWTO/support-db2.md
-[Support MS SQL]: https://github.com/senzing-garage/knowledge-base/blob/main/HOWTO/support-mssql.md
 [Support MS SQL]: https://github.com/senzing-garage/knowledge-base/blob/main/HOWTO/support-mssql.md
 [template-python.py]: template-python.py
 [yum-packages.txt]: src/yum-packages.txt
